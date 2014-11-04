@@ -1,0 +1,61 @@
+-- Expressions
+-- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
+EPair. Exp ::= Exp1 "," Exp ;
+ELambda. Exp1 ::= "fun" [Binding] "->" Exp1 ;
+-- Using [Binding] instead of Binding in EPi and ESigma requires a GLR parser
+EPi. Exp1 ::= "(" Binding ":" Exp ")" "->" Exp1 ;
+ESigma. Exp1 ::= "(" Binding ":" Exp ")" "*" Exp1 ;
+EFunction. Exp1 ::= "function" [Case] ;
+EDeclaration. Exp ::= [Decl] "in" Exp ;
+EApplication. Exp2 ::= Exp2 Exp3 ;
+EUniverse. Exp3 ::= "U" ;
+EUnitType. Exp3 ::= "Unit" ;
+EUnit. Exp3 ::= "()" ;
+EIdentifier. Exp3 ::= Ident ;
+EProj1. Exp3 ::= Exp3 ".1" ;
+EProj2. Exp3 ::= Exp3 ".2" ;
+EArrow. Exp1 ::= Exp2 "->" Exp1 ;
+ETimes. Exp1 ::= Exp2 "*" Exp1 ;
+EMatch. Exp1 ::= "match" Exp "with" [Case] ;
+coercions Exp 3 ;
+
+-- Bindings
+BName. Binding ::= Ident ;
+BUnderscore. Binding ::= "_" ;
+separator nonempty Binding "" ;
+
+-- Cases
+CCase. Case ::= Pattern "->" Exp1 ;
+-- This allows the first case of a function or match expression to begin with a
+-- |, but also allows multiple |s to seperate cases
+_. Case ::= "|" Case ;
+separator Case "|" ;
+
+-- Patterns
+PPair. Pattern ::= Pattern1 "," Pattern ;
+PApplication. Pattern1 ::= Ident [Pattern2] ;
+PIdentifier. Pattern2 ::= Ident ;
+PUnderscore. Pattern2 ::= "_" ;
+separator nonempty Pattern2 "" ;
+coercions Pattern 2 ;
+
+-- Declarations
+DLet. Decl ::= "let" Ident ":" Exp "=" Exp ;
+DLetRec. Decl ::= "let" "rec" Ident ":" Exp "=" Exp ;
+DType. Decl ::= "type" Ident [Parameter] ":" Exp "=" [Constructor] ;
+DSimpleType. Decl ::= "type" Ident "=" [Constructor] ;
+separator nonempty Decl "and" ;
+
+-- Parameters
+Param. Parameter ::= "(" Binding ":" Exp ")" ;
+separator Parameter "" ;
+
+-- Constructors
+Constr. Constructor ::= Ident ":" Exp ;
+-- This allows the first constructor of a type to begin with a |, but also
+-- allows multiple |s to seperate cases
+_. Constructor ::= "|" Constructor ;
+separator Constructor "|" ;
+
+comment "(*" "*)" ;
+entrypoints Exp ;
