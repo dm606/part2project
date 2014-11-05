@@ -1,0 +1,13 @@
+.merlin
+_build
+Main.native
+src/Syntax/LexConcrete.*
+src/Syntax/ParConcrete.*
+src/Syntax/LayoutConcrete.*
+src/Syntax/SkelConcrete.*
+src/Syntax/PrintConcrete.*
+src/Syntax/ShowConcrete.*
+src/Syntax/TestConcrete.*
+src/Syntax/AbsConcrete.*
+src/Syntax/BNFC_Util.ml
+
