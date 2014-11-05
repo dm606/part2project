@@ -1,3 +1,11 @@
+-- Parser for read-eval-print loop
+-- Parses a single declaration or expression, followed by ;;
+ReplExpression. ReplInput ::= Exp SEMISEMI ;
+ReplDeclaration. ReplInput ::= [Decl] SEMISEMI ;
+-- Give this token a specific name so that it can be refered to in other code
+-- Requires a version of BNFC >= 2.7.1
+token SEMISEMI {";;"} ; 
+
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
 EPair. Exp ::= Exp1 "," Exp ;
@@ -58,4 +66,4 @@ _. Constructor ::= "|" Constructor ;
 separator Constructor "|" ;
 
 comment "(*" "*)" ;
-entrypoints Exp ;
+entrypoints ReplInput ;
