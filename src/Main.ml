@@ -24,4 +24,13 @@ let rec mainloop lexbuf =
   | End_of_file -> print_endline "Got end of file"
   
 let _ =
+  for i = 1 to Array.length Sys.argv - 1 do
+    let file = open_in Sys.argv.(1) in
+    try
+      mainloop (from_channel file);
+      close_in file
+    with
+    | e -> close_in_noerr file; raise e
+  done;
+
   mainloop (from_channel stdin)
