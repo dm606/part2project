@@ -48,8 +48,8 @@ separator nonempty Pattern2 "" ;
 coercions Pattern 2 ;
 
 -- Declarations
-DLet. Decl ::= "let" Ident ":" Exp "=" Exp ;
-DLetRec. Decl ::= "let" "rec" Ident ":" Exp "=" Exp ;
+DLet. Decl ::= "let" Ident [Parameter] ":" Exp "=" Exp ;
+DLetRec. Decl ::= "let" "rec" Ident [Parameter] ":" Exp "=" Exp ;
 DType. Decl ::= "type" Ident [Parameter] ":" Exp "=" [Constructor] ;
 DSimpleType. Decl ::= "type" Ident "=" [Constructor] ;
 separator nonempty Decl "and" ;
