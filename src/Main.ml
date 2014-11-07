@@ -1,6 +1,8 @@
 open Lexing
+
 open AbsConcrete
 open Parser
+open Abstract
 
 let showTree (t : AbsConcrete.replInput) : string =
       "[Abstract syntax]\n\n"^
@@ -12,13 +14,7 @@ let showTree (t : AbsConcrete.replInput) : string =
 
 let rec mainloop lexbuf =
   try
-    (match parse_repl lexbuf with
-     | ReplExpression (e, f) -> (
-       print_endline "Got expression";
-       print_endline (showTree (ReplExpression (e, f))))
-     | ReplDeclaration (d, f) -> (
-       print_endline "Got declaration";
-       print_endline (showTree (ReplDeclaration (d, f)))));
+    print_endline (showTree (resugar (desugar (parse_repl (lexbuf)))));
     mainloop lexbuf
   with
   | End_of_file -> print_endline "Got end of file"
