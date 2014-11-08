@@ -1,8 +1,12 @@
-.PHONY: all clean
+.PHONY: all clean debug
 
 all:
 	cd src/Syntax/; bnfc --ocaml Concrete.cf
 	ocamlbuild -Is src,src/Syntax Main.native
+
+debug:
+	cd src/Syntax/; bnfc --ocaml Concrete.cf
+	ocamlbuild -Is src,src/Syntax Main.d.byte
 
 clean:
 	ocamlbuild -clean
