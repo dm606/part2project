@@ -32,7 +32,7 @@ let rec add : Nat -> Nat -> Nat =
 
 let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
               -> Vec A (add n m) =
-  fun x y ->
+  fun A n m x y ->
     match x with
     | empty A -> y
     | cons A (succ n) a z -> cons A (add n m) a (append A n m z y);;
