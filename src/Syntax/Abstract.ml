@@ -68,10 +68,24 @@ and desugar_expression = function
   | EMatch (e1, xs) ->
       Application (desugar_expression (EFunction xs), desugar_expression e1)
 and desugar_declaration = function
-  | DLet (Ident x, e1, e2) ->
-      Let (x, desugar_expression e1, desugar_expression e2)
-  | DLetRec (Ident x, e1, e2) ->
-      LetRec (x, desugar_expression e1, desugar_expression e2)
+  | DLet (Ident x, ps, e1, e2) ->
+      let rec handle_parameters t e = function
+        | [] -> (t, e)
+        | (Param (b, e1))::ps ->
+            handle_parameters (Pi (desugar_binding b, desugar_expression e1, t))
+            (Lambda (desugar_binding b, e)) ps in
+      let t, e =
+        handle_parameters (desugar_expression e1) (desugar_expression e2) (rev ps) in
+      Let (x, t, e)
+  | DLetRec (Ident x, ps, e1, e2) ->
+      let rec handle_parameters t e = function
+        | [] -> (t, e)
+        | (Param (b, e1))::ps ->
+            handle_parameters (Pi (desugar_binding b, desugar_expression e1, t))
+            (Lambda (desugar_binding b, e)) ps in
+      let t, e =
+        handle_parameters (desugar_expression e1) (desugar_expression e2) (rev ps) in
+      LetRec (x, t, e)
   | DType (Ident x, ps, e1, cs) -> Type (x, map desugar_parameter ps
       , desugar_expression e1, map desugar_constructor cs)
   | DSimpleType (Ident x, cs) -> 
@@ -126,10 +140,42 @@ and resugar_expression = function
   | Proj1 e -> EProj1 (resugar_expression e)
   | Proj2 e -> EProj2 (resugar_expression e)
 and resugar_declaration = function
-  | Let (x, e1, e2) ->
-      DLet (Ident x, resugar_expression e1, resugar_expression e2)
-  | LetRec (x, e1, e2) -> 
-      DLetRec (Ident x, resugar_expression e1, resugar_expression e2)
+  | Let (x, e1, e) ->
+      (match resugar_expression e with
+       | ELambda (bs, e) ->
+           let rec collect_bindings ps t = function
+             | [] -> (ps, t, [])
+             | b::bs ->
+                 (match t with
+                  | Pi (b2, e1, e2) ->
+                      let b2, e1 = resugar_binding b2, resugar_expression e1 in
+                      if b = b2 then
+                        collect_bindings ((Param (b, e1))::ps) e2 bs
+                      else (ps, t, b::bs)
+                  | _ -> (ps, t, b::bs)) in
+           (match collect_bindings [] e1 bs with 
+            | ps, t, [] -> DLet (Ident x, rev ps, resugar_expression t, e)
+            | ps, t, bs ->
+                DLet (Ident x, rev ps, resugar_expression t, ELambda (bs, e)))
+       | e -> DLet (Ident x, [], resugar_expression e1, e))
+  | LetRec (x, e1, e) ->
+      (match resugar_expression e with
+       | ELambda (bs, e) ->
+           let rec collect_bindings ps t = function
+             | [] -> (ps, t, [])
+             | b::bs ->
+                 (match t with
+                  | Pi (b2, e1, e2) ->
+                      let b2, e1 = resugar_binding b2, resugar_expression e1 in
+                      if b = b2 then
+                        collect_bindings ((Param (b, e1))::ps) e2 bs
+                      else (ps, t, b::bs)
+                  | _ -> (ps, t, b::bs)) in
+           (match collect_bindings [] e1 bs with 
+            | ps, t, [] -> DLetRec (Ident x, rev ps, resugar_expression t, e)
+            | ps, t, bs -> DLetRec
+                (Ident x, rev ps, resugar_expression t, ELambda (bs, e)))
+       | e -> DLetRec (Ident x, [], resugar_expression e1, e)) 
   | Type (x, [], Universe, cs) ->
       DSimpleType (Ident x
       , map (fun (x, e) -> Constr (Ident x, resugar_expression e)) cs)
