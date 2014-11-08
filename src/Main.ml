@@ -14,7 +14,11 @@ let showTree (t : AbsConcrete.replInput) : string =
 
 let rec mainloop lexbuf =
   try
-    print_endline (showTree (resugar (desugar (parse_repl (lexbuf)))));
+    let i = parse_repl lexbuf in
+    print_endline (PrintConcrete.printTree PrintConcrete.prtReplInput i);
+    print_endline (PrintConcrete.printTree PrintConcrete.prtReplInput (resugar
+    (desugar i)));
+    (*print_endline (showTree (resugar (desugar i)));*)
     mainloop lexbuf
   with
   | End_of_file -> print_endline "Got end of file"
