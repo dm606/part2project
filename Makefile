@@ -1,12 +1,21 @@
-.PHONY: all clean debug
+.PHONY: all clean debug test
+DEFAULT: all
 
-all:
-	cd src/Syntax/; bnfc --ocaml Concrete.cf
-	ocamlbuild -Is src,src/Syntax Main.native
+TEST_SOURCES = $(wildcard src/**/*.ml)
+OCAMLBUILD_FLAGS = -use-ocamlfind $(shell find src -type d -printf "-I %p ")
 
-debug:
+src/Syntax/AbsConcrete.ml:
 	cd src/Syntax/; bnfc --ocaml Concrete.cf
-	ocamlbuild -Is src,src/Syntax Main.d.byte
+
+all: src/Syntax/AbsConcrete.ml
+	ocamlbuild $(OCAMLBUILD_FLAGS) Main.native
+
+debug: src/Syntax/AbsConcrete.ml
+	ocamlbuild $(OCAMLBUILD_FLAGS) Main.d.byte
+
+test: src/Syntax/AbsConcrete.ml
+	ocamlbuild $(OCAMLBUILD_FLAGS) -I tests -package oUnit all_tests.native
+	./all_tests.native
 
 clean:
 	ocamlbuild -clean
