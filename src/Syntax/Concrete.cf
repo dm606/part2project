@@ -8,24 +8,24 @@ token SEMISEMI {";;"} ;
 
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
-EPair. Exp ::= Exp1 "," Exp ;
-ELambda. Exp1 ::= "fun" [Binding] "->" Exp1 ;
+EPair. Exp ::= Exp2 "," Exp ;
+ELambda. Exp2 ::= "fun" [Binding] "->" Exp1 ;
 -- Using [Binding] instead of Binding in EPi and ESigma requires a GLR parser
 EPi. Exp1 ::= "(" Binding ":" Exp ")" "->" Exp1 ;
-ESigma. Exp1 ::= "(" Binding ":" Exp ")" "*" Exp1 ;
-EFunction. Exp1 ::= "function" [Case] ;
+ESigma. Exp2 ::= "(" Binding ":" Exp ")" "*" Exp2 ;
+EFunction. Exp2 ::= "function" [Case] ;
 EDeclaration. Exp ::= [Decl] "in" Exp ;
-EApplication. Exp2 ::= Exp2 Exp3 ;
-EUniverse. Exp3 ::= "U" ;
-EUnitType. Exp3 ::= "Unit" ;
-EUnit. Exp3 ::= "()" ;
-EIdentifier. Exp3 ::= Ident ;
-EProj1. Exp3 ::= Exp3 ".1" ;
-EProj2. Exp3 ::= Exp3 ".2" ;
+EApplication. Exp3 ::= Exp3 Exp4 ;
+EUniverse. Exp4 ::= "U" ;
+EUnitType. Exp4 ::= "Unit" ;
+EUnit. Exp4 ::= "()" ;
+EIdentifier. Exp4 ::= Ident ;
+EProj1. Exp4 ::= Exp4 ".1" ;
+EProj2. Exp4 ::= Exp4 ".2" ;
 EArrow. Exp1 ::= Exp2 "->" Exp1 ;
-ETimes. Exp1 ::= Exp2 "*" Exp1 ;
-EMatch. Exp1 ::= "match" Exp "with" [Case] ;
-coercions Exp 3 ;
+ETimes. Exp2 ::= Exp3 "*" Exp2 ;
+EMatch. Exp2 ::= "match" Exp "with" [Case] ;
+coercions Exp 4 ;
 
 -- Bindings
 BName. Binding ::= Ident ;
