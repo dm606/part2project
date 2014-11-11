@@ -9,10 +9,10 @@ token SEMISEMI {";;"} ;
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
 EPair. Exp ::= Exp2 "," Exp ;
-ELambda. Exp2 ::= "fun" [Binding] "->" Exp1 ;
--- Using [Binding] instead of Binding in EPi and ESigma requires a GLR parser
-EPi. Exp1 ::= "(" Binding ":" Exp ")" "->" Exp1 ;
-ESigma. Exp2 ::= "(" Binding ":" Exp ")" "*" Exp2 ;
+ELambda. Exp2 ::= "fun" [Binder] "->" Exp1 ;
+-- Using [Binder] instead of Binder in EPi and ESigma requires a GLR parser
+EPi. Exp1 ::= "(" Binder ":" Exp ")" "->" Exp1 ;
+ESigma. Exp2 ::= "(" Binder ":" Exp ")" "*" Exp2 ;
 EFunction. Exp2 ::= "function" [Case] ;
 EDeclaration. Exp ::= [Decl] "in" Exp ;
 EApplication. Exp3 ::= Exp3 Exp4 ;
@@ -27,10 +27,10 @@ ETimes. Exp2 ::= Exp3 "*" Exp2 ;
 EMatch. Exp2 ::= "match" Exp "with" [Case] ;
 coercions Exp 4 ;
 
--- Bindings
-BName. Binding ::= Ident ;
-BUnderscore. Binding ::= "_" ;
-separator nonempty Binding "" ;
+-- Binders
+BName. Binder ::= Ident ;
+BUnderscore. Binder ::= "_" ;
+separator nonempty Binder "" ;
 
 -- Cases
 CCase. Case ::= Pattern "->" Exp1 ;
@@ -55,7 +55,7 @@ DSimpleType. Decl ::= "type" Ident "=" [Constructor] ;
 separator nonempty Decl "and" ;
 
 -- Parameters
-Param. Parameter ::= "(" Binding ":" Exp ")" ;
+Param. Parameter ::= "(" Binder ":" Exp ")" ;
 separator Parameter "" ;
 
 -- Constructors
