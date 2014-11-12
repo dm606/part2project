@@ -1,24 +1,29 @@
 open Lexing
+open List
 
 open AbsConcrete
 open Parser
 open Abstract
 
-let showTree (t : AbsConcrete.replInput) : string =
-      "[Abstract syntax]\n\n"^
-         (fun x -> ShowConcrete.show (ShowConcrete.showReplInput x)) t^
-        "\n\n"^ "[Linearized tree]\n\n"^
-        PrintConcrete.printTree PrintConcrete.prtReplInput t^ "\n"
-;;
+let rec listlistdeclaration_to_list = function
+  | LLDEmpty -> []
+  | LLDCons (d, l) -> d :: listlistdeclaration_to_list l
 
+let rec listlistdeclaration_from_list = function
+  | [] -> LLDEmpty
+  | d::ds -> LLDCons (d, listlistdeclaration_from_list ds)
 
 let rec mainloop lexbuf =
   try
-    let i = parse_repl lexbuf in
-    print_endline (PrintConcrete.printTree PrintConcrete.prtReplInput i);
-    print_endline (PrintConcrete.printTree PrintConcrete.prtReplInput (resugar
-    (desugar i)));
-    (*print_endline (showTree (resugar (desugar i)));*)
+    (match parse_repl lexbuf with
+     | ReplExpression (e, s) ->
+         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
+           (ReplExpression ((resugar_expression (desugar_expression e)), s)))
+     | ReplDeclarations (l, s) ->
+         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
+           (ReplDeclarations (listlistdeclaration_from_list (map (fun d -> map
+           (fun d -> resugar_declaration (desugar_declaration d)) d)
+           (listlistdeclaration_to_list l)), s))));
     mainloop lexbuf
   with
   | End_of_file -> print_endline "Got end of file"

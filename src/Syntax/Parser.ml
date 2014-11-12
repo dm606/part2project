@@ -17,6 +17,6 @@ let lexfun_repl lexfun =
        | _ -> ()) ;
       token)
 
-(* Parses a single declaration or expression from a lexbuf; raises End_of_file
- * on TOK_EOF *)
-let parse_repl = pReplInput (lexfun_repl token)
+(* Parses declarations and expressions from a lexbuf; raises End_of_file on
+ * TOK_EOF *)
+let parse_repl = pReplStructure (lexfun_repl token)

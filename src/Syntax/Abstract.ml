@@ -4,10 +4,7 @@ open AbsConcrete
 
 exception Invalid_expression of string
 
-type expression_or_declaration =
-  | Expression of expression
-  | Declaration of declaration list
-and expression =
+type expression =
   | Pair of expression * expression
   | Lambda of binder * expression
   | Pi of binder * expression * expression
@@ -35,10 +32,7 @@ and declaration =
   | Type of string * (binder * expression) list
           * expression * (string * expression) list
 
-let rec desugar = function
-  | ReplExpression (e, _) -> Expression (desugar_expression e)
-  | ReplDeclaration (d, _) -> Declaration (map desugar_declaration d)
-and desugar_expression = function
+let rec desugar_expression = function
   | EPair (e1, e2) -> Pair (desugar_expression e1, desugar_expression e2)
   | ELambda ([], _) ->
       raise (Invalid_expression "Lambda abstractions must have at least one 
@@ -105,11 +99,7 @@ and desugar_pattern = function
   | PIdentifier (Ident x) -> PatternIdentifier x
   | PUnderscore -> PatternUnderscore
 
-let rec resugar = function
-  | Expression e -> ReplExpression ((resugar_expression e), SEMISEMI ";;")
-  | Declaration ds ->
-      ReplDeclaration ((map resugar_declaration ds), SEMISEMI ";;")
-and resugar_expression = function
+let rec resugar_expression = function
   | Pair (e1, e2) -> EPair (resugar_expression e1, resugar_expression e2)
   | Lambda (b, e) ->
       let rec collect_binders l = function

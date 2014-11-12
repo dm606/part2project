@@ -1,7 +1,11 @@
--- Parser for read-eval-print loop
--- Parses a single declaration or expression, followed by ;;
-ReplExpression. ReplInput ::= Exp SEMISEMI ;
-ReplDeclaration. ReplInput ::= [Decl] SEMISEMI ;
+-- Input to the read-eval-print loop
+ReplExpression. ReplStructure ::= Exp SEMISEMI ;
+ReplDeclarations. ReplStructure ::= ListListDeclaration SEMISEMI ;
+
+-- Using [[Decl]] instead of this causes a compilation error
+LLDEmpty. ListListDeclaration ::= ;
+LLDCons. ListListDeclaration ::= [Decl] ListListDeclaration ;
+
 -- Give this token a specific name so that it can be refered to in other code
 -- Requires a version of BNFC >= 2.7.1
 token SEMISEMI {";;"} ; 
@@ -9,11 +13,11 @@ token SEMISEMI {";;"} ;
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
 EPair. Exp ::= Exp2 "," Exp ;
-ELambda. Exp2 ::= "fun" [Binder] "->" Exp1 ;
+ELambda. Exp1 ::= "fun" [Binder] "->" Exp1 ;
 -- Using [Binder] instead of Binder in EPi and ESigma requires a GLR parser
 EPi. Exp1 ::= "(" Binder ":" Exp ")" "->" Exp1 ;
 ESigma. Exp2 ::= "(" Binder ":" Exp ")" "*" Exp2 ;
-EFunction. Exp2 ::= "function" [Case] ;
+EFunction. Exp1 ::= "function" [Case] ;
 EDeclaration. Exp ::= [Decl] "in" Exp ;
 EApplication. Exp3 ::= Exp3 Exp4 ;
 EUniverse. Exp4 ::= "U" ;
@@ -24,7 +28,7 @@ EProj1. Exp4 ::= Exp4 ".1" ;
 EProj2. Exp4 ::= Exp4 ".2" ;
 EArrow. Exp1 ::= Exp2 "->" Exp1 ;
 ETimes. Exp2 ::= Exp3 "*" Exp2 ;
-EMatch. Exp2 ::= "match" Exp "with" [Case] ;
+EMatch. Exp1 ::= "match" Exp "with" [Case] ;
 coercions Exp 4 ;
 
 -- Binders
@@ -66,4 +70,4 @@ _. Constructor ::= "|" Constructor ;
 separator Constructor "|" ;
 
 comment "(*" "*)" ;
-entrypoints ReplInput ;
+entrypoints ReplStructure ;
