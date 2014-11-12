@@ -1,7 +1,7 @@
 .merlin
 _build
-Main.native
-Main.d.byte
+main.native
+main.d.byte
 all_tests.native
 src/Syntax/LexConcrete.*
 src/Syntax/ParConcrete.*
