@@ -4,7 +4,7 @@ DEFAULT: all
 TEST_SOURCES = $(wildcard src/**/*.ml)
 OCAMLBUILD_FLAGS = -use-ocamlfind $(shell find src -type d -printf "-I %p ")
 
-src/Syntax/AbsConcrete.ml:
+src/Syntax/AbsConcrete.ml: src/Syntax/Concrete.cf
 	cd src/Syntax/; bnfc --ocaml Concrete.cf
 
 all: src/Syntax/AbsConcrete.ml
