@@ -4,6 +4,8 @@ open OUnit2
 
 open AbsConcrete
 open Abstract
+open LexConcrete
+open ParConcrete
 open Parser
 
 let test_eq_parser (name, input, expected) =
@@ -128,8 +130,21 @@ let test_resugar_declaration = "resugar_declaration" >::: (
   ELambda ([BName (Ident "z")], EUnit)))
   ])
 
+let test_eq_lexfun_repl (name, input, expected) =
+  name >:: fun _ ->
+    let t = lexfun_repl token in
+    let lexbuf = from_string input in
+    assert_bool "Tokens did not match"
+      (for_all (fun tok -> (t lexbuf) = tok) expected)
+
+let test_lexfun_repl = "lexfun_repl" >::: (map test_eq_lexfun_repl [
+  ("t1", ";;", [TOK_SEMISEMI ";;"; TOK_EOF]);
+  ("t2", ";;;;", [TOK_SEMISEMI ";;"; TOK_EOF])
+])
+
 let test_syntax = "syntax" >::: [test_parser
                                ; test_desugar_expression
                                ; test_desugar_declaration
                                ; test_resugar_expression
-                               ; test_resugar_declaration]
+                               ; test_resugar_declaration
+                               ; test_lexfun_repl]
