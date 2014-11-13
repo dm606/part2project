@@ -2,9 +2,10 @@ open AbsConcrete
 open LexConcrete
 open ParConcrete
 
-type expression_or_declaration =
+type input_part =
   | Exp of exp
   | Decl of decl list
+  | Comm of command
 
 (* Creates a wrapper around lexfun which returns TOK_EOF after each
  * TOK_SEMISEMI, and raises End_of_file if lexfun returns TOK_EOF *)
@@ -32,6 +33,7 @@ let parse_repl lexbuf =
         | LLDEmpty -> []
         | LLDCons (l, d) -> (Decl l) :: (to_list d) in
       to_list d
+  | ReplCommand (c, _) -> [Comm c]
 
 (* Parses the contents of a file *)
 let parse_file lexbuf =
@@ -40,7 +42,9 @@ let parse_file lexbuf =
     | FileTailEnd2 _ -> []
     | FileTailDeclaration (d, t) -> (Decl d) :: (to_list t)
     | FileTailDeclaration2 (_, d, t) -> (Decl d) :: (to_list t)
-    | FileTailExpression (_, e, t) -> (Exp e) :: (to_list t) in
+    | FileTailExpression (_, e, t) -> (Exp e) :: (to_list t)
+    | FileTailCommand (c, t) -> (Comm c) :: (to_list t)
+    | FileTailCommand2 (_, c, t) -> (Comm c) :: (to_list t) in
   match pFileStructure token lexbuf with
   | FileExpression (e, t) -> (Exp e) :: (to_list t)
   | FileTail t -> to_list t

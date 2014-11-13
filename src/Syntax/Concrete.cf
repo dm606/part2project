@@ -1,6 +1,7 @@
 -- Input to the read-eval-print loop
 ReplExpression. ReplStructure ::= Exp SEMISEMI ;
 ReplDeclarations. ReplStructure ::= ListListDeclaration SEMISEMI ;
+ReplCommand. ReplStructure ::= Command SEMISEMI ;
 
 -- Using [[Decl]] instead of this causes a compilation error
 LLDEmpty. ListListDeclaration ::= ;
@@ -15,9 +16,11 @@ FileTailEnd2. FileStructureTail ::= SEMISEMI ;
 FileTailDeclaration. FileStructureTail ::= [Decl] FileStructureTail ;
 FileTailDeclaration2. FileStructureTail ::= SEMISEMI [Decl] FileStructureTail ;
 FileTailExpression. FileStructureTail ::= SEMISEMI Exp FileStructureTail ;
+FileTailCommand. FileStructureTail ::= Command FileStructureTail ;
+FileTailCommand2. FileStructureTail ::= SEMISEMI Command FileStructureTail ;
 
--- Give this token a specific name so that it can be refered to in other code
-token SEMISEMI {";;"} ; 
+-- Commands
+CommandString. Command ::= "#" Ident String ;
 
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
@@ -77,6 +80,9 @@ Constr. Constructor ::= Ident ":" Exp ;
 -- allows multiple |s to seperate cases
 _. Constructor ::= "|" Constructor ;
 separator Constructor "|" ;
+
+-- Give this token a specific name so that it can be refered to in other code
+token SEMISEMI {";;"} ; 
 
 comment "(*" "*)" ;
 entrypoints ReplStructure,FileStructure ;
