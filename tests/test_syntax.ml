@@ -12,46 +12,40 @@ let test_eq_parser (name, input, expected) =
   name >:: fun _ -> (assert_equal (parse_repl (from_string input)) expected)
 
 let test_parser = "parser" >::: (map test_eq_parser [
-  ("t1", "U;;", ReplExpression (EUniverse, SEMISEMI ";;"));
-  ("t2", "let x : U = U;;", ReplDeclarations (LLDCons ([DLet (Ident "x", [],
-  EUniverse, EUniverse)], LLDEmpty), SEMISEMI ";;"));
-  ("t3", "let f : Nat -> Nat * Bool -> Nat = fun x _ -> succ x;;",
-  ReplDeclarations (LLDCons ([DLet (Ident "f", [], EArrow (EIdentifier (Ident
-  "Nat"), EArrow (ETimes (EIdentifier (Ident "Nat"), EIdentifier (Ident
-  "Bool")), EIdentifier (Ident "Nat"))), ELambda ([BName (Ident "x");
-  BUnderscore], EApplication (EIdentifier (Ident "succ"), EIdentifier (Ident
-  "x"))))], LLDEmpty), SEMISEMI ";;"));
-  ("t4", "fun A -> A -> Empty;;", ReplExpression (ELambda ([BName (Ident "A")],
-  EArrow (EIdentifier (Ident "A"), EIdentifier (Ident "Empty"))), SEMISEMI
-  ";;"));
-  ("t5", "function;;", ReplExpression (EFunction [], SEMISEMI ";;"));
+  ("t1", "U;;", [Exp EUniverse]);
+  ("t2", "let x : U = U;;", [Decl [DLet (Ident "x", [], EUniverse,
+  EUniverse)]]);
+  ("t3", "let f : Nat -> Nat * Bool -> Nat = fun x _ -> succ x;;", [Decl [DLet
+  (Ident "f", [], EArrow (EIdentifier (Ident "Nat"), EArrow (ETimes (EIdentifier
+  (Ident "Nat"), EIdentifier (Ident "Bool")), EIdentifier (Ident "Nat"))),
+  ELambda ([BName (Ident "x"); BUnderscore], EApplication (EIdentifier (Ident
+  "succ"), EIdentifier (Ident "x"))))]]);
+  ("t4", "fun A -> A -> Empty;;", [Exp (ELambda ([BName (Ident "A")], EArrow
+  (EIdentifier (Ident "A"), EIdentifier (Ident "Empty"))))]);
+  ("t5", "function;;", [Exp (EFunction [])]);
   ("t6", "let rec f : Nat = zero and type Nat = zero : Nat | succ : (_:Nat) ->
-  Nat;;", ReplDeclarations (LLDCons ([DLetRec (Ident "f", [], EIdentifier
-  (Ident "Nat"), EIdentifier (Ident "zero")); DSimpleType (Ident "Nat",
-  [Constr (Ident "zero", EIdentifier (Ident "Nat")); Constr (Ident "succ", EPi
-  (BUnderscore, EIdentifier (Ident "Nat"), EIdentifier (Ident "Nat")))])],
-  LLDEmpty), SEMISEMI ";;"));
-  ("t7", "let f : U = U in type Empty = in Empty;;", ReplExpression
-  (EDeclaration ([DLet (Ident "f", [], EUniverse, EUniverse)], EDeclaration
-  ([DSimpleType (Ident "Empty", [])], EIdentifier (Ident "Empty"))), SEMISEMI
-  ";;"));
-  ("t8", "type Id (A : U) (a : A) : A -> U = | refl : Id A a a;;",
-  ReplDeclarations (LLDCons ([DType (Ident "Id", [Param (BName (Ident "A"),
-  EUniverse); Param (BName (Ident "a"), EIdentifier (Ident "A"))], EArrow
-  (EIdentifier (Ident "A"), EUniverse), [Constr (Ident "refl", EApplication
-  (EApplication (EApplication (EIdentifier (Ident "Id"), EIdentifier (Ident
-  "A")), EIdentifier (Ident "a")), EIdentifier (Ident "a")))])], LLDEmpty),
-  SEMISEMI ";;"));
-  ("t9", "a (b c) d;;", ReplExpression (EApplication (EApplication (EIdentifier
-  (Ident "a"), EApplication (EIdentifier (Ident "b"), EIdentifier (Ident "c"))),
-  EIdentifier (Ident "d")), SEMISEMI ";;"));
-  ("t10", "(x, y, z).1;;", ReplExpression (EProj1 (EPair (EIdentifier (Ident
-  "x"), EPair (EIdentifier (Ident "y"), EIdentifier (Ident "z")))), SEMISEMI
-  ";;"));
-  ("t9", "let rec f (x : A) (_ : B) : U = fun z -> U;;", ReplDeclarations
-  (LLDCons ([DLetRec (Ident "f", [Param (BName (Ident "x"), EIdentifier (Ident
-  "A")); Param (BUnderscore, EIdentifier (Ident "B"))], EUniverse, ELambda
-  ([BName (Ident "z")], EUniverse))], LLDEmpty), SEMISEMI ";;"))
+  Nat;;", [Decl ([DLetRec (Ident "f", [], EIdentifier (Ident "Nat"),
+  EIdentifier (Ident "zero")); DSimpleType (Ident "Nat", [Constr (Ident
+  "zero", EIdentifier (Ident "Nat")); Constr (Ident "succ", EPi (BUnderscore,
+  EIdentifier (Ident "Nat"), EIdentifier (Ident "Nat")))])])]);
+  ("t7", "let f : U = U in type Empty = in Empty;;", [Exp  (EDeclaration ([DLet
+  (Ident "f", [], EUniverse, EUniverse)], EDeclaration ([DSimpleType (Ident
+  "Empty", [])], EIdentifier (Ident "Empty"))))]);
+  ("t8", "type Id (A : U) (a : A) : A -> U = | refl : Id A a a;;", [Decl ([DType
+  (Ident "Id", [Param (BName (Ident "A"), EUniverse); Param (BName (Ident "a"),
+  EIdentifier (Ident "A"))], EArrow (EIdentifier (Ident "A"), EUniverse),
+  [Constr (Ident "refl", EApplication (EApplication (EApplication (EIdentifier
+  (Ident "Id"), EIdentifier (Ident "A")), EIdentifier (Ident "a")), EIdentifier
+  (Ident "a")))])])]);
+  ("t9", "a (b c) d;;", [Exp (EApplication (EApplication (EIdentifier (Ident
+  "a"), EApplication (EIdentifier (Ident "b"), EIdentifier (Ident "c"))),
+  EIdentifier (Ident "d")))]);
+  ("t10", "(x, y, z).1;;", [Exp (EProj1 (EPair (EIdentifier (Ident "x"), EPair
+  (EIdentifier (Ident "y"), EIdentifier (Ident "z")))))]);
+  ("t9", "let rec f (x : A) (_ : B) : U = fun z -> U;;", [Decl ([DLetRec (Ident
+  "f", [Param (BName (Ident "x"), EIdentifier (Ident "A")); Param (BUnderscore,
+  EIdentifier (Ident "B"))], EUniverse, ELambda ([BName (Ident "z")],
+  EUniverse))])])
   ])
 
 let test_eq_desugar_expression (name, input, expected) =

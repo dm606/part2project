@@ -6,6 +6,16 @@ ReplDeclarations. ReplStructure ::= ListListDeclaration SEMISEMI ;
 LLDEmpty. ListListDeclaration ::= ;
 LLDCons. ListListDeclaration ::= [Decl] ListListDeclaration ;
 
+-- For parsing files
+FileExpression. FileStructure ::= Exp FileStructureTail ;
+FileTail. FileStructure ::= FileStructureTail ;
+
+FileTailEnd. FileStructureTail ::= ;
+FileTailEnd2. FileStructureTail ::= SEMISEMI ;
+FileTailDeclaration. FileStructureTail ::= [Decl] FileStructureTail ;
+FileTailDeclaration2. FileStructureTail ::= SEMISEMI [Decl] FileStructureTail ;
+FileTailExpression. FileStructureTail ::= SEMISEMI Exp FileStructureTail ;
+
 -- Give this token a specific name so that it can be refered to in other code
 -- Requires a version of BNFC >= 2.7.1
 token SEMISEMI {";;"} ; 
@@ -70,4 +80,4 @@ _. Constructor ::= "|" Constructor ;
 separator Constructor "|" ;
 
 comment "(*" "*)" ;
-entrypoints ReplStructure ;
+entrypoints ReplStructure,FileStructure ;
