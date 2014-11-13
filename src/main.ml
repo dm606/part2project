@@ -20,14 +20,12 @@ let rec handle_input =
 
 let rec mainloop lexbuf =
   try
-    let i = parse_repl lexbuf in
-    print_endline (string_of_int (length i));
-    handle_input i;
+    handle_input( parse_repl lexbuf);
     mainloop lexbuf
   with
   | End_of_file -> print_endline "Got end of file"
   
-let _ =
+let () =
   for i = 1 to Array.length Sys.argv - 1 do
     let file = open_in Sys.argv.(1) in
     try
