@@ -3,13 +3,13 @@ _build
 main.native
 main.d.byte
 all_tests.native
-src/Syntax/LexConcrete.*
-src/Syntax/ParConcrete.*
-src/Syntax/LayoutConcrete.*
-src/Syntax/SkelConcrete.*
-src/Syntax/PrintConcrete.*
-src/Syntax/ShowConcrete.*
-src/Syntax/TestConcrete.*
-src/Syntax/AbsConcrete.*
-src/Syntax/BNFC_Util.ml
+src/syntax/LexConcrete.*
+src/syntax/ParConcrete.*
+src/syntax/LayoutConcrete.*
+src/syntax/SkelConcrete.*
+src/syntax/PrintConcrete.*
+src/syntax/ShowConcrete.*
+src/syntax/TestConcrete.*
+src/syntax/AbsConcrete.*
+src/syntax/BNFC_Util.ml
 
