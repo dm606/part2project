@@ -8,10 +8,10 @@ open LexConcrete
 open ParConcrete
 open Parser
 
-let test_eq_parser (name, input, expected) =
+let test_eq_parser_repl (name, input, expected) =
   name >:: fun _ -> (assert_equal (parse_repl (from_string input)) expected)
 
-let test_parser = "parser" >::: (map test_eq_parser [
+let test_parser_repl = "parser_repl" >::: (map test_eq_parser_repl [
   ("t1", "U;;", [Exp EUniverse]);
   ("t2", "let x : U = U;;", [Decl [DLet (Ident "x", [], EUniverse,
   EUniverse)]]);
@@ -46,6 +46,20 @@ let test_parser = "parser" >::: (map test_eq_parser [
   "f", [Param (BName (Ident "x"), EIdentifier (Ident "A")); Param (BUnderscore,
   EIdentifier (Ident "B"))], EUniverse, ELambda ([BName (Ident "z")],
   EUniverse))])])
+  ])
+
+let test_eq_parser_file (name, input, expected) =
+  name >:: fun _ -> (assert_equal (parse_file (from_string input)) expected)
+
+let test_parser_file = "parser_file" >::: (map test_eq_parser_file [
+  ("t1", "U", [Exp EUniverse]);
+  ("t2", "U;;U", [Exp EUniverse; Exp EUniverse]);
+  ("t3", "let x : U = U let y : U = U", [Decl [DLet (Ident "x", [], EUniverse,
+  EUniverse)]; Decl [DLet (Ident "y", [], EUniverse, EUniverse)]]);
+  ("t4", "let x : U = U;; let y : U = U", [Decl [DLet (Ident "x", [], EUniverse,
+  EUniverse)]; Decl [DLet (Ident "y", [], EUniverse, EUniverse)]]);
+  ("t5", "#use \"f\" let x : U = U", [Comm (CommandString (Ident "use", "f"));
+  Decl [DLet (Ident "x", [], EUniverse, EUniverse)]]) 
   ])
 
 let test_eq_desugar_expression (name, input, expected) =
@@ -136,7 +150,8 @@ let test_lexfun_repl = "lexfun_repl" >::: (map test_eq_lexfun_repl [
   ("t2", ";;;;", [TOK_SEMISEMI ";;"; TOK_EOF])
 ])
 
-let test_syntax = "syntax" >::: [test_parser
+let test_syntax = "syntax" >::: [test_parser_repl
+                               ; test_parser_file
                                ; test_desugar_expression
                                ; test_desugar_declaration
                                ; test_resugar_expression
