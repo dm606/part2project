@@ -1,24 +1,56 @@
 open Bytes 
 open Lexing
 open List
+open Parsing
+open Printf
 
 open AbsConcrete
-open Parser
 open Abstract
+open BNFC_Util
+open Parser
 
-exception Unknown_command
+exception Unknown_command of string
+
+let format_position s e =
+  let sc = s.pos_cnum - s.pos_bol in
+  let ec = e.pos_cnum - e.pos_bol in
+  s.pos_fname ^ ":"
+  ^ (if s.pos_lnum = e.pos_lnum then (string_of_int s.pos_lnum)
+     else (string_of_int s.pos_lnum ^ "-" ^ string_of_int e.pos_lnum)) ^ ":"
+  ^ (if sc = ec then string_of_int sc
+     else string_of_int sc ^ "-" ^ string_of_int ec)
+
+let reset_position lexbuf filename =
+  lexbuf.lex_curr_p <- {
+    pos_fname = filename;
+    pos_lnum = 1;
+    pos_cnum = 0;
+    pos_bol = 0
+  }
 
 let rec use_file filename =
   let file = open_in filename in
-    try
-      Lazy.force (handle_input (parse_file (from_channel file)));
-      close_in file
-    with
-    | e -> close_in_noerr file; raise e
+  try
+    let lexbuf = from_channel file in
+    reset_position lexbuf filename;
+    parse parse_file lexbuf;
+    close_in file
+  with
+  | e -> close_in_noerr file; raise e
 and handle_command c =
   match c with
   | CommandString (Ident "use", arg) -> use_file arg
-  | _ -> raise Unknown_command
+  | CommandString (Ident s, _) -> raise (Unknown_command s)
+and parse f lexbuf = (
+  try Lazy.force (handle_input (f lexbuf)) with
+  | Parse_error (s, e) -> 
+      fprintf stderr "%s: parse error \n" (format_position s e)
+  | Unknown_command s -> fprintf stderr "Unknown command: \"%s\"\n" s);
+  flush stdout;
+  flush stderr;
+  flush_input lexbuf;
+  reset_position lexbuf lexbuf.lex_start_p.pos_fname;
+  clear_parser ();
 (* Lazy to stop the compiler from complaining about the Comm c case *)
 and handle_input l = lazy ( 
   let handle = function
@@ -37,11 +69,11 @@ and handle_input l = lazy (
 
 let prompt = ref ""
 
-let rec mainloop lexbuf =
+let rec repl lexbuf =
   try
     prompt := "# ";
-    Lazy.force (handle_input (parse_repl lexbuf));
-    mainloop lexbuf
+    parse parse_repl lexbuf;
+    repl lexbuf
   with
   | End_of_file -> () 
 
@@ -60,4 +92,4 @@ let () =
    use_file Sys.argv.(1)
   done;
 
-  mainloop (from_function (read_into_buffer 0))
+  repl (from_function (read_into_buffer 0))
