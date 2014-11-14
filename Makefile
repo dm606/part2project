@@ -3,23 +3,23 @@ DEFAULT: all
 
 OCAMLBUILD_FLAGS = -use-ocamlfind $(shell find src -type d -printf "-I %p ")
 
-src/Syntax/AbsConcrete.ml: src/Syntax/Concrete.cf
-	cd src/Syntax/; bnfc --ocaml Concrete.cf
+src/syntax/AbsConcrete.ml: src/syntax/Concrete.cf
+	cd src/syntax/; bnfc --ocaml Concrete.cf
 
-all: src/Syntax/AbsConcrete.ml
+all: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) main.native
 
-debug: src/Syntax/AbsConcrete.ml
+debug: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) main.d.byte
 
-test: src/Syntax/AbsConcrete.ml
+test: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) -I tests -package oUnit all_tests.native
 	./all_tests.native
 
 clean:
 	ocamlbuild -clean
-	rm -f src/Syntax/LexConcrete.* src/Syntax/ParConcrete.*
-	rm -f src/Syntax/LayoutConcrete.* src/Syntax/SkelConcrete.*
-	rm -f src/Syntax/PrintConcrete.* src/Syntax/ShowConcrete.*
-	rm -f src/Syntax/TestConcrete.* src/Syntax/AbsConcrete.*
-	rm -f src/Syntax/BNFC_Util.ml
+	rm -f src/syntax/LexConcrete.* src/syntax/ParConcrete.*
+	rm -f src/syntax/LayoutConcrete.* src/syntax/SkelConcrete.*
+	rm -f src/syntax/PrintConcrete.* src/syntax/ShowConcrete.*
+	rm -f src/syntax/TestConcrete.* src/syntax/AbsConcrete.*
+	rm -f src/syntax/BNFC_Util.ml
