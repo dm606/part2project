@@ -43,7 +43,7 @@ let rec mainloop lexbuf =
     Lazy.force (handle_input (parse_repl lexbuf));
     mainloop lexbuf
   with
-  | End_of_file -> print_endline "Got end of file"
+  | End_of_file -> () 
 
 let rec read_into_buffer index buffer length = (
   if !prompt <> "" then (print_string !prompt; flush stdout);
