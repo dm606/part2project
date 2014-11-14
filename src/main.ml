@@ -1,3 +1,4 @@
+open Bytes 
 open Lexing
 open List
 
@@ -34,16 +35,29 @@ and handle_input l = lazy (
         handle_command c in
   iter handle l)
 
+let prompt = ref ""
+
 let rec mainloop lexbuf =
   try
+    prompt := "# ";
     Lazy.force (handle_input (parse_repl lexbuf));
     mainloop lexbuf
   with
   | End_of_file -> print_endline "Got end of file"
-  
+
+let rec read_into_buffer index buffer length = (
+  if !prompt <> "" then (print_string !prompt; flush stdout);
+
+  let c = input_char stdin in
+  set buffer index c;
+  if c = '\n' then prompt := "  " else prompt := "";
+  if c = '\n' && index > 0 then index + 1
+  else if index = length - 1 then length
+  else read_into_buffer (index + 1) buffer length)
+
 let () =
   for i = 1 to Array.length Sys.argv - 1 do
    use_file Sys.argv.(1)
   done;
 
-  mainloop (from_channel stdin)
+  mainloop (from_function (read_into_buffer 0))
