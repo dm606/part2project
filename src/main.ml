@@ -50,7 +50,7 @@ and parse f lexbuf = (
   flush stderr;
   flush_input lexbuf;
   reset_position lexbuf lexbuf.lex_start_p.pos_fname;
-  clear_parser ();
+  clear_parser ()
 (* Lazy to stop the compiler from complaining about the Comm c case *)
 and handle_input l = lazy ( 
   let handle = function
