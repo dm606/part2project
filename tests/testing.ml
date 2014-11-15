@@ -6,7 +6,7 @@ open QuickCheck_gen
 open Abstract
 
 let quickCheck_test name testable test = name >:: fun _ ->
-  match verboseCheck testable test with
+  match quickCheck testable test with
   | Success -> ()
   | Failure i -> assert_failure ("quickcheck test failure " ^ (string_of_int i))
   | Exhausted i ->
