@@ -13,7 +13,7 @@ debug: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) main.d.byte
 
 test: src/syntax/AbsConcrete.ml
-	ocamlbuild $(OCAMLBUILD_FLAGS) -I tests -package oUnit all_tests.native
+	ocamlbuild $(OCAMLBUILD_FLAGS) -I tests -package oUnit -package quickcheck all_tests.native
 	./all_tests.native
 
 clean:

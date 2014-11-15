@@ -1,12 +1,14 @@
 open Lexing
 open List
 open OUnit2
+open QuickCheck
 
 open AbsConcrete
 open Abstract
 open LexConcrete
 open ParConcrete
 open Parser
+open Testing
 
 let test_eq_parser_repl (name, input, expected) =
   name >:: fun _ -> (assert_equal (parse_repl (from_string input)) expected)
@@ -143,12 +145,17 @@ let test_eq_lexfun_repl (name, input, expected) =
     let t = lexfun_repl token in
     let lexbuf = from_string input in
     assert_bool "Tokens did not match"
-      (for_all (fun tok -> (t lexbuf) = tok) expected)
+      (List.for_all (fun tok -> (t lexbuf) = tok) expected)
 
 let test_lexfun_repl = "lexfun_repl" >::: (map test_eq_lexfun_repl [
   ("t1", ";;", [TOK_SEMISEMI ";;"; TOK_EOF]);
   ("t2", ";;;;", [TOK_SEMISEMI ";;"; TOK_EOF])
 ])
+
+let test_resugar_desugar =
+  quickCheck_test "resugar_desugar"
+    (testable_fun arbitrary_expression show_expression testable_bool)
+    (fun e -> desugar_expression (resugar_expression e) = e)
 
 let test_syntax = "syntax" >::: [test_parser_repl
                                ; test_parser_file
@@ -156,4 +163,5 @@ let test_syntax = "syntax" >::: [test_parser_repl
                                ; test_desugar_declaration
                                ; test_resugar_expression
                                ; test_resugar_declaration
-                               ; test_lexfun_repl]
+                               ; test_lexfun_repl
+                               ; test_resugar_desugar]
