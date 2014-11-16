@@ -91,6 +91,7 @@ let rec read_into_buffer index buffer length = (
 let () =
   (* Do not terminate the program on sigint: instead raise Sys.Break *)
   Sys.catch_break true;
+
   for i = 1 to Array.length Sys.argv - 1 do
    use_file Sys.argv.(1)
   done;
