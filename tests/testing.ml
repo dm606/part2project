@@ -1,7 +1,8 @@
-open Printf
 open OUnit2
+open Printf
 open QuickCheck
 open QuickCheck_gen
+open Bytes
 
 open Abstract
 
@@ -12,19 +13,44 @@ let quickCheck_test name testable test = name >:: fun _ ->
   | Exhausted i ->
       assert_failure ("quicktest test exhausted " ^ (string_of_int i))
 
+let arbitrary_nonempty_list f =
+  f >>= (fun a -> (arbitrary_list f) >>= (fun l -> ret_gen (a::l)))
+
+let arbitrary_identifier =
+  arbitrary_int >>= (fun i ->
+    let i = i mod 5 + 4 in
+    let explode s =
+      let rec exp i l =
+        if i < 0 then l else exp (i - 1) (s.[i] :: l) in
+        exp (String.length s - 1) [] in
+    let str = create (i + 1) in
+    (* Some characters are excluded to avoid generating keywords *)
+    let first = explode
+      "abcdghijkopqrstuvxyzABCDEFGHIJKLMNOPQRSTVWXYZ" in
+    let rest = explode
+      "_0123456789abcdghijkopqrstuvxyzABCDEFGHIJKLMNOPQRSTVWXYZ" in
+    let rec gen = function
+      | 0 -> ret_gen str
+      | n -> (elements rest) >>= (fun c -> set str n c; gen (n - 1)) in
+    (elements first) >>= fun c -> (set str 0 c; gen i))
+
 let arbitrary_binder =
-  oneof [ret_gen Underscore; arbitrary_string >>= (fun s -> ret_gen (Name s))]
+  oneof [ret_gen Underscore; arbitrary_identifier >>= (fun s -> ret_gen (Name s))]
 
 let arbitrary_pattern =
   let rec f = function
-    | 0 -> ret_gen PatternUnderscore
+    | 0 -> 
+        oneof [
+          ret_gen PatternUnderscore;
+          arbitrary_identifier >>= (fun s -> ret_gen (PatternIdentifier s))
+        ]
     | n -> 
         let g = f (n / 2) in
         oneof [
           g >>= (fun p1 -> (g >>= (fun p2 -> ret_gen (PatternPair (p1, p2)))));
-          arbitrary_string >>= (fun s -> ((arbitrary_list g)
+          arbitrary_identifier >>= (fun s -> ((arbitrary_nonempty_list g)
             >>= (fun l -> ret_gen (PatternApplication (s, l)))));
-          arbitrary_string >>= (fun s -> ret_gen (PatternIdentifier s));
+          arbitrary_identifier >>= (fun s -> ret_gen (PatternIdentifier s));
           ret_gen PatternUnderscore
         ] in
   sized f
@@ -36,21 +62,26 @@ let arbitrary_declaration =
   let f n = 
     let exp = resize (n / 2) !arb_exp in
     oneof [
-      arbitrary_string >>= (fun s -> (exp
+      arbitrary_identifier >>= (fun s -> (exp
         >>= (fun e1 -> (exp >>= (fun e2 -> ret_gen (Let (s, e1, e2)))))));
-      arbitrary_string >>= (fun s -> (exp
+      arbitrary_identifier >>= (fun s -> (exp
         >>= (fun e1 -> (exp >>= (fun e2 -> ret_gen (LetRec (s, e1, e2)))))));
-      arbitrary_string
+      arbitrary_identifier
         >>= (fun s -> ((arbitrary_list (arbitrary_pair arbitrary_binder exp))
         >>= (fun p -> (exp
-        >>= (fun e -> ((arbitrary_list (arbitrary_pair arbitrary_string exp))
+        >>= (fun e -> ((arbitrary_list (arbitrary_pair arbitrary_identifier exp))
         >>= (fun l -> ret_gen (Type (s, p, e, l)))))))))
     ] in
   sized f
 
 let rec arbitrary_expression =
   let rec f = function
-    | 0 -> ret_gen Unit
+    | 0 -> oneof [
+      ret_gen Universe;
+      ret_gen UnitType;
+      ret_gen Unit;
+      arbitrary_identifier >>= (fun s -> ret_gen (Identifier s));
+    ]
     | n ->
         let g = f (n / 2) in 
         let patt = resize (n / 2) arbitrary_pattern in
@@ -65,13 +96,13 @@ let rec arbitrary_expression =
             >>= (fun e1 -> (g >>= (fun e2 -> ret_gen (Sigma (b, e1, e2)))))));
           (arbitrary_list (arbitrary_pair patt g))
             >>= (fun l -> ret_gen (Function l));
-          (arbitrary_list decl) >>= (fun l -> (g
+          (arbitrary_nonempty_list decl) >>= (fun l -> (g
             >>= (fun e -> ret_gen (LocalDeclaration (l, e)))));
           g >>= (fun e1 -> (g >>= (fun e2 -> ret_gen (Application (e1, e2)))));
           ret_gen Universe;
           ret_gen UnitType;
           ret_gen Unit;
-          arbitrary_string >>= (fun s -> ret_gen (Identifier s));
+          arbitrary_identifier >>= (fun s -> ret_gen (Identifier s));
           g >>= (fun e -> ret_gen (Proj1 e));
           g >>= (fun e -> ret_gen (Proj2 e))
         ] in
@@ -105,7 +136,7 @@ let rec show_expression = function
   | Function l ->
       sprintf "Function %s" (show_list (show_pair show_pattern show_expression) l)
   | LocalDeclaration (l, e) ->
-      sprintf "Declaration (%s, %s)" (show_list show_declaration l)
+      sprintf "LocalDeclaration (%s, %s)" (show_list show_declaration l)
         (show_expression e)
   | Application (e1, e2) ->
       sprintf "Application (%s, %s)" (show_expression e1) (show_expression e2)
@@ -126,4 +157,4 @@ and show_declaration = function
         s
         (show_list (show_pair show_binder show_expression) p)
         (show_expression e)
-        (show_list (show_pair (fun x -> x) show_expression) l)
+        (show_list (show_pair (fun x -> "\"" ^ x ^ "\"") show_expression) l)

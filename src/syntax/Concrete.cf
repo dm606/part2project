@@ -24,24 +24,24 @@ CommandString. Command ::= "#" Ident String ;
 
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
-EPair. Exp ::= Exp2 "," Exp ;
+EPair. Exp ::= Exp3 "," Exp ;
 ELambda. Exp1 ::= "fun" [Binder] "->" Exp1 ;
 -- Using [Binder] instead of Binder in EPi and ESigma requires a GLR parser
-EPi. Exp1 ::= "(" Binder ":" Exp ")" "->" Exp1 ;
-ESigma. Exp2 ::= "(" Binder ":" Exp ")" "*" Exp2 ;
+EPi. Exp2 ::= "(" Binder ":" Exp ")" "->" Exp2 ;
+ESigma. Exp3 ::= "(" Binder ":" Exp ")" "*" Exp3 ;
 EFunction. Exp1 ::= "function" [Case] ;
 EDeclaration. Exp ::= [Decl] "in" Exp ;
-EApplication. Exp3 ::= Exp3 Exp4 ;
-EUniverse. Exp4 ::= "U" ;
-EUnitType. Exp4 ::= "Unit" ;
-EUnit. Exp4 ::= "()" ;
-EIdentifier. Exp4 ::= Ident ;
-EProj1. Exp4 ::= Exp4 ".1" ;
-EProj2. Exp4 ::= Exp4 ".2" ;
-EArrow. Exp1 ::= Exp2 "->" Exp1 ;
-ETimes. Exp2 ::= Exp3 "*" Exp2 ;
+EApplication. Exp4 ::= Exp4 Exp5 ;
+EUniverse. Exp5 ::= "U" ;
+EUnitType. Exp5 ::= "Unit" ;
+EUnit. Exp5 ::= "()" ;
+EIdentifier. Exp5 ::= Ident ;
+EProj1. Exp5 ::= Exp5 ".1" ;
+EProj2. Exp5 ::= Exp5 ".2" ;
+EArrow. Exp2 ::= Exp3 "->" Exp2 ;
+ETimes. Exp3 ::= Exp4 "*" Exp3 ;
 EMatch. Exp1 ::= "match" Exp "with" [Case] ;
-coercions Exp 4 ;
+coercions Exp 5 ;
 
 -- Binders
 BName. Binder ::= Ident ;
@@ -49,7 +49,7 @@ BUnderscore. Binder ::= "_" ;
 separator nonempty Binder "" ;
 
 -- Cases
-CCase. Case ::= Pattern "->" Exp1 ;
+CCase. Case ::= Pattern "->" Exp2 ;
 -- This allows the first case of a function or match expression to begin with a
 -- |, but also allows multiple |s to seperate cases
 _. Case ::= "|" Case ;
@@ -75,7 +75,7 @@ Param. Parameter ::= "(" Binder ":" Exp ")" ;
 separator Parameter "" ;
 
 -- Constructors
-Constr. Constructor ::= Ident ":" Exp ;
+Constr. Constructor ::= Ident ":" Exp2 ;
 -- This allows the first constructor of a type to begin with a |, but also
 -- allows multiple |s to seperate cases
 _. Constructor ::= "|" Constructor ;

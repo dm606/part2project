@@ -8,6 +8,7 @@ open Abstract
 open LexConcrete
 open ParConcrete
 open Parser
+open PrintConcrete
 open Testing
 
 let test_eq_parser_repl (name, input, expected) =
@@ -157,6 +158,16 @@ let test_resugar_desugar =
     (testable_fun arbitrary_expression show_expression testable_bool)
     (fun e -> desugar_expression (resugar_expression e) = e)
 
+let test_print_parse =
+  quickCheck_test "print_parse"
+    (testable_fun arbitrary_expression show_expression testable_bool)
+    (fun e ->
+      let s = printTree prtReplStructure
+        (ReplExpression (resugar_expression e, SEMISEMI ";;")) in
+      match parse_file (from_string s) with
+      | [Exp r] -> desugar_expression r = e
+      | _ -> false)
+
 let test_syntax = "syntax" >::: [test_parser_repl
                                ; test_parser_file
                                ; test_desugar_expression
@@ -164,4 +175,5 @@ let test_syntax = "syntax" >::: [test_parser_repl
                                ; test_resugar_expression
                                ; test_resugar_declaration
                                ; test_lexfun_repl
-                               ; test_resugar_desugar]
+                               ; test_resugar_desugar
+                               ; test_print_parse]
