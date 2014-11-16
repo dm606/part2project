@@ -76,6 +76,7 @@ let rec repl lexbuf =
     repl lexbuf
   with
   | End_of_file -> () 
+  | Sys.Break -> print_newline (); repl lexbuf (* handle sigint *)
 
 let rec read_into_buffer index buffer length = (
   if !prompt <> "" then (print_string !prompt; flush stdout);
@@ -88,6 +89,8 @@ let rec read_into_buffer index buffer length = (
   else read_into_buffer (index + 1) buffer length)
 
 let () =
+  (* Do not terminate the program on sigint: instead raise Sys.Break *)
+  Sys.catch_break true;
   for i = 1 to Array.length Sys.argv - 1 do
    use_file Sys.argv.(1)
   done;
