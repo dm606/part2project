@@ -75,7 +75,7 @@ let rec repl lexbuf =
     parse parse_repl lexbuf;
     repl lexbuf
   with
-  | End_of_file -> () 
+  | End_of_file -> print_newline () 
   | Sys.Break -> print_newline (); repl lexbuf (* handle sigint *)
 
 let rec read_into_buffer index buffer length = (
