@@ -1,4 +1,4 @@
-type Empty = 
+type Null = 
 
 type Nat = zero : Nat | succ : Nat -> Nat
 
