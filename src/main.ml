@@ -55,14 +55,15 @@ and parse f lexbuf = (
 and handle_input l = lazy ( 
   let handle = function
     | Exp e ->
+        let exp = desugar_expression ([], []) e in
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
-          (ReplExpression ((resugar_expression (desugar_expression e))
+          (ReplExpression ((resugar_expression ([], []) exp)
         , SEMISEMI ";;")))
     | Decl d ->
+        let decl = desugar_declarations ([], []) d in
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
-          (ReplDeclarations (LLDCons (map (
-            fun d -> resugar_declaration (desugar_declaration d)) d, LLDEmpty),
-            SEMISEMI ";;")))
+          (ReplDeclarations (LLDCons
+            (resugar_declarations ([], []) decl, LLDEmpty), SEMISEMI ";;")))
     | Comm c ->
         handle_command c in
   iter handle l)
