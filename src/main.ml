@@ -11,6 +11,9 @@ open Parser
 
 exception Unknown_command of string
 
+(* names of declared constants *)
+let declared = ref ([], [])
+
 let format_position s e =
   let sc = s.pos_cnum - s.pos_bol in
   let ec = e.pos_cnum - e.pos_bol in
@@ -55,15 +58,17 @@ and parse f lexbuf = (
 and handle_input l = lazy ( 
   let handle = function
     | Exp e ->
-        let exp = desugar_expression ([], []) e in
+        let exp = desugar_expression !declared e in
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
-          (ReplExpression ((resugar_expression ([], []) exp)
+          (ReplExpression ((resugar_expression !declared exp)
         , SEMISEMI ";;")))
     | Decl d ->
-        let decl = desugar_declarations ([], []) d in
+        let new_declared = add_all_declaration_binders !declared d in
+        let decl = desugar_declarations !declared d in
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
           (ReplDeclarations (LLDCons
-            (resugar_declarations ([], []) decl, LLDEmpty), SEMISEMI ";;")))
+            (resugar_declarations !declared decl, LLDEmpty), SEMISEMI ";;")));
+        declared := new_declared
     | Comm c ->
         handle_command c in
   iter handle l)

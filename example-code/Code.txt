@@ -37,7 +37,7 @@ let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
     | empty A -> y
     | cons A (succ n) a z -> cons A (add n m) a (append A n m z y)
 
-let Not : U -> U = fun A -> A -> Empty
+let Not : U -> U = fun A -> A -> Null
 
 type Or (A : U) (B : U) : U =
   | inl : A -> Or A B
@@ -57,7 +57,7 @@ and let rec Fresh : (A : U) -> (NotEqual : A -> A -> U) -> (a : A)
     | dempty _ _ -> Unit
     | dcons _ _ b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
 
-let false_elim : (A : U) -> Empty -> A =
+let false_elim : (A : U) -> Null -> A =
   fun _ -> function
 
 let proof : (A : U) -> (B : U) -> (Not A) * (Or A B) -> B =
