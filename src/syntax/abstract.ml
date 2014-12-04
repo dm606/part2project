@@ -4,6 +4,7 @@ open AbsConcrete
 
 exception Invalid_expression of string
 exception Constructor_not_defined of string
+exception Cannot_desugar_abstract
 
 type expression =
   | Pair of expression * expression
@@ -58,7 +59,7 @@ let rec add_all_declaration_binders (names, cs) = function
           add_all_declaration_binders
             (x::names, rev_append (map get_name l) cs) xs
 
-(* adds all of the vound variables to env in reverse order *)
+(* adds all of the bound variables to env in reverse order *)
 let rec add_local_declaration_binders (names, cs) = function
   | [] -> (names, cs) 
   | x::xs ->
@@ -69,7 +70,19 @@ let rec add_local_declaration_binders (names, cs) = function
           add_local_declaration_binders
             (x::names, rev_append (map (fun (x, _) -> x) l) cs) xs
 
+let count_declaration_binders = fold_left (fun c d -> c + (match d with
+  | Let (_, _, _) | LetRec (_, _, _) -> 1
+  | Type (_, _, _, _) -> 1 (* TODO: This should probably be zero; the function
+    can be greatly simplified otherwise *))) 0
+
 let is_constructor_defined (env, cs) x = exists (fun y -> x = y) cs
+
+let rec count_pattern_binders = function
+  | PatternPair (p1, p2) -> count_pattern_binders p1 + count_pattern_binders p2
+  | PatternApplication (_, l) ->
+      fold_left (fun c p -> c + count_pattern_binders p) 0 l
+  | PatternBinder _ -> 1
+  | PatternUnderscore -> 0
 
 let add_pattern_binders (names, cs) p =
   let rec add names = function
@@ -85,10 +98,11 @@ let lookup_index (env, cs) x =
   let rec lookup_index_from env x i =
     match env with
     | [] -> None
-    | y::l -> if y = x then Some i else lookup_index_from l x (i + 1) in
+    | y::l when y = x -> Some i
+    | y::l -> lookup_index_from l x (i + 1) in
   lookup_index_from env x 0
 
-(* Find the name associated with a de Bruijn index *)
+(* Get the name associated with a de Bruijn index *)
 let get_binder_name (env, cs) = nth env
 
 let rec desugar_expression env = function
