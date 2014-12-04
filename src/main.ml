@@ -120,12 +120,15 @@ and get_printable_expression nesting_level = function
       nesting_level v2)
   | VLambda (b, e, env) ->
       Lambda (b, perform_substitutions (nesting_level + 1) env e)
-  | VSigma (b, v, e, env) ->
-      Sigma (b, get_printable_expression nesting_level v, perform_substitutions
-      (nesting_level + 1) env e)
   | VPi (b, v, e, env) ->
       Pi (b, get_printable_expression nesting_level v, perform_substitutions
       (nesting_level + 1) env e)
+  | VSigma (b, v, e, env) ->
+      Sigma (b, get_printable_expression nesting_level v, perform_substitutions
+      (nesting_level + 1) env e)
+  | VFunction (l, env) -> 
+      Function (map (fun (p, e) -> (p, perform_substitutions
+        (nesting_level + count_pattern_binders p) env e)) l) 
   | VUniverse -> Universe
   | VUnitType -> UnitType
   | VUnit -> Unit

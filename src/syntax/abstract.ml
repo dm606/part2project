@@ -54,10 +54,10 @@ let rec add_all_declaration_binders (names, cs) = function
           add_all_declaration_binders (x::names, cs) xs
       | DType (Ident x, _, _, l) ->
           add_all_declaration_binders
-            (x::names, rev_append (map get_name l) cs) xs
+            (names, x::(rev_append (map get_name l) cs)) xs
       | DSimpleType (Ident x, l) ->
           add_all_declaration_binders
-            (x::names, rev_append (map get_name l) cs) xs
+            (names, x::(rev_append (map get_name l) cs)) xs
 
 (* adds all of the bound variables to env in reverse order *)
 let rec add_local_declaration_binders (names, cs) = function
@@ -68,12 +68,11 @@ let rec add_local_declaration_binders (names, cs) = function
       | LetRec (x, _, _) -> add_local_declaration_binders (x::names, cs) xs
       | Type (x, _, _, l) ->
           add_local_declaration_binders
-            (x::names, rev_append (map (fun (x, _) -> x) l) cs) xs
+            (names, x::(rev_append (map (fun (x, _) -> x) l) cs)) xs
 
 let count_declaration_binders = fold_left (fun c d -> c + (match d with
   | Let (_, _, _) | LetRec (_, _, _) -> 1
-  | Type (_, _, _, _) -> 1 (* TODO: This should probably be zero; the function
-    can be greatly simplified otherwise *))) 0
+  | Type (_, _, _, _) -> 0)) 0
 
 let is_constructor_defined (env, cs) x = exists (fun y -> x = y) cs
 
@@ -152,17 +151,25 @@ and desugar_declarations env =
   let rec desugar rest_names rest_cs =
     let add_constructors cs = 
       rev_append (map (fun (Constr (Ident x, _)) -> x) cs) rest_cs in
-    (* collects all of the parameter of the let or let rec *)
+
+    (* collects all of the parameters of the let or let rec *)
     let rec handle_parameters t e = function
       | [] -> (t, e)
       | (Param (b, e1))::ps ->
           handle_parameters (EPi (b, e1, t)) (ELambda ([b], e)) ps in
+
     (* gets the environment in which all declarations in d are bound except x,
      * and one where all are bound *)
     let get_new_envs xs x = 
       let names, cs = add_all_declaration_binders env xs in
       let names, cs = (rest_names @ names, rest_cs @ cs) in
       ((names, cs), (x :: names, cs)) in
+
+    let get_new_env_type xs x = 
+      let names, cs = add_all_declaration_binders env xs in
+      let names, cs = (rest_names @ names, rest_cs @ cs) in
+      (names, x::cs) in
+
     function
     | [] -> []
     | (DLet (Ident x, ps, e1, e2))::xs ->
@@ -182,15 +189,15 @@ and desugar_declarations env =
           | (Param (b, t))::ps -> 
               let r, e = desugar_parameters (add_binder env b) ps in
               ((desugar_parameter env (Param (b, t)))::r, e) in
-        let env1, env2 = get_new_envs xs x in
+        let env2 = get_new_env_type xs x in
         let ps, new_env = desugar_parameters env2 ps in
         (Type (x, ps, desugar_expression new_env e1
              , map (desugar_constructor new_env) cs))
-        :: (desugar (x::rest_names) (add_constructors cs) xs)
+        :: (desugar rest_names (x::(add_constructors cs)) xs)
     | (DSimpleType (Ident x, cs))::xs -> 
-        let env1, env2 = get_new_envs xs x in
+        let env2 = get_new_env_type xs x in
         (Type (x, [], Universe, map (desugar_constructor env2) cs))
-        :: (desugar (x::rest_names) (add_constructors cs) xs) in
+        :: (desugar rest_names (x::(add_constructors cs)) xs) in
   desugar [] []
 and desugar_binder = function 
   | BName (Ident id) -> Name id
@@ -263,12 +270,19 @@ let rec resugar_expression env = function
 and resugar_declarations env =
   let rec resugar rest_names rest_cs =
     let add_constructors cs = rev_append (map (fun (x, _) -> x) cs) rest_cs in
+
     (* gets the environment in which all declarations in d are bound except x,
      * and one where all are bound *)
     let get_new_envs xs x = 
       let names, cs = add_local_declaration_binders env xs in
       let names, cs = (rest_names @ names, rest_cs @ cs) in
       ((names, cs), (x :: names, cs)) in
+
+    let get_new_env_type xs x = 
+      let names, cs = add_local_declaration_binders env xs in
+      let names, cs = (rest_names @ names, rest_cs @ cs) in
+      (names, x::cs) in
+
     function
     | [] -> []
     | (Let (x, e1, e))::xs ->
@@ -320,10 +334,10 @@ and resugar_declarations env =
          | e -> DLetRec (Ident x, [], resugar_expression env1 e1, e))
         :: (resugar (x::rest_names) rest_cs xs)
     | (Type (x, [], Universe, cs))::xs ->
-        let env1, env2 = get_new_envs xs x in
+        let env2 = get_new_env_type xs x in
         (DSimpleType (Ident x, map (fun (x, e) ->
           Constr (Ident x, resugar_expression env2 e)) cs))
-          :: (resugar (x::rest_names) (add_constructors cs) xs)
+          :: (resugar rest_names (x::(add_constructors cs)) xs)
     | (Type (x, ps, e, cs))::xs ->
       let rec resugar_parameters env = function
         | [] -> ([], env)
@@ -331,11 +345,11 @@ and resugar_declarations env =
             let b = resugar_binder b in
             let r, e = resugar_parameters (add_binder env b) ps in
             (Param (b, resugar_expression env t)::r, e) in
-      let env1, env2 = get_new_envs xs x in
+      let env2 = get_new_env_type xs x in
       let ps, env = resugar_parameters env2 ps in
       (DType (Ident x, ps, resugar_expression env e, map (fun (x, e) ->
         Constr (Ident x, resugar_expression env e)) cs))
-      :: (resugar (x::rest_names) (add_constructors cs) xs) in
+      :: (resugar rest_names (x::(add_constructors cs)) xs) in
   resugar [] []
 and resugar_binder = function
   | Underscore -> BUnderscore
