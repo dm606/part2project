@@ -87,8 +87,8 @@ let add_pattern_binders (names, cs) p =
   let rec add names = function
     | PPair (p1, p2) -> add (add names p1) p2
     | PApplication (_, l) -> fold_left add names l
-    | PIdentifier (Ident x) ->
-        if is_constructor_defined (names, cs) x then names else x::names
+    | PIdentifier (Ident x) when is_constructor_defined (names, cs) x -> names
+    | PIdentifier (Ident x) -> x::names
     | PUnderscore -> names in
   (add names p, cs)
 
@@ -134,10 +134,9 @@ let rec desugar_expression env = function
   | EIdentifier (Ident x) -> ( 
       match lookup_index env x with
       | Some i -> Index i (* x is bound to index i *)
-      | None -> 
-          if not (is_constructor_defined env x)
-          then raise (Constructor_not_defined x)
-          else Constructor x)
+      | None when not (is_constructor_defined env x) ->
+          raise (Constructor_not_defined x)
+      | None -> Constructor x)
   | EProj1 e1 -> Proj1 (desugar_expression env e1)
   | EProj2 e2 -> Proj2 (desugar_expression env e2)
   | EArrow (e1, e2) ->
@@ -214,10 +213,9 @@ and desugar_pattern env = function
       PatternPair (desugar_pattern env p1, desugar_pattern env p2)
   | PApplication (Ident x, ps) ->
       PatternApplication (x, map (desugar_pattern env) ps)
-  | PIdentifier (Ident x) -> 
-      if is_constructor_defined env x
-      then PatternApplication (x, [])
-      else PatternBinder x
+  | PIdentifier (Ident x) when is_constructor_defined env x ->
+      PatternApplication (x, [])
+  | PIdentifier (Ident x) -> PatternBinder x
   | PUnderscore -> PatternUnderscore
 
 let rec resugar_expression env = function
