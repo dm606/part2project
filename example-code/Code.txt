@@ -22,7 +22,7 @@ let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
   fun A B f _ ->
     function
     | empty A -> empty B
-    | cons A (succ m) a l -> cons B (succ m) (f a) (map A B f m l)
+    | cons A m a l -> cons B m (f a) (map A B f m l)
 
 let rec add : Nat -> Nat -> Nat =
   fun x y ->
@@ -35,7 +35,7 @@ let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
   fun A n m x y ->
     match x with
     | empty A -> y
-    | cons A (succ n) a z -> cons A (add n m) a (append A n m z y)
+    | cons A n a z -> cons A (add n m) a (append A n m z y)
 
 let Not : U -> U = fun A -> A -> Null
 
@@ -70,3 +70,10 @@ let proof2 : (n : Nat) -> Not (Eq Nat n zero) -> (m : Nat) * Eq Nat n (succ m) =
     match n with 
     | zero -> false_elim ((m : Nat) * Eq Nat n (succ m)) (p (refl Nat zero))
     | succ x -> (x, refl Nat n)
+
+let one : Nat = succ zero
+let two : Nat = succ one
+let three : Nat = succ two
+let four : Nat = succ three
+let five : Nat = succ four
+let six : Nat = succ five

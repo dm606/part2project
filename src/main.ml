@@ -108,7 +108,10 @@ let rec perform_substitutions nesting_level env = function
       Application (perform_substitutions nesting_level env e1
                  , perform_substitutions nesting_level env e2)
   | Index i when i >= nesting_level ->
-      get_printable_expression nesting_level (nth env (i - nesting_level))
+      let v = match nth env (i - nesting_level) with
+        | EnvValue v -> v
+        | EnvThunk l -> Lazy.force l in
+      get_printable_expression nesting_level v 
   | Index i as e -> e
   | Proj1 e -> Proj1 (perform_substitutions nesting_level env e)
   | Proj2 e -> Proj2 (perform_substitutions nesting_level env e)
@@ -174,10 +177,13 @@ and handle_input l = lazy (
     | Decl d ->
         let new_declared = add_all_declaration_binders !declared d in
         let decl = desugar_declarations !declared d in
+        let new_env = add_declarations !env decl in
+        (* TODO: What should be printed here?? *)
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
           (ReplDeclarations (LLDCons
             (resugar_declarations !declared decl, LLDEmpty), SEMISEMI ";;")));
-        declared := new_declared
+        declared := new_declared;
+        env := new_env
     | Comm c ->
         handle_command c in
   iter handle l)
@@ -205,11 +211,11 @@ let rec read_into_buffer index buffer length =
 
 let () =
   if not !Sys.interactive then (
-  (* Do not terminate the program on sigint: instead raise Sys.Break *)
-  Sys.catch_break true;
+    (* Do not terminate the program on sigint: instead raise Sys.Break *)
+    Sys.catch_break true;
 
-  for i = 1 to Array.length Sys.argv - 1 do
-   use_file Sys.argv.(1)
-  done;
+    for i = 1 to Array.length Sys.argv - 1 do
+      use_file Sys.argv.(1)
+    done;
 
-  repl (from_function (read_into_buffer 0)))
+    repl (from_function (read_into_buffer 0)))
