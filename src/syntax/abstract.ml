@@ -83,18 +83,7 @@ let rec add_local_declaration_binders (names, cs) = function
           add_local_declaration_binders
             (names, x::(List.rev_append (List.map (fun (x, _) -> x) l) cs)) xs
 
-let count_declaration_binders = List.fold_left (fun c d -> c + (match d with
-  | Let (_, _, _) | LetRec (_, _, _) -> 1
-  | Type (_, _, _, _) -> 0)) 0
-
 let is_constructor_defined (env, cs) x = List.exists (fun y -> x = y) cs
-
-let rec count_pattern_binders = function
-  | PatternPair (p1, p2) -> count_pattern_binders p1 + count_pattern_binders p2
-  | PatternApplication (_, l) ->
-      List.fold_left (fun c p -> c + count_pattern_binders p) 0 l
-  | PatternBinder _ -> 1
-  | PatternUnderscore -> 0
 
 let add_pattern_binders (names, cs) p =
   let rec add names = function
