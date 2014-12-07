@@ -40,7 +40,6 @@ let rec add_declarations env =
     | (Let (_, _, e))::xs ->
         add_decls (EnvThunk (lazy (eval (add_decls rest xs) e))::rest) xs
     | (LetRec (_, _, e))::xs as l ->
-        (* TODO: check that this works; possible infinite loop *)
         add_decls (EnvThunk (lazy (eval (add_decls rest l) e))::rest) xs 
     | _::xs -> add_decls rest xs in
   add_decls []
