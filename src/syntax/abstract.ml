@@ -1,5 +1,3 @@
-open List
-
 open AbsConcrete
 
 exception Invalid_expression of string
@@ -19,8 +17,8 @@ exception Cannot_desugar_abstract
  *     rec. Declarations which appear the current one get a lower index than
  *     those after it.
  * * In the indices of a type or the type of a constructor, one index is
- *     assigned for each binder in the parameters of the type. The indices increase
- *     from right to left. *)
+ *     assigned for each binder in the parameters of the type. The indices
+ *     increase from right to left. *)
 type expression =
   | Pair of expression * expression
   | Lambda of binder * expression
@@ -69,10 +67,10 @@ let rec add_all_declaration_binders (names, cs) = function
           add_all_declaration_binders (x::names, cs) xs
       | DType (Ident x, _, _, l) ->
           add_all_declaration_binders
-            (names, x::(rev_append (map get_name l) cs)) xs
+            (names, x::(List.rev_append (List.map get_name l) cs)) xs
       | DSimpleType (Ident x, l) ->
           add_all_declaration_binders
-            (names, x::(rev_append (map get_name l) cs)) xs
+            (names, x::(List.rev_append (List.map get_name l) cs)) xs
 
 (* adds all of the bound variables to env in reverse order *)
 let rec add_local_declaration_binders (names, cs) = function
@@ -83,25 +81,25 @@ let rec add_local_declaration_binders (names, cs) = function
       | LetRec (x, _, _) -> add_local_declaration_binders (x::names, cs) xs
       | Type (x, _, _, l) ->
           add_local_declaration_binders
-            (names, x::(rev_append (map (fun (x, _) -> x) l) cs)) xs
+            (names, x::(List.rev_append (List.map (fun (x, _) -> x) l) cs)) xs
 
-let count_declaration_binders = fold_left (fun c d -> c + (match d with
+let count_declaration_binders = List.fold_left (fun c d -> c + (match d with
   | Let (_, _, _) | LetRec (_, _, _) -> 1
   | Type (_, _, _, _) -> 0)) 0
 
-let is_constructor_defined (env, cs) x = exists (fun y -> x = y) cs
+let is_constructor_defined (env, cs) x = List.exists (fun y -> x = y) cs
 
 let rec count_pattern_binders = function
   | PatternPair (p1, p2) -> count_pattern_binders p1 + count_pattern_binders p2
   | PatternApplication (_, l) ->
-      fold_left (fun c p -> c + count_pattern_binders p) 0 l
+      List.fold_left (fun c p -> c + count_pattern_binders p) 0 l
   | PatternBinder _ -> 1
   | PatternUnderscore -> 0
 
 let add_pattern_binders (names, cs) p =
   let rec add names = function
     | PPair (p1, p2) -> add (add names p1) p2
-    | PApplication (_, l) -> fold_left add names l
+    | PApplication (_, l) -> List.fold_left add names l
     | PIdentifier (Ident x) when is_constructor_defined (names, cs) x -> names
     | PIdentifier (Ident x) -> x::names
     | PUnderscore -> names in
@@ -117,7 +115,7 @@ let lookup_index (env, cs) x =
   lookup_index_from env x 0
 
 (* Get the name associated with a de Bruijn index *)
-let get_binder_name (env, cs) = nth env
+let get_binder_name (env, cs) = List.nth env
 
 let rec desugar_expression env = function
   | EPair (e1, e2) ->
@@ -135,7 +133,7 @@ let rec desugar_expression env = function
   | ESigma (x, e1, e2) ->
       Sigma (desugar_binder x, desugar_expression env e1
            , desugar_expression (add_binder env x) e2)
-  | EFunction xs -> Function (map (desugar_case env) xs) 
+  | EFunction xs -> Function (List.map (desugar_case env) xs) 
   | EDeclaration (d, e1) ->
       (* Mutually recursive declarations *)
       let new_env = add_all_declaration_binders env d in
@@ -164,7 +162,7 @@ let rec desugar_expression env = function
 and desugar_declarations env =
   let rec desugar rest_names rest_cs =
     let add_constructors cs = 
-      rev_append (map (fun (Constr (Ident x, _)) -> x) cs) rest_cs in
+      List.rev_append (List.map (fun (Constr (Ident x, _)) -> x) cs) rest_cs in
 
     (* collects all of the parameters of the let or let rec *)
     let rec handle_parameters t e = function
@@ -187,12 +185,12 @@ and desugar_declarations env =
     function
     | [] -> []
     | (DLet (Ident x, ps, e1, e2))::xs ->
-        let t, e = handle_parameters e1 e2 (rev ps) in
+        let t, e = handle_parameters e1 e2 (List.rev ps) in
         let env1, env2 = get_new_envs xs x in
         (Let (x, (desugar_expression env1 t), (desugar_expression env1 e)))
         :: (desugar (x::rest_names) rest_cs xs)
     | (DLetRec (Ident x, ps, e1, e2))::xs ->
-        let t, e = handle_parameters e1 e2 (rev ps) in
+        let t, e = handle_parameters e1 e2 (List.rev ps) in
         let env1, env2 = get_new_envs xs x in
         (LetRec (x, (desugar_expression env1 t), (desugar_expression env2 e)))
         :: (desugar (x::rest_names) rest_cs xs) 
@@ -206,11 +204,11 @@ and desugar_declarations env =
         let env2 = get_new_env_type xs x in
         let ps, new_env = desugar_parameters env2 ps in
         (Type (x, ps, desugar_expression new_env e1
-             , map (desugar_constructor new_env) cs))
+             , List.map (desugar_constructor new_env) cs))
         :: (desugar rest_names (x::(add_constructors cs)) xs)
     | (DSimpleType (Ident x, cs))::xs -> 
         let env2 = get_new_env_type xs x in
-        (Type (x, [], Universe, map (desugar_constructor env2) cs))
+        (Type (x, [], Universe, List.map (desugar_constructor env2) cs))
         :: (desugar rest_names (x::(add_constructors cs)) xs) in
   desugar [] []
 and desugar_binder = function 
@@ -227,7 +225,7 @@ and desugar_pattern env = function
   | PPair (p1, p2) ->
       PatternPair (desugar_pattern env p1, desugar_pattern env p2)
   | PApplication (Ident x, ps) ->
-      PatternApplication (x, map (desugar_pattern env) ps)
+      PatternApplication (x, List.map (desugar_pattern env) ps)
   | PIdentifier (Ident x) when is_constructor_defined env x ->
       PatternApplication (x, [])
   | PIdentifier (Ident x) -> PatternBinder x
@@ -245,7 +243,7 @@ let rec resugar_expression env = function
       let bs, new_env, e =
         collect_binders [resugar_binder b]
           (add_binder env (resugar_binder b)) e in
-      ELambda (rev bs, resugar_expression new_env e)
+      ELambda (List.rev bs, resugar_expression new_env e)
   | Pi (Underscore, e1, e2) ->
       EArrow (resugar_expression env e1, resugar_expression env e2)
   | Pi (b, e1, e2) ->
@@ -259,7 +257,7 @@ let rec resugar_expression env = function
       ESigma (b, resugar_expression env e1
             , resugar_expression (add_binder env b) e2)
   | Function cs ->
-      EFunction (map (fun (p, e) ->
+      EFunction (List.map (fun (p, e) ->
         CCase (resugar_pattern p
              , resugar_expression (add_pattern_binders env (resugar_pattern p))
           e)) cs)
@@ -267,7 +265,7 @@ let rec resugar_expression env = function
       let new_env = add_local_declaration_binders env ds in
       EDeclaration (resugar_declarations env ds, resugar_expression new_env e)
   | Application (Function cs, e) ->
-      EMatch (resugar_expression env e, map (fun (p, e)
+      EMatch (resugar_expression env e, List.map (fun (p, e)
       -> CCase (resugar_pattern p
               , resugar_expression (add_pattern_binders env (resugar_pattern p))
            e)) cs)
@@ -282,7 +280,8 @@ let rec resugar_expression env = function
   | Proj2 e -> EProj2 (resugar_expression env e)
 and resugar_declarations env =
   let rec resugar rest_names rest_cs =
-    let add_constructors cs = rev_append (map (fun (x, _) -> x) cs) rest_cs in
+    let add_constructors cs =
+      List.rev_append (List.map (fun (x, _) -> x) cs) rest_cs in
 
     (* gets the environment in which all declarations in d are bound except x,
      * and one where all are bound *)
@@ -316,9 +315,9 @@ and resugar_declarations env =
                     | _ -> (ps, t, env, b::bs)) in
              (match collect_binders env1 [] e1 bs with 
               | ps, t, type_env, [] -> 
-                  DLet (Ident x, rev ps, resugar_expression type_env t, e)
+                  DLet (Ident x, List.rev ps, resugar_expression type_env t, e)
               | ps, t, type_env, bs -> 
-                  DLet (Ident x, rev ps
+                  DLet (Ident x, List.rev ps
                       , resugar_expression type_env t, ELambda (bs, e)))
          | e -> DLet (Ident x, [], resugar_expression env1 e1, e))
                 :: (resugar (x::rest_names) rest_cs xs)
@@ -340,15 +339,16 @@ and resugar_declarations env =
                     | _ -> (ps, t, env, b::bs)) in
              (match collect_binders env1 [] e1 bs with 
               | ps, t, type_env, [] ->
-                  DLetRec (Ident x, rev ps, resugar_expression type_env t, e)
+                  DLetRec (Ident x, List.rev ps
+                         , resugar_expression type_env t, e)
               | ps, t, type_env, bs ->
-                  DLetRec (Ident x, rev ps
+                  DLetRec (Ident x, List.rev ps
                          , resugar_expression type_env t, ELambda (bs, e)))
          | e -> DLetRec (Ident x, [], resugar_expression env1 e1, e))
         :: (resugar (x::rest_names) rest_cs xs)
     | (Type (x, [], Universe, cs))::xs ->
         let env2 = get_new_env_type xs x in
-        (DSimpleType (Ident x, map (fun (x, e) ->
+        (DSimpleType (Ident x, List.map (fun (x, e) ->
           Constr (Ident x, resugar_expression env2 e)) cs))
           :: (resugar rest_names (x::(add_constructors cs)) xs)
     | (Type (x, ps, e, cs))::xs ->
@@ -360,7 +360,7 @@ and resugar_declarations env =
             (Param (b, resugar_expression env t)::r, e) in
       let env2 = get_new_env_type xs x in
       let ps, env = resugar_parameters env2 ps in
-      (DType (Ident x, ps, resugar_expression env e, map (fun (x, e) ->
+      (DType (Ident x, ps, resugar_expression env e, List.map (fun (x, e) ->
         Constr (Ident x, resugar_expression env e)) cs))
       :: (resugar rest_names (x::(add_constructors cs)) xs) in
   resugar [] []
@@ -370,7 +370,8 @@ and resugar_binder = function
 and resugar_pattern = function
   | PatternPair (p1, p2) -> PPair (resugar_pattern p1, resugar_pattern p2)
   | PatternApplication (x, []) -> PIdentifier (Ident x)
-  | PatternApplication (x, ps) -> PApplication (Ident x, map resugar_pattern ps)
+  | PatternApplication (x, ps) ->
+      PApplication (Ident x, List.map resugar_pattern ps)
   | PatternBinder x -> PIdentifier (Ident x)
   | PatternUnderscore -> PUnderscore
 

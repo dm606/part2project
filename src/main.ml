@@ -1,16 +1,9 @@
-open Bytes 
 open Lexing
-open List
 open Parsing
 open Printf
 
 open AbsConcrete
 open Abstract
-open BNFC_Util
-open Eval
-open Parser
-open Print_value
-open Value
 
 exception Unknown_command of string
 
@@ -42,7 +35,7 @@ let rec use_file filename =
   try
     let lexbuf = from_channel file in
     reset_position lexbuf filename;
-    parse parse_file lexbuf;
+    parse Parser.parse_file lexbuf;
     close_in file
   with
   | e -> close_in_noerr file; raise e
@@ -52,7 +45,7 @@ and handle_command c =
   | CommandString (Ident s, _) -> raise (Unknown_command s)
 and parse f lexbuf = (
   try Lazy.force (handle_input (f lexbuf)) with
-  | Parse_error (s, e) -> 
+  | BNFC_Util.Parse_error (s, e) -> 
       fprintf stderr "%s: parse error \n" (format_position s e)
   | Unknown_command s -> fprintf stderr "Unknown command: \"%s\"\n" s);
   flush stdout;
@@ -63,29 +56,29 @@ and parse f lexbuf = (
 (* Lazy to stop the compiler from complaining about the Comm c case *)
 and handle_input l = lazy ( 
   let handle = function
-    | Exp e ->
+    | Parser.Exp e ->
         let exp = desugar_expression !declared e in
-        let evaluated = eval !env exp in
-        print_value evaluated
-    | Decl d ->
+        let evaluated = Eval.eval !env exp in
+        Print_value.print_value evaluated
+    | Parser.Decl d ->
         let new_declared = add_all_declaration_binders !declared d in
         let decl = desugar_declarations !declared d in
-        let new_env = add_declarations !env decl in
+        let new_env = Eval.add_declarations !env decl in
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
           (ReplDeclarations (LLDCons
             (resugar_declarations !declared decl, LLDEmpty), SEMISEMI ";;")));
         declared := new_declared;
         env := new_env
-    | Comm c ->
+    | Parser.Comm c ->
         handle_command c in
-  iter handle l)
+  List.iter handle l)
 
 let prompt = ref ""
 
 let rec repl lexbuf =
   try
     prompt := "# ";
-    parse parse_repl lexbuf;
+    parse Parser.parse_repl lexbuf;
     repl lexbuf
   with
   | End_of_file -> print_newline () 
@@ -95,7 +88,7 @@ let rec read_into_buffer index buffer length =
   if !prompt <> "" then (print_string !prompt; flush stdout);
 
   let c = input_char stdin in
-  set buffer index c;
+  Bytes.set buffer index c;
   if c = '\n' then prompt := "  " else prompt := "";
   if c = '\n' && index > 0 then index + 1
   else if index = length - 1 then length

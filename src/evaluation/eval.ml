@@ -1,5 +1,3 @@
-open List
-
 open Abstract
 open Value
 
@@ -13,7 +11,7 @@ let rec try_match env pattern value = match pattern, value with
       let (m, new_env) = try_match env p1 v1 in
       if m then try_match new_env p2 v2 else (false, [])
   | (PatternApplication (s, ps)), (VConstruct (c, vs)) when c = s ->
-      try_match_all env ps (rev vs)
+      try_match_all env ps (List.rev vs)
   | (PatternBinder x), v -> (true, (EnvValue v)::env)
   | (PatternUnderscore), _ -> (true, env)
   | _ -> (false, [])
@@ -79,7 +77,7 @@ and eval env =
   | UnitType -> VUnitType
   | Unit -> VUnit
   | Index i -> 
-      (match nth env i with
+      (match List.nth env i with
        | EnvValue v -> v
        | EnvThunk t -> Lazy.force t
        | exception Invalid_argument _ ->

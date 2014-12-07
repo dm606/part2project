@@ -1,6 +1,3 @@
-open List
-open Printf
-
 open Abstract
 
 (* the values associated with declarations need to be evaluated lazily; other
