@@ -6,6 +6,21 @@ exception Invalid_expression of string
 exception Constructor_not_defined of string
 exception Cannot_desugar_abstract
 
+(* The type of desugared expressions.
+ * Expressions use de Bruijn indices, which are allocated as follows:
+ * * One index is allocated in the body of a lambda abstraction, if the binder
+ *     is not Underscore
+ * * One index is allocated on the right of a pi or sigma type, if the binder is
+ *     not underscore
+ * * On the right hand side of a case, one index is allocated for every binder
+ *     in the corresponding pattern; the indices increase from right to left
+ * * In the body of a let or let rec, one index is allocated per let and let rec
+ *     in the same declaration, only including the current declaration for a let
+ *     rec. Declarations which appear the current one get a lower index than
+ *     those after it.
+ * * In the indices of a type or the type of a constructor, one index is
+ *     assigned for each binder in the parameters of the type. The indices increase
+ *     from right to left. *)
 type expression =
   | Pair of expression * expression
   | Lambda of binder * expression
