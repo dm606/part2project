@@ -52,5 +52,6 @@ val add_all_declaration_binders : string list * string list -> decl list
 val desugar_expression : string list * string list -> exp -> expression
 val desugar_declarations : string list * string list -> decl list
   -> declaration list
+val resugar_expression : string list * string list -> expression -> exp
 val resugar_declarations : string list * string list -> declaration list
   -> decl list
