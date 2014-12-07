@@ -3,7 +3,7 @@ open LexConcrete
 open ParConcrete
 
 type input_part =
-  | Exp of exp
+  | Exp of exp 
   | Decl of decl list
   | Comm of command
 
