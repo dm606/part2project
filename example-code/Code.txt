@@ -3,7 +3,7 @@ type Null =
 type Nat = zero : Nat | succ : Nat -> Nat
 
 type Vec (A : U) : Nat -> U =
-  | empty : Vec A zero
+  | nil : Vec A zero
   | cons : (n : Nat) -> A -> Vec A n -> Vec A (succ n)
 
 type Fin : Nat -> U =
@@ -21,7 +21,7 @@ let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
            -> Vec B n =
   fun A B f _ ->
     function
-    | empty A -> empty B
+    | nil A -> nil B
     | cons A m a l -> cons B m (f a) (map A B f m l)
 
 let rec add : Nat -> Nat -> Nat =
@@ -34,7 +34,7 @@ let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
               -> Vec A (add n m) =
   fun A n m x y ->
     match x with
-    | empty A -> y
+    | nil A -> y
     | cons A n a z -> cons A (add n m) a (append A n m z y)
 
 let Not : U -> U = fun A -> A -> Null
@@ -47,14 +47,14 @@ type Eq (A : U) (a : A) : A -> U =
   | refl : Eq A a a
 
 type DistinctList (A : U) (NotEqual : A -> A -> U) : U =
-  | dempty : DistinctList A NotEqual
+  | dnil : DistinctList A NotEqual
   | dcons : (a : A) -> (l : DistinctList A NotEqual)
          -> Fresh A NotEqual a l -> DistinctList A NotEqual
 and let rec Fresh : (A : U) -> (NotEqual : A -> A -> U) -> (a : A)
                  -> (l : DistinctList A NotEqual) -> U =
   fun A NotEqual a ->
     function
-    | dempty _ _ -> Unit
+    | dnil _ _ -> Unit
     | dcons _ _ b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
 
 let false_elim : (A : U) -> Null -> A =
