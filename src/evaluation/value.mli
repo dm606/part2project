@@ -16,11 +16,7 @@ and value =
    * values are in reverse order for efficiency, so the head of the list is the
    * last value applied to the constructor *)
   | VConstruct of string * value list
-
-(* declarations in which types and bodies have been evaluated *)
-type declaration_value =
-  (* a seperate constructor for let rec is not needed here, so this constructor
-   * is used for both let and let rec *)
-  | VLet of string * value * value
-  | VType of string * (binder * value) list * value * (string * value) list
+  | VNeutral of neutral
+and neutral =
+  | VVar of int
 
