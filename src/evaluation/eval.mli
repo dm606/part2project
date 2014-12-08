@@ -1,7 +1,7 @@
 open Abstract
 open Value
 
-val add_declarations : environment_element list -> declaration list
-  -> environment_element list
+val add_declarations : value Environment.t -> declaration list
+  -> value Environment.t
 
-val eval : environment_element list -> expression -> value
+val eval : value Environment.t -> expression -> value

@@ -11,7 +11,7 @@ exception Unknown_command of string
 let declared = ref ([], [])
 
 (* list of all declared values *)
-let env = ref []
+let env = ref Environment.empty
 
 let format_position s e =
   let sc = s.pos_cnum - s.pos_bol in

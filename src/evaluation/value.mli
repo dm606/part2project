@@ -2,13 +2,12 @@ open Abstract
 
 (* the values associated with declarations need to be evaluated lazily; other
  * constructs evaluate to EnvValues *)
-type environment_element = EnvValue of value | EnvThunk of value lazy_t
-and value =
+type value =
   | VPair of value * value
-  | VLambda of binder * expression * environment_element list
-  | VPi of binder * value * expression * environment_element list
-  | VSigma of binder * value * expression * environment_element list
-  | VFunction of (pattern * expression) list * environment_element list
+  | VLambda of binder * expression * value Environment.t
+  | VPi of binder * value * expression * value Environment.t
+  | VSigma of binder * value * expression * value Environment.t
+  | VFunction of (pattern * expression) list * value Environment.t
   | VUniverse
   | VUnitType
   | VUnit
