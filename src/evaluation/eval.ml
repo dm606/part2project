@@ -48,16 +48,10 @@ and eval env =
   | Underscore -> eval fun_env e
   | Name _ -> eval (add fun_env v) e in
 
-  let apply_function cases fun_env v =
-    let (new_env, e) = pattern_match fun_env cases v in
-    eval new_env e in
-
-  let eval_proj proj e =
-    match eval env e with
-    | VPair (v1, v2) -> proj (v1, v2)
-    | _ ->
-      raise (Cannot_evaluate
-        "Attempted to project an element out of a value which is not a pair") in
+  let apply_function cases fun_env = function
+    | VNeutral n -> VNeutral (VFunctionApplication (cases, fun_env, n))
+    | v -> let (new_env, e) = pattern_match fun_env cases v in
+        eval new_env e in
 
   function
   | Pair (e1, e2) -> VPair (eval env e1, eval env e2)
@@ -72,6 +66,7 @@ and eval env =
        | VConstruct (c, l) -> VConstruct (c, v2::l)
        | VLambda (b, e, fun_env) -> apply b e fun_env v2
        | VFunction (l, fun_env) -> apply_function l fun_env v2
+       | VNeutral v -> VNeutral (VApplication (v, v2))
        | _ -> raise (Cannot_evaluate
                 "Attempted to apply a value which is not a function"))
   | Universe -> VUniverse
@@ -85,6 +80,18 @@ and eval env =
            raise (Cannot_evaluate
                     "Attempted to use a de Bruijn index which was too large"))
   | Constructor c -> VConstruct (c, [])
-  | Proj1 e -> eval_proj (fun (v1, _) -> v1) e
-  | Proj2 e -> eval_proj (fun (_, v2) -> v2) e
+  | Proj1 e -> (
+      match eval env e with
+      | VPair (v1, v2) -> v1
+      | VNeutral v -> VNeutral (VProj1 v)
+      | _ ->
+        raise (Cannot_evaluate
+          "Attempted to project an element out of a value which is not a pair"))
+  | Proj2 e -> (
+      match eval env e with
+      | VPair (v1, v2) -> v2
+      | VNeutral v -> VNeutral (VProj2 v)
+      | _ ->
+        raise (Cannot_evaluate
+          "Attempted to project an element out of a value which is not a pair"))
 

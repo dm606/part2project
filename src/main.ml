@@ -4,6 +4,7 @@ open Printf
 
 open AbsConcrete
 open Abstract
+open Equality
 
 exception Unknown_command of string
 
@@ -12,6 +13,20 @@ let declared = ref ([], [])
 
 (* list of all declared values *)
 let env = ref Environment.empty
+
+let prompt = ref ""
+
+let rec read_into_buffer index buffer length = 
+  if !prompt <> "" then (print_string !prompt; flush stdout);
+
+  let c = input_char stdin in
+  Bytes.set buffer index c;
+  if c = '\n' then prompt := "  " else prompt := "";
+  if c = '\n' && index > 0 then index + 1
+  else if index = length - 1 then length
+  else read_into_buffer (index + 1) buffer length
+
+let stdin_lexbuf = from_function (read_into_buffer 0)
 
 let format_position s e =
   let sc = s.pos_cnum - s.pos_bol in
@@ -30,6 +45,37 @@ let reset_position lexbuf filename =
     pos_bol = 0
   }
 
+let end_parse lexbuf =
+  flush stdout;
+  flush stderr;
+  flush_input lexbuf;
+  reset_position lexbuf lexbuf.lex_start_p.pos_fname;
+  clear_parser ()
+
+let parse_single_expression lexbuf = 
+  let return_value = match Parser.parse_repl lexbuf with
+    | (Parser.Exp e)::_ -> Some e
+    | _ -> fprintf stderr "An expression was expected\n"; None
+    | exception BNFC_Util.Parse_error (s, e) ->
+      fprintf stderr "%s: parse error \n" (format_position s e); None in
+  end_parse lexbuf;
+  return_value
+
+let handle_are_equal () =
+  print_string "Expression 1:";
+  match parse_single_expression stdin_lexbuf with
+  | None -> ()
+  | Some e1 -> (
+      let e1 = desugar_expression !declared e1 in
+      print_string "Expression 2:";
+      match parse_single_expression stdin_lexbuf with
+      | None -> ()
+      | Some e2 ->
+          let e2 = desugar_expression !declared e2 in
+          if Equality.are_equal !env e1 e2
+          then print_endline "Expressions are equal"
+          else print_endline "Expressions are not equal")
+
 let rec use_file filename =
   let file = open_in filename in
   try
@@ -43,16 +89,14 @@ and handle_command c =
   match c with
   | CommandString (Ident "use", arg) -> use_file arg
   | CommandString (Ident s, _) -> raise (Unknown_command s)
+  | CommandNone (Ident "areequal") -> handle_are_equal ()
+  | CommandNone (Ident s) -> raise (Unknown_command s)
 and parse f lexbuf = (
   try Lazy.force (handle_input (f lexbuf)) with
   | BNFC_Util.Parse_error (s, e) -> 
       fprintf stderr "%s: parse error \n" (format_position s e)
   | Unknown_command s -> fprintf stderr "Unknown command: \"%s\"\n" s);
-  flush stdout;
-  flush stderr;
-  flush_input lexbuf;
-  reset_position lexbuf lexbuf.lex_start_p.pos_fname;
-  clear_parser ()
+  end_parse lexbuf
 (* Lazy to stop the compiler from complaining about the Comm c case *)
 and handle_input l = lazy ( 
   let handle = function
@@ -69,11 +113,8 @@ and handle_input l = lazy (
             (resugar_declarations !declared decl, LLDEmpty), SEMISEMI ";;")));
         declared := new_declared;
         env := new_env
-    | Parser.Comm c ->
-        handle_command c in
+    | Parser.Comm c -> handle_command c in
   List.iter handle l)
-
-let prompt = ref ""
 
 let rec repl lexbuf =
   try
@@ -84,16 +125,6 @@ let rec repl lexbuf =
   | End_of_file -> print_newline () 
   | Sys.Break -> print_newline (); repl lexbuf (* handle sigint *)
 
-let rec read_into_buffer index buffer length = 
-  if !prompt <> "" then (print_string !prompt; flush stdout);
-
-  let c = input_char stdin in
-  Bytes.set buffer index c;
-  if c = '\n' then prompt := "  " else prompt := "";
-  if c = '\n' && index > 0 then index + 1
-  else if index = length - 1 then length
-  else read_into_buffer (index + 1) buffer length
-
 let () =
   if not !Sys.interactive then (
     (* Do not terminate the program on sigint: instead raise Sys.Break *)
@@ -103,4 +134,6 @@ let () =
       use_file Sys.argv.(1)
     done;
 
-    repl (from_function (read_into_buffer 0)))
+    repl stdin_lexbuf)
+
+

@@ -18,4 +18,9 @@ type value =
   | VNeutral of neutral
 and neutral =
   | VVar of int
-
+  (* application of a neutral value to a function defined by pattern matching *)
+  | VFunctionApplication of (pattern * expression) list
+                          * value Environment.t * neutral
+  | VApplication of neutral * value
+  | VProj1 of neutral
+  | VProj2 of neutral
