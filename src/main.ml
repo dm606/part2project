@@ -6,10 +6,12 @@ open AbsConcrete
 open Abstract
 open Equality
 
+module SS = Set.Make(String)
+
 exception Unknown_command of string
 
 (* names of declared constants *)
-let declared = ref ([], [])
+let declared = ref ([], SS.empty)
 
 (* list of all declared values *)
 let env = ref Environment.empty

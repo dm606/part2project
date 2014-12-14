@@ -1,5 +1,7 @@
 open AbsConcrete
 
+module SS = Set.Make(String)
+
 exception Invalid_expression of string
 exception Constructor_not_defined of string
 exception Cannot_desugar_abstract
@@ -67,10 +69,10 @@ let rec add_all_declaration_binders (names, cs) = function
           add_all_declaration_binders (x::names, cs) xs
       | DType (Ident x, _, _, l) ->
           add_all_declaration_binders
-            (names, x::(List.rev_append (List.map get_name l) cs)) xs
+            (names, SS.add x (SS.union (SS.of_list (List.map get_name l)) cs)) xs
       | DSimpleType (Ident x, l) ->
-          add_all_declaration_binders
-            (names, x::(List.rev_append (List.map get_name l) cs)) xs
+          add_all_declaration_binders (names, SS.add x
+            (SS.union (SS.of_list (List.map get_name l)) cs)) xs
 
 (* adds all of the bound variables to env in reverse order *)
 let rec add_local_declaration_binders (names, cs) = function
@@ -80,10 +82,10 @@ let rec add_local_declaration_binders (names, cs) = function
       | Let (x, _, _) -> add_local_declaration_binders (x::names, cs) xs
       | LetRec (x, _, _) -> add_local_declaration_binders (x::names, cs) xs
       | Type (x, _, _, l) ->
-          add_local_declaration_binders
-            (names, x::(List.rev_append (List.map (fun (x, _) -> x) l) cs)) xs
+          add_local_declaration_binders (names, SS.add x
+            (SS.union (SS.of_list (List.map (fun (x, _) -> x) l)) cs)) xs
 
-let is_constructor_defined (env, cs) x = List.exists (fun y -> x = y) cs
+let is_constructor_defined (env, cs) x = SS.mem x cs
 
 let add_pattern_binders (names, cs) p =
   let rec add names = function
@@ -151,7 +153,8 @@ let rec desugar_expression env = function
 and desugar_declarations env =
   let rec desugar rest_names rest_cs =
     let add_constructors cs = 
-      List.rev_append (List.map (fun (Constr (Ident x, _)) -> x) cs) rest_cs in
+      SS.union (SS.of_list
+        (List.map (fun (Constr (Ident x, _)) -> x) cs)) rest_cs in
 
     (* collects all of the parameters of the let or let rec *)
     let rec handle_parameters t e = function
@@ -163,13 +166,13 @@ and desugar_declarations env =
      * and one where all are bound *)
     let get_new_envs xs x = 
       let names, cs = add_all_declaration_binders env xs in
-      let names, cs = (rest_names @ names, rest_cs @ cs) in
+      let names, cs = (rest_names @ names, SS.union rest_cs cs) in
       ((names, cs), (x :: names, cs)) in
 
     let get_new_env_type xs x = 
       let names, cs = add_all_declaration_binders env xs in
-      let names, cs = (rest_names @ names, rest_cs @ cs) in
-      (names, x::cs) in
+      let names, cs = (rest_names @ names, SS.union rest_cs cs) in
+      (names, SS.add x cs) in
 
     function
     | [] -> []
@@ -194,12 +197,12 @@ and desugar_declarations env =
         let ps, new_env = desugar_parameters env2 ps in
         (Type (x, ps, desugar_expression new_env e1
              , List.map (desugar_constructor new_env) cs))
-        :: (desugar rest_names (x::(add_constructors cs)) xs)
+        :: (desugar rest_names (SS.add x (add_constructors cs)) xs)
     | (DSimpleType (Ident x, cs))::xs -> 
         let env2 = get_new_env_type xs x in
         (Type (x, [], Universe, List.map (desugar_constructor env2) cs))
-        :: (desugar rest_names (x::(add_constructors cs)) xs) in
-  desugar [] []
+        :: (desugar rest_names (SS.add x (add_constructors cs)) xs) in
+  desugar [] SS.empty
 and desugar_binder = function 
   | BName (Ident id) -> Name id
   | BUnderscore -> Underscore
@@ -270,19 +273,19 @@ let rec resugar_expression env = function
 and resugar_declarations env =
   let rec resugar rest_names rest_cs =
     let add_constructors cs =
-      List.rev_append (List.map (fun (x, _) -> x) cs) rest_cs in
+      SS.union (SS.of_list (List.map (fun (x, _) -> x) cs)) rest_cs in
 
     (* gets the environment in which all declarations in d are bound except x,
      * and one where all are bound *)
     let get_new_envs xs x = 
       let names, cs = add_local_declaration_binders env xs in
-      let names, cs = (rest_names @ names, rest_cs @ cs) in
+      let names, cs = (rest_names @ names, SS.union rest_cs cs) in
       ((names, cs), (x :: names, cs)) in
 
     let get_new_env_type xs x = 
       let names, cs = add_local_declaration_binders env xs in
-      let names, cs = (rest_names @ names, rest_cs @ cs) in
-      (names, x::cs) in
+      let names, cs = (rest_names @ names, SS.union rest_cs cs) in
+      (names, SS.add x cs) in
 
     function
     | [] -> []
@@ -339,7 +342,7 @@ and resugar_declarations env =
         let env2 = get_new_env_type xs x in
         (DSimpleType (Ident x, List.map (fun (x, e) ->
           Constr (Ident x, resugar_expression env2 e)) cs))
-          :: (resugar rest_names (x::(add_constructors cs)) xs)
+          :: (resugar rest_names (SS.add x (add_constructors cs)) xs)
     | (Type (x, ps, e, cs))::xs ->
       let rec resugar_parameters env = function
         | [] -> ([], env)
@@ -351,8 +354,8 @@ and resugar_declarations env =
       let ps, env = resugar_parameters env2 ps in
       (DType (Ident x, ps, resugar_expression env e, List.map (fun (x, e) ->
         Constr (Ident x, resugar_expression env e)) cs))
-      :: (resugar rest_names (x::(add_constructors cs)) xs) in
-  resugar [] []
+      :: (resugar rest_names (SS.add x (add_constructors cs)) xs) in
+  resugar [] SS.empty
 and resugar_binder = function
   | Underscore -> BUnderscore
   | Name x -> BName (Ident x)

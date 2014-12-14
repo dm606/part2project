@@ -47,11 +47,11 @@ and declaration =
   | Type of string * (binder * expression) list
           * expression * (string * expression) list
 
-val add_all_declaration_binders : string list * string list -> decl list
-  -> string list * string list
-val desugar_expression : string list * string list -> exp -> expression
-val desugar_declarations : string list * string list -> decl list
+val add_all_declaration_binders : string list * Set.Make(String).t -> decl list
+  -> string list * Set.Make(String).t
+val desugar_expression : string list * Set.Make(String).t -> exp -> expression
+val desugar_declarations : string list * Set.Make(String).t -> decl list
   -> declaration list
-val resugar_expression : string list * string list -> expression -> exp
-val resugar_declarations : string list * string list -> declaration list
+val resugar_expression : string list * Set.Make(String).t -> expression -> exp
+val resugar_declarations : string list * Set.Make(String).t -> declaration list
   -> decl list
