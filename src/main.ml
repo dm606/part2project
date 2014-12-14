@@ -11,7 +11,7 @@ module SS = Set.Make(String)
 exception Unknown_command of string
 
 (* names of declared constants *)
-let declared = ref ([], SS.empty)
+let declared = ref empty_env 
 
 (* list of all declared values *)
 let env = ref Environment.empty

@@ -6,6 +6,10 @@ exception Invalid_expression of string
 exception Constructor_not_defined of string
 exception Cannot_desugar_abstract
 
+type envt = string list * SS.t
+
+let empty_env = ([], SS.empty)
+
 (* The type of desugared expressions.
  * Expressions use de Bruijn indices, which are allocated as follows:
  * * One index is allocated in the body of a lambda abstraction, if the binder

@@ -1,5 +1,9 @@
 open AbsConcrete
 
+type envt
+
+val empty_env : envt
+
 (* The type of desugared expressions.
  * Expressions use de Bruijn indices, which are allocated as follows:
  * * One index is allocated in the body of a lambda abstraction, if the binder
@@ -47,11 +51,8 @@ and declaration =
   | Type of string * (binder * expression) list
           * expression * (string * expression) list
 
-val add_all_declaration_binders : string list * Set.Make(String).t -> decl list
-  -> string list * Set.Make(String).t
-val desugar_expression : string list * Set.Make(String).t -> exp -> expression
-val desugar_declarations : string list * Set.Make(String).t -> decl list
-  -> declaration list
-val resugar_expression : string list * Set.Make(String).t -> expression -> exp
-val resugar_declarations : string list * Set.Make(String).t -> declaration list
-  -> decl list
+val add_all_declaration_binders : envt -> decl list -> envt
+val desugar_expression : envt -> exp -> expression
+val desugar_declarations : envt -> decl list -> declaration list
+val resugar_expression : envt -> expression -> exp
+val resugar_declarations : envt -> declaration list -> decl list
