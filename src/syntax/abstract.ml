@@ -9,6 +9,8 @@ type envt = string list * SS.t
 
 let empty_env = ([], SS.empty)
 
+let mk_env (names, cs) = (names, SS.of_list cs)
+
 (* The type of desugared expressions.
  * Expressions use de Bruijn indices, which are allocated as follows:
  * * One index is allocated in the body of a lambda abstraction, if the binder

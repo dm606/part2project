@@ -6,6 +6,7 @@ exception Constructor_not_defined of string
 type envt
 
 val empty_env : envt
+val mk_env : string list * string list -> envt
 
 (* The type of desugared expressions.
  * Expressions use de Bruijn indices, which are allocated as follows:
