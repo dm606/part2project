@@ -1,5 +1,8 @@
 open AbsConcrete
 
+exception Invalid_expression of string
+exception Constructor_not_defined of string
+
 type envt
 
 val empty_env : envt

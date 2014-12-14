@@ -4,7 +4,6 @@ module SS = Set.Make(String)
 
 exception Invalid_expression of string
 exception Constructor_not_defined of string
-exception Cannot_desugar_abstract
 
 type envt = string list * SS.t
 

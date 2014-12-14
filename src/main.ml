@@ -97,6 +97,9 @@ and parse f lexbuf = (
   try Lazy.force (handle_input (f lexbuf)) with
   | BNFC_Util.Parse_error (s, e) -> 
       fprintf stderr "%s: parse error \n" (format_position s e)
+  | Abstract.Constructor_not_defined s ->
+      fprintf stderr "\"%s\" is not bound to anything\n" s
+  | Failure s -> fprintf stderr "%s\n" s
   | Unknown_command s -> fprintf stderr "Unknown command: \"%s\"\n" s);
   end_parse lexbuf
 (* Lazy to stop the compiler from complaining about the Comm c case *)
