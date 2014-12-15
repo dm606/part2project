@@ -61,7 +61,12 @@ let test_patterns = "patterns" >::: (List.map test_eval [
         ; PatternApplication ("b", []), Unit], Constructor "c")))))]
 
 let test_eval_other = "eval_other" >::: (List.map test_eval [
-
+  ("declaration", Environment.empty, LocalDeclaration ([Let ("x", Universe,
+  UnitType)], Index 0), VUnitType);
+  ("mutual_declarations", Environment.empty, LocalDeclaration ([Let ("x",
+  Universe, Application (Index 0, Constructor "true")); LetRec ("y", Universe,
+  Function [PatternApplication ("true", []), Application (Index 0, Constructor
+  "false"); PatternApplication ("false", []), UnitType])], Index 1), VUnitType)
 ])
 
 let test_eval = "eval" >::: [test_tuples
