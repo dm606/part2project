@@ -8,13 +8,13 @@ open Abstract
 
 let size_factor = 3
 
-let quickcheck_config = {
+let quickCheck_config = {
   quick with
     maxTest = 120
 }
 
 let quickCheck_test name testable test = name >:: fun _ ->
-  match check testable quickcheck_config test with
+  match check testable quickCheck_config test with
   | Success -> ()
   | Failure i -> assert_failure ("quickcheck test failure " ^ (string_of_int i))
   | Exhausted i ->
