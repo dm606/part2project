@@ -19,7 +19,7 @@ let mk_env (names, cs) = (names, SS.of_list cs)
  *     not underscore
  * * On the right hand side of a case, one index is allocated for every binder
  *     in the corresponding pattern; the indices increase from right to left
- * * In the body of a let or let rec, one index is allocated per let and let rec
+ * * In the body of a let or let rec, one index is allocated per let rec
  *     in the same declaration, only including the current declaration for a let
  *     rec. Declarations which appear before the current one get a lower index
  *     than those after it.
@@ -80,6 +80,23 @@ let rec add_all_declaration_binders (names, cs) = function
             (SS.union (SS.of_list (List.map get_name l)) cs)) xs
 
 (* adds all of the bound variables to env in reverse order *)
+let rec add_all_let_recs (names, cs) = function
+  | [] -> (names, cs) 
+  | x::xs ->
+      let get_name (Constr (Ident x, _)) = x in
+      match x with
+      | DLet (Ident x, _, _, _) ->
+          add_all_let_recs (names, cs) xs
+      | DLetRec (Ident x, _, _, _) ->
+          add_all_let_recs (x::names, cs) xs
+      | DType (Ident x, _, _, l) ->
+          add_all_let_recs
+            (names, SS.add x (SS.union (SS.of_list (List.map get_name l)) cs)) xs
+      | DSimpleType (Ident x, l) ->
+          add_all_let_recs (names, SS.add x
+            (SS.union (SS.of_list (List.map get_name l)) cs)) xs
+
+(* adds all of the bound variables to env in reverse order *)
 let rec add_local_declaration_binders (names, cs) = function
   | [] -> (names, cs) 
   | x::xs ->
@@ -88,6 +105,17 @@ let rec add_local_declaration_binders (names, cs) = function
       | LetRec (x, _, _) -> add_local_declaration_binders (x::names, cs) xs
       | Type (x, _, _, l) ->
           add_local_declaration_binders (names, SS.add x
+            (SS.union (SS.of_list (List.map (fun (x, _) -> x) l)) cs)) xs
+
+(* adds all of the bound variables to env in reverse order *)
+let rec add_local_let_recs (names, cs) = function
+  | [] -> (names, cs) 
+  | x::xs ->
+      match x with
+      | Let (x, _, _) -> add_local_let_recs (x::names, cs) xs
+      | LetRec (x, _, _) -> add_local_let_recs (x::names, cs) xs
+      | Type (x, _, _, l) ->
+          add_local_let_recs (names, SS.add x
             (SS.union (SS.of_list (List.map (fun (x, _) -> x) l)) cs)) xs
 
 let is_constructor_defined (env, cs) x = SS.mem x cs
@@ -167,15 +195,15 @@ and desugar_declarations env =
       | (Param (b, e1))::ps ->
           handle_parameters (EPi (b, e1, t)) (ELambda ([b], e)) ps in
 
-    (* gets the environment in which all declarations in d are bound except x,
+    (* gets the environment in which all let recs in d are bound except x,
      * and one where all are bound *)
     let get_new_envs xs x = 
-      let names, cs = add_all_declaration_binders env xs in
+      let names, cs = add_all_let_recs env xs in
       let names, cs = (rest_names @ names, SS.union rest_cs cs) in
       ((names, cs), (x :: names, cs)) in
 
     let get_new_env_type xs x = 
-      let names, cs = add_all_declaration_binders env xs in
+      let names, cs = add_all_let_recs env xs in
       let names, cs = (rest_names @ names, SS.union rest_cs cs) in
       (names, SS.add x cs) in
 
@@ -185,7 +213,7 @@ and desugar_declarations env =
         let t, e = handle_parameters e1 e2 (List.rev ps) in
         let env1, env2 = get_new_envs xs x in
         (Let (x, (desugar_expression env1 t), (desugar_expression env1 e)))
-        :: (desugar (x::rest_names) rest_cs xs)
+        :: (desugar rest_names rest_cs xs)
     | (DLetRec (Ident x, ps, e1, e2))::xs ->
         let t, e = handle_parameters e1 e2 (List.rev ps) in
         let env1, env2 = get_new_envs xs x in
@@ -280,15 +308,15 @@ and resugar_declarations env =
     let add_constructors cs =
       SS.union (SS.of_list (List.map (fun (x, _) -> x) cs)) rest_cs in
 
-    (* gets the environment in which all declarations in d are bound except x,
+    (* gets the environment in which all let recs in d are bound except x,
      * and one where all are bound *)
     let get_new_envs xs x = 
-      let names, cs = add_local_declaration_binders env xs in
+      let names, cs = add_local_let_recs env xs in
       let names, cs = (rest_names @ names, SS.union rest_cs cs) in
       ((names, cs), (x :: names, cs)) in
 
     let get_new_env_type xs x = 
-      let names, cs = add_local_declaration_binders env xs in
+      let names, cs = add_local_let_recs env xs in
       let names, cs = (rest_names @ names, SS.union rest_cs cs) in
       (names, SS.add x cs) in
 
@@ -317,7 +345,7 @@ and resugar_declarations env =
                   DLet (Ident x, List.rev ps
                       , resugar_expression type_env t, ELambda (bs, e)))
          | e -> DLet (Ident x, [], resugar_expression env1 e1, e))
-                :: (resugar (x::rest_names) rest_cs xs)
+                :: (resugar rest_names rest_cs xs)
     | (LetRec (x, e1, e))::xs ->
         let env1, env2 = get_new_envs xs x in
         (match resugar_expression env2 e with

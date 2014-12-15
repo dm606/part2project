@@ -10,7 +10,7 @@ let add env v = (Val v)::env
 
 let add_declarations env declarations = Decl (List.filter
   (function
-   | Type (_, _, _i, _) -> false
+   | Type (_, _, _, _) -> false
    | _ -> true) declarations) :: env
 
 let get_declarations rest_decls xs = Decl xs
@@ -20,9 +20,8 @@ let rec add_declarations_as_thunks eval env =
     | [] -> List.fold_right (fun t env -> (Thunk t)::env) rest env
     | (Let (_, _, e) as d)::xs ->
         let new_env = (Decl (xs @ (List.rev rest_decls)))::env in
-        add_decls ((lazy (eval new_env e))::rest) (d::rest_decls) xs
+        add_decls ((lazy (eval new_env e))::rest) rest_decls xs
     | (LetRec (_, _, e) as d)::xs as l ->
-        (* TOOD: check that new_env has the correct order *)
         let new_env = (Decl (xs @ (List.rev (d::rest_decls))))::env in
         add_decls ((lazy (eval new_env e))::rest) (d::rest_decls) xs 
     | _::xs -> add_decls rest rest_decls xs in
