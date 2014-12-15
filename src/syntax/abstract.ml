@@ -23,6 +23,8 @@ let mk_env (names, cs) = (names, SS.of_list cs)
  *     in the same declaration, only including the current declaration for a let
  *     rec. Declarations which appear before the current one get a lower index
  *     than those after it.
+ * * In the body of a declaration, one index is allocated per let or let rec;
+ *   closer lets get smaller indices.
  * * In the indices of a type or the type of a constructor, one index is
  *     assigned for each binder in the parameters of the type. The indices
  *     increase from right to left. *)
