@@ -2,6 +2,6 @@ type 'a t
 
 val empty : 'a t
 val add : 'a t -> 'a -> 'a t
-val add_thunk : 'a t -> 'a Lazy.t -> 'a t
-val add_thunks : 'a t -> 'a Lazy.t list -> 'a t
-val get : 'a t -> int -> 'a
+val add_declarations : 'a t -> Abstract.declaration list -> 'a t
+val get : 'a t -> ('a t -> Abstract.expression -> 'a) -> int -> 'a
+val map : ('a -> 'b) -> (Abstract.declaration list -> 'b) -> 'a t -> 'b list

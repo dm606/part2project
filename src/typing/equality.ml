@@ -7,7 +7,7 @@ type normal =
   | NLambda of int option * normal
   | NPi of int option * normal * normal
   | NSigma of int option * normal * normal
-  | NFunction of (normal_pattern * normal) list
+  | NFunction of (pattern * expression) list * [`N of normal | `D of declaration list] list
   | NUniverse
   | NUnitType
   | NUnit
@@ -15,40 +15,19 @@ type normal =
   | NNeutral of normal_neutral
 and normal_neutral =
   | NVar of int 
-  | NFunctionApplication of (normal_pattern * normal) list * neutral
+  | NFunctionApplication of (pattern * expression) list
+                          * [`N of normal | `D of declaration list] list * neutral
   | NApplication of normal_neutral * normal
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral
-and normal_pattern =
-  | NPPair of normal_pattern * normal_pattern
-  | NPApplication of string * normal_pattern list
-  | NPBinder of int
-  | NPUnderscore
 
 let rec readback i = 
-  let rec convert_pattern env i = function
-  | PatternPair (p1, p2) -> 
-      let (np1, env, i) = convert_pattern env i p1 in
-      convert_pattern env i p2
-  | PatternApplication (c, patterns) ->
-      let (ps, env, i) = List.fold_left (fun (ps, env, i) p ->
-        let (np, env, i) = convert_pattern env i p in
-        (np::ps, env, i)) ([], env, i) patterns in
-      (NPApplication (c, List.rev ps), env, i)
-  | PatternBinder _ ->
-      (NPBinder i, Environment.add env (VNeutral (VVar i)), i + 1) 
-  | PatternUnderscore -> (NPUnderscore, env, i) in
-
-  let convert_case env (p, e) = 
-    let (np, env, i) = convert_pattern env i p in
-    (np, readback i (eval env e)) in
-
-  let convert_cases env = List.map (convert_case env) in
-
+  let readback_env i =
+    Environment.map (fun v -> (`N (readback i v))) (fun d -> `D d) in
   let rec readback_neutral i = function
   | VVar i -> NVar i
   | VFunctionApplication (cases, env, v) ->
-                  NFunctionApplication (convert_cases env cases, v)
+                  NFunctionApplication (cases, readback_env i env, v)
   | VApplication (v1, v2) ->
       NApplication (readback_neutral i v1, readback i v2)
   | VProj1 v -> NProj1 (readback_neutral i v)
@@ -71,7 +50,7 @@ let rec readback i =
   | VSigma (_, v, e, env) ->
       NSigma (Some i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
-  | VFunction (l, env) -> NFunction (convert_cases env l)
+  | VFunction (l, env) -> NFunction (l, readback_env i env)
   | VUniverse -> NUniverse
   | VUnitType -> NUnitType
   | VUnit -> NUnit

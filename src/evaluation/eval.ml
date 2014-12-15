@@ -33,17 +33,8 @@ let rec pattern_match env cases value = match cases with
       let (m, new_env) = try_match env p value in
       if m then (new_env, e) else pattern_match env cs value
 
-let rec add_declarations env =
-  let rec add_decls rest = function
-    | [] -> add_thunks env rest
-    | (Let (_, _, e))::xs ->
-        add_decls ((lazy (eval (add_decls rest xs) e))::rest) xs
-    | (LetRec (_, _, e))::xs as l ->
-        add_decls ((lazy (eval (add_decls rest l) e))::rest) xs 
-    | _::xs -> add_decls rest xs in
-  add_decls []
 (* evaluates an expression to a value *)
-and eval env = 
+let rec eval env = 
   let apply b e fun_env v = match b with
   | Underscore -> eval fun_env e
   | Name _ -> eval (add fun_env v) e in
@@ -73,7 +64,7 @@ and eval env =
   | UnitType -> VUnitType
   | Unit -> VUnit
   | Index i -> 
-      (try get env i with
+      (try get env eval i with
        | Invalid_argument _ ->
            raise (Cannot_evaluate "Attempted to use a negative de Bruijn index")
        | Failure _ ->

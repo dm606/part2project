@@ -113,7 +113,7 @@ and handle_input l = lazy (
     | Parser.Decl d ->
         let new_declared = add_all_declaration_binders !declared d in
         let decl = desugar_declarations !declared d in
-        let new_env = Eval.add_declarations !env decl in
+        let new_env = Environment.add_declarations !env decl in
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
           (ReplDeclarations (LLDCons
             (resugar_declarations !declared decl, LLDEmpty), SEMISEMI ";;")));
