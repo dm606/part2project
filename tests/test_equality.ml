@@ -3,12 +3,15 @@ open QuickCheck
 
 open Abstract
 open Equality
+open Value
 open Testing
 
 let test_readback (name, input, expected) =
   name >:: fun _ -> (assert_equal (readback 0 input) expected)
 
 let test_lambdas = "lambdas" >::: (List.map test_readback [
+
+        ("lambda", VLambda (Underscore, Universe, Environment.empty), NLambda (0, NUniverse))
 
 ])
 
@@ -29,5 +32,4 @@ let test_let_equality = quickCheck_test "let_equality"
 let test_equality = "equality" >::: [test_lambdas
                                    ; test_functions
                                    ; test_readback_other
-                                   ; test_let_equality
-                                   (*; test_equality_eval*)]
+                                   ; test_let_equality]
