@@ -10,13 +10,20 @@ let test_readback (name, input, expected) =
   name >:: fun _ -> (assert_equal (readback 0 input) expected)
 
 let test_lambdas = "lambdas" >::: (List.map test_readback [
-
-        ("lambda", VLambda (Underscore, Universe, Environment.empty), NLambda (0, NUniverse))
-
+  ("lambda", VLambda (Underscore, Universe, Environment.empty), NLambda (0,
+  NUniverse));
+  ("lambda2", VLambda (Underscore, Lambda (Name "x", Index 0),
+  Environment.empty), NLambda (0, NLambda (1, NNeutral (NVar 1))));
+  ("lambda3", VLambda (Name "x", Lambda (Underscore, Index 0),
+  Environment.empty), NLambda (0, NLambda (1, NNeutral (NVar 0))));
+  ("lambda_app", VLambda (Name "x", Application (Lambda (Name "y", Index 0),
+  Index 0), Environment.empty), NLambda (0, NNeutral (NVar 0)))
 ])
 
 let test_functions = "functions" >::: (List.map test_readback [
-
+        ("empty", VFunction ([], Environment.empty), NFunction ([], []));
+        ("appl", VNeutral (VFunctionApplication ([], Environment.empty, VVar 0)),
+        NNeutral (NFunctionApplication ([], [], NVar 0)))
 ])
 
 let test_readback_other = "readback_other" >::: (List.map test_readback [

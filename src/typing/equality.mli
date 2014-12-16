@@ -15,7 +15,8 @@ type normal =
 and normal_neutral =
   | NVar of int 
   | NFunctionApplication of (pattern * expression) list
-                          * [`N of normal | `D of declaration list] list * neutral
+                          * [`N of normal | `D of declaration list] list
+                          * normal_neutral
   | NApplication of normal_neutral * normal
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral
