@@ -16,10 +16,12 @@ val mk_env : string list * string list -> envt
  *     not underscore
  * * On the right hand side of a case, one index is allocated for every binder
  *     in the corresponding pattern; the indices increase from right to left
- * * In the body of a let or let rec, one index is allocated per let and let rec
+ * * In the body of a let or let rec, one index is allocated per let rec
  *     in the same declaration, only including the current declaration for a let
- *     rec. Declarations which appear the current one get a lower index than
- *     those after it.
+ *     rec. Declarations which appear before the current one get a lower index
+ *     than those after it.
+ * * In the body of a declaration, one index is allocated per let or let rec;
+ *   closer lets get smaller indices.
  * * In the indices of a type or the type of a constructor, one index is
  *     assigned for each binder in the parameters of the type. The indices
  *     increase from right to left. *)
