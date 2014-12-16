@@ -131,14 +131,12 @@ let test_eq_resugar_declarations (name, env, input, expected) =
 
 let test_resugar_declarations = "resugar_declarations" >::: (
   List.map test_eq_resugar_declarations [
-
     ("t1", mk_env ([], []), Type ("Vec", [(Name "A", Universe)], Pi (Underscore,
     Constructor "Nat", Universe), [("nil", Application (Application (Constructor
     "Vec", Index 0), Constructor "zero")) ]), DType (Ident "Vec", [Param (BName
     (Ident "A"), EUniverse)], EArrow (EIdentifier (Ident "Nat"), EUniverse),
     [Constr (Ident "nil", EApplication (EApplication (EIdentifier (Ident "Vec"),
     EIdentifier (Ident "A")), EIdentifier (Ident "zero"))) ]));
-
     ("t2", mk_env (["D"; "C"; "B"; "A"], []), LetRec ("f", Pi (Underscore, Index
     3, Pi (Name "x", Index 2, Pi (Name "y", Index 2, Pi (Underscore, Index 2,
     UnitType)))), Lambda (Underscore, Lambda (Name "x", Lambda (Name "y", Lambda
@@ -146,7 +144,6 @@ let test_resugar_declarations = "resugar_declarations" >::: (
     (Ident "A")); Param (BName (Ident "x"), EIdentifier (Ident "B")); Param
     (BName (Ident "y"), EIdentifier (Ident "C"))], EArrow (EIdentifier (Ident
     "D"), EUnitType), ELambda ([BName (Ident "z")], EUnit)))
-
   ])
 
 let test_eq_lexfun_repl (name, input, expected) =

@@ -4,9 +4,9 @@ open Value
 
 type normal =
   | NPair of normal * normal
-  | NLambda of int option * normal
-  | NPi of int option * normal * normal
-  | NSigma of int option * normal * normal
+  | NLambda of int * normal
+  | NPi of int * normal * normal
+  | NSigma of int * normal * normal
   | NFunction of (pattern * expression) list * [`N of normal | `D of declaration list] list
   | NUniverse
   | NUnitType
@@ -35,20 +35,14 @@ let rec readback i =
 
   function
   | VPair (v1, v2) -> NPair (readback i v1, readback i v2)
-  | VLambda (Underscore, e, env) ->
-      NLambda (None, readback i (eval env e))
   | VLambda (_, e, env) -> 
-      NLambda (Some i, readback (i + 1)
+      NLambda (i, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
-  | VPi (Underscore, v, e, env) -> 
-      NPi (None, readback i v, readback i (eval env e))
   | VPi (_, v, e, env) -> 
-      NPi (Some i, readback i v, readback (i + 1)
+      NPi (i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
-  | VSigma (Underscore, v, e, env) ->
-      NSigma (None, readback i v, readback i (eval env e))
   | VSigma (_, v, e, env) ->
-      NSigma (Some i, readback i v, readback (i + 1)
+      NSigma (i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
   | VFunction (l, env) -> NFunction (l, readback_env i env)
   | VUniverse -> NUniverse
@@ -57,4 +51,9 @@ let rec readback i =
   | VConstruct (c, vs) -> NConstruct (c, List.map (readback i) vs)
   | VNeutral n -> NNeutral (readback_neutral i n)
 
-let are_equal env x y = (readback 0 (eval env x)) = (readback 0 (eval env y))
+let are_equal env x y =
+  let v1 = eval env x in
+  let n1 = readback 0 v1 in
+  let v2 = eval env y in
+  let n2 = readback 0 v2 in
+  (readback 0 (eval env x)) = (readback 0 (eval env y))

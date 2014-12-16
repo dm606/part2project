@@ -3,9 +3,9 @@ open Value
 
 type normal =
   | NPair of normal * normal
-  | NLambda of int option * normal
-  | NPi of int option * normal * normal
-  | NSigma of int option * normal * normal
+  | NLambda of int * normal
+  | NPi of int * normal * normal
+  | NSigma of int * normal * normal
   | NFunction of (pattern * expression) list * [`N of normal | `D of declaration list] list
   | NUniverse
   | NUnitType
@@ -20,5 +20,7 @@ and normal_neutral =
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral
 
- val are_equal : value Environment.t -> Abstract.expression
-              -> Abstract.expression -> bool
+val readback : int -> value -> normal
+
+val are_equal : value Environment.t -> Abstract.expression
+             -> Abstract.expression -> bool
