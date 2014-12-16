@@ -51,9 +51,4 @@ let rec readback i =
   | VConstruct (c, vs) -> NConstruct (c, List.map (readback i) vs)
   | VNeutral n -> NNeutral (readback_neutral i n)
 
-let are_equal env x y =
-  let v1 = eval env x in
-  let n1 = readback 0 v1 in
-  let v2 = eval env y in
-  let n2 = readback 0 v2 in
-  (readback 0 (eval env x)) = (readback 0 (eval env y))
+let are_equal env x y = (readback 0 (eval env x)) = (readback 0 (eval env y))
