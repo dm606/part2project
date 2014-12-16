@@ -21,13 +21,16 @@ let test_lambdas = "lambdas" >::: (List.map test_readback [
 ])
 
 let test_functions = "functions" >::: (List.map test_readback [
-        ("empty", VFunction ([], Environment.empty), NFunction ([], []));
-        ("appl", VNeutral (VFunctionApplication ([], Environment.empty, VVar 0)),
-        NNeutral (NFunctionApplication ([], [], NVar 0)))
+  ("empty", VFunction ([], Environment.empty), NFunction ([], []));
+  ("appl", VNeutral (VFunctionApplication ([], Environment.empty, VVar 0)),
+  NNeutral (NFunctionApplication ([], [], NVar 0)))
 ])
 
 let test_readback_other = "readback_other" >::: (List.map test_readback [
-
+  ("universe", VUniverse, NUniverse);
+  ("unit", VUnit, NUnit);
+  ("unit_type", VUnitType, NUnitType);
+  ("pair", VPair (VUnit, VUniverse), NPair (NUnit, NUniverse))
 ])
 
 let test_let_equality = quickCheck_test "let_equality"
