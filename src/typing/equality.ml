@@ -7,7 +7,8 @@ type normal =
   | NLambda of int * normal
   | NPi of int * normal * normal
   | NSigma of int * normal * normal
-  | NFunction of (pattern * expression) list * [`N of normal | `D of declaration list] list
+  | NFunction of (pattern * expression) list 
+               * [`N of normal | `D of declaration list] list
   | NUniverse
   | NUnitType
   | NUnit
