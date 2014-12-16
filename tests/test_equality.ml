@@ -27,7 +27,10 @@ let test_let_equality = quickCheck_test "let_equality"
   (testable_fun arbitrary_expression show_expression testable_bool)
   (fun e -> 
     let e2 = LocalDeclaration ([Let ("x", Universe, e)], Index 0) in
-    try are_equal Environment.empty e e2 with Eval.Cannot_evaluate _ -> true)
+    try are_equal Environment.empty e e2
+    with
+    | Eval.Cannot_evaluate _ -> true
+    | Eval.Pattern_match -> true)
 
 let test_equality = "equality" >::: [test_lambdas
                                    ; test_functions

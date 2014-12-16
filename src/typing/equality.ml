@@ -35,12 +35,17 @@ let rec readback i =
 
   function
   | VPair (v1, v2) -> NPair (readback i v1, readback i v2)
+  | VLambda (Underscore, e, env) -> NLambda (i, readback (i + 1) (eval env e))
   | VLambda (_, e, env) -> 
       NLambda (i, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
+  | VPi (Underscore, v, e, env) ->
+      NPi (i, readback i v, readback (i + 1) (eval env e))
   | VPi (_, v, e, env) -> 
       NPi (i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
+  | VSigma (Underscore, v, e, env) ->
+      NSigma (i, readback i v, readback (i + 1) (eval env e))
   | VSigma (_, v, e, env) ->
       NSigma (i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
