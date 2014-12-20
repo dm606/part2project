@@ -62,3 +62,5 @@ val desugar_expression : envt -> exp -> expression
 val desugar_declarations : envt -> decl list -> declaration list
 val resugar_expression : envt -> expression -> exp
 val resugar_declarations : envt -> declaration list -> decl list
+
+val print_expression : envt -> expression -> string

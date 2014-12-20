@@ -9,12 +9,16 @@ open Equality
 module SS = Set.Make(String)
 
 exception Unknown_command of string
+exception Declaration_type of Checker.typing_result
 
 (* names of declared constants *)
 let declared = ref empty_env 
 
 (* list of all declared values *)
 let env = ref Environment.empty
+
+(* typing context *)
+let context = ref Context.empty
 
 let prompt = ref ""
 
@@ -78,6 +82,23 @@ let handle_are_equal () =
           then print_endline "Expressions are equal"
           else print_endline "Expressions are not equal")
 
+let add_declarations_to_context context d =
+  let result = Checker.check_declarations !env context d in
+  if Checker.succeeded result then
+    let context = List.fold_right
+                    (fun (s, v) c -> Context.add_binder c s v)
+                    (Checker.get_binder_types result) context in
+    (* the order of constructors does not matter -- use fold_left for
+     * efficiency *)
+    List.fold_left (fun c (s, v) -> Context.add_constructor c s v) context
+      (Checker.get_constructor_types result)
+  else raise (Declaration_type result)
+
+let print_typing_result r =
+  (* TODO: only print the error here *)
+  Checker.print_error stderr r;
+  Checker.print_trace stderr r
+
 let rec use_file filename =
   let file = open_in filename in
   try
@@ -100,6 +121,7 @@ and parse f lexbuf = (
   | Abstract.Constructor_not_defined s ->
       fprintf stderr "\"%s\" is not bound to anything\n" s
   | Eval.Cannot_evaluate s -> fprintf stderr "Can't evaluate expression: %s\n" s
+  | Declaration_type result -> print_typing_result result
   | Failure s -> fprintf stderr "%s\n" s
   | Unknown_command s -> fprintf stderr "Unknown command: \"%s\"\n" s);
   end_parse lexbuf
@@ -108,17 +130,22 @@ and handle_input l = lazy (
   let handle = function
     | Parser.Exp e ->
         let exp = desugar_expression !declared e in
-        let evaluated = Eval.eval !env exp in
-        Print_value.print_value evaluated
+        let typing_result = Checker.infer_type !env !context exp in
+        if Checker.succeeded typing_result then (
+          let evaluated = Eval.eval !env exp in
+          Print_value.print_value evaluated)
+        else print_typing_result typing_result
     | Parser.Decl d ->
         let new_declared = add_all_declaration_binders !declared d in
         let decl = desugar_declarations !declared d in
+        let new_context = add_declarations_to_context !context decl in
         let new_env = Environment.add_declarations !env decl in
         print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
           (ReplDeclarations (LLDCons
             (resugar_declarations !declared decl, LLDEmpty), SEMISEMI ";;")));
         declared := new_declared;
-        env := new_env
+        env := new_env;
+        context := new_context
     | Parser.Comm c -> handle_command c in
   List.iter handle l)
 

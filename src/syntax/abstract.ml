@@ -402,3 +402,5 @@ and resugar_pattern = function
   | PatternBinder x -> PIdentifier (Ident x)
   | PatternUnderscore -> PUnderscore
 
+let print_expression env exp =
+    PrintConcrete.printTree PrintConcrete.prtExp (resugar_expression env exp)

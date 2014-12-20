@@ -2,13 +2,14 @@ open Abstract
 open Eval
 open Value
 
-type normal =
+type normal_envt = [`N of normal | `D of declaration list] list
+and normal =
   | NPair of normal * normal
   | NLambda of int * normal
   | NPi of int * normal * normal
   | NSigma of int * normal * normal
   | NFunction of (pattern * expression) list 
-               * [`N of normal | `D of declaration list] list
+               * normal_envt
   | NUniverse
   | NUnitType
   | NUnit
@@ -17,7 +18,7 @@ type normal =
 and normal_neutral =
   | NVar of int 
   | NFunctionApplication of (pattern * expression) list
-                          * [`N of normal | `D of declaration list] list
+                          * normal_envt
                           * normal_neutral
   | NApplication of normal_neutral * normal
   | NProj1 of normal_neutral

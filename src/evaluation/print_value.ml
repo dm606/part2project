@@ -32,3 +32,8 @@ and pr_value5 fmt = function
   | v -> fprintf fmt "(%a)" pr_value v
 
 let print_value v = pr_value std_formatter v; print_newline ()
+let string_of_value v =
+  Buffer.clear stdbuf;
+  pr_value str_formatter v;
+  pp_print_flush str_formatter ();
+  Buffer.contents stdbuf
