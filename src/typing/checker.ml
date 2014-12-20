@@ -97,7 +97,8 @@ let rec infer_type i env context exp =
   | Unit -> SType VUnitType
   | UnitType -> SType VUniverse
   | Index j -> (match get_binder_type context j with
-      | None -> failure (sprintf "The type of index %i is not in the context." j)
+      | None ->
+          failure (sprintf "The type of index %i is not in the context." j)
       | Some v -> SType v)
 
   (* normally a type checking rule -- included for declarations given as part of

@@ -17,10 +17,12 @@ let add_binder (m, l) x v = (m, (x, `V v)::l)
 let add_lazy_binder (m, l) x t = (m, (x, `T t)::l)
 
 let add_constructor (m, l) x v =
-    if M.mem x m then (M.add x ((`V v)::M.find x m) m, l) else (M.add x [`V v] m, l)
+    if M.mem x m then (M.add x ((`V v)::M.find x m) m, l)
+    else (M.add x [`V v] m, l)
 
 let add_lazy_constructor (m, l) x t =
-    if M.mem x m then (M.add x ((`T t)::M.find x m) m, l) else (M.add x [`T t] m, l)
+    if M.mem x m then (M.add x ((`T t)::M.find x m) m, l)
+    else (M.add x [`T t] m, l)
 
 let get_binder_type (m, l) i = match List.nth l i with
   | _, `V v -> Some v
