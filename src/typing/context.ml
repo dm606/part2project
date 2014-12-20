@@ -26,3 +26,18 @@ let get_binder_type (m, l) i = match List.nth l i with
   | _, `V v -> Some v
   | _, `T t -> Some (Lazy.force t)
   | exception (Failure _) -> None
+
+let compare_types t = function
+  | `V t2 -> t = t2
+  | `T thunk -> t = (Lazy.force thunk)
+
+let check_constructor_type (m, l) c t =
+  M.mem c m && List.exists (compare_types t) (M.find c m)
+
+let get_unique_constructor_type (m, l) c =
+  if M.mem c m
+  then match M.find c m with
+  | [`V t] -> Some t
+  | [`T t] -> Some (Lazy.force t)
+  | _ -> None
+  else None

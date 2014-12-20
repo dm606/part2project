@@ -93,10 +93,12 @@ let rec infer_type i env context exp =
   let failure s = tr (F (s, lazy "")) in
 
   match exp with
+  | Universe -> SType VUniverse
+  | Unit -> SType VUnitType
+  | UnitType -> SType VUniverse
   | Index j -> (match get_binder_type context j with
       | None -> failure (sprintf "The type of index %i is not in the context." j)
       | Some v -> SType v)
-  | Universe -> SType VUniverse
 
   (* normally a type checking rule -- included for declarations given as part of
    * expressions in the REPL *)
@@ -106,6 +108,14 @@ let rec infer_type i env context exp =
       let env' = Environment.add_declarations env d in
       let context' = add_all_to_context env context d in
       tr (infer_type i env' context' e))
+
+  (* not needed in type system -- included to constructors given as part of
+   * expressions in the REPL *)
+  | Constructor c -> (match get_unique_constructor_type context c with
+      | None ->
+          failure
+            (sprintf "The constructor \"%s\" does not have a unique type." c)
+      | Some t -> SType t)
 
   | _ -> failure (sprintf "Cannot infer a type for %a." print exp)
 
@@ -174,17 +184,21 @@ and check_type i env context exp typ =
   let failure s = tr (F (s, lazy "")) in
 
   match exp with
-  | _ ->
-    let infer_result = infer_type i env context exp in
-    if succeeded infer_result
-    then
-      let inferred_type = get_type infer_result in
-      if (Equality.readback i inferred_type) = (Equality.readback i typ)
+  | Constructor c ->
+      if check_constructor_type context c typ
       then SType typ
-      else failure (sprintf "%a is not equal to %a." print_val inferred_type
-             print_val typ)
-    else tr (F (sprintf "Cannot check that %a has type %a."
-           print_exp exp print_val typ, lazy ""))
+      else failure (sprintf "The type of \"%s\" is not %a." c print_val typ)
+  | _ ->
+      let infer_result = infer_type i env context exp in
+      if succeeded infer_result
+      then
+        let inferred_type = get_type infer_result in
+        if (Equality.readback i inferred_type) = (Equality.readback i typ)
+        then SType typ
+        else failure (sprintf "%a is not equal to %a." print_val inferred_type
+               print_val typ)
+      else tr (F (sprintf "Cannot check that %a has type %a."
+             print_exp exp print_val typ, lazy ""))
 
 let infer_type = infer_type 0
 let check_type = check_type 0

@@ -17,3 +17,4 @@ val check_type : value Environment.t -> Context.t -> expression -> value
 
 val check_declarations : value Environment.t -> Context.t -> declaration list
                       -> typing_result
+
