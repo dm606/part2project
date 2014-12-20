@@ -188,6 +188,12 @@ and check_type i env context exp typ =
       if check_constructor_type context c typ
       then SType typ
       else failure (sprintf "The type of \"%s\" is not %a." c print_val typ)
+  | LocalDeclaration (d, e) -> tr (
+      check_declarations i env context d
+      >>= fun _ ->
+      let env' = Environment.add_declarations env d in
+      let context' = add_all_to_context env context d in
+      tr (check_type i env' context' e typ))
   | _ ->
       let infer_result = infer_type i env context exp in
       if succeeded infer_result
