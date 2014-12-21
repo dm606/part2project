@@ -74,7 +74,8 @@ let arbitrary_declaration =
       arbitrary_identifier
         >>= (fun s -> ((arbitrary_list (arbitrary_pair arbitrary_binder exp))
         >>= (fun p -> (exp
-        >>= (fun e -> ((arbitrary_list (arbitrary_pair arbitrary_identifier exp))
+        >>= (fun e ->
+            ((arbitrary_list (arbitrary_pair arbitrary_identifier exp))
         >>= (fun l -> ret_gen (Type (s, p, e, l)))))))))
     ] in
   sized f

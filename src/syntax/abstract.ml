@@ -76,7 +76,8 @@ let rec add_all_declaration_binders (names, cs) = function
           add_all_declaration_binders (x::names, cs) xs
       | DType (Ident x, _, _, l) ->
           add_all_declaration_binders
-            (names, SS.add x (SS.union (SS.of_list (List.map get_name l)) cs)) xs
+            (names, SS.add x (SS.union (SS.of_list (List.map get_name l)) cs))
+            xs
       | DSimpleType (Ident x, l) ->
           add_all_declaration_binders (names, SS.add x
             (SS.union (SS.of_list (List.map get_name l)) cs)) xs
@@ -93,7 +94,8 @@ let rec add_all_let_recs (names, cs) = function
           add_all_let_recs (x::names, cs) xs
       | DType (Ident x, _, _, l) ->
           add_all_let_recs
-            (names, SS.add x (SS.union (SS.of_list (List.map get_name l)) cs)) xs
+            (names, SS.add x (SS.union (SS.of_list (List.map get_name l)) cs))
+            xs
       | DSimpleType (Ident x, l) ->
           add_all_let_recs (names, SS.add x
             (SS.union (SS.of_list (List.map get_name l)) cs)) xs
