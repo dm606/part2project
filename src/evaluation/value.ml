@@ -2,8 +2,6 @@ open Abstract
 
 exception Cannot_reify of string
 
-(* the values associated with declarations need to be evaluated lazily; other
- * constructs evaluate to EnvValues *)
 type value =
   | VPair of value * value
   | VLambda of binder * expression * value Environment.t
@@ -13,18 +11,27 @@ type value =
   | VUniverse
   | VUnitType
   | VUnit
-  (* constructor applied to arguments
-   * values are in reverse order for efficiency, so the head of the list is the
-   * last value applied to the constructor *)
   | VConstruct of string * value list
   | VNeutral of neutral
 and neutral =
   | VVar of int
-  (* application of a neutral value to a function defined by pattern matching *)
   | VFunctionApplication of (pattern * expression) list
                           * value Environment.t * neutral
   | VApplication of neutral * value
   | VProj1 of neutral
   | VProj2 of neutral
 
-val reify : value -> expression
+let rec reify = function
+  | VPair (v1, v2) -> Pair (reify v1, reify v2)
+  | VLambda _ -> raise (Cannot_reify "Cannot reify lambda abstractions")
+  | VPi _ ->  raise (Cannot_reify "Cannot reify pi types")
+  | VSigma _ -> raise (Cannot_reify "Cannot reify sigma types")
+  | VFunction _ -> 
+      raise (Cannot_reify "Cannot reify pattern-matching functions")
+  | VUniverse -> Universe
+  | VUnitType -> UnitType
+  | VUnit -> Unit
+  | VConstruct (c, l) ->
+      List.fold_left (fun e v -> Application (e, reify v)) (Constructor c) l
+  | VNeutral _ -> raise (Cannot_reify "Cannot reify neutral terms")
+

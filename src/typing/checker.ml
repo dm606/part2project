@@ -9,11 +9,15 @@ type typing_result =
   | SDecl of (string * value) list * (string * value) list
   | F of string * string Lazy.t
 
-(* this isn't the normal bind operation, since it passes the result not its
- * contents to the function, but it is close enough *)
-let (>>=) r f = match r with
+let (>>) r f = match r with
   | F _ -> r
   | r -> f r
+
+(* this operator is almost the normal bind operator *)
+let (>>=) r f = match r with
+  | F _ -> r
+  | SDecl _ -> assert false
+  | SType t -> f t
 
 let succeeded = function
   | SType _ | SDecl _ -> true 
@@ -105,12 +109,12 @@ let rec infer_type i env context exp =
    * expressions in the REPL *)
   | LocalDeclaration (d, e) -> tr (
       check_declarations i env context d
-      >>= fun _ ->
+      >> fun _ ->
       let env' = Environment.add_declarations env d in
       let context' = add_all_to_context env context d in
       tr (infer_type i env' context' e))
 
-  (* not needed in type system -- included to constructors given as part of
+  (* not needed in type system -- included for constructors given as part of
    * expressions in the REPL *)
   | Constructor c -> (match get_unique_constructor_type context c with
       | None ->
@@ -118,7 +122,66 @@ let rec infer_type i env context exp =
             (sprintf "The constructor \"%s\" does not have a unique type." c)
       | Some t -> SType t)
 
+  (* not needed in the type system -- included for pairs given as part of
+   * expressions in the REPL *)
+  | Pair (e1, e2) -> tr (
+      infer_type i env context e1
+      >>= fun t1 ->
+      infer_type i env context e2
+      >>= fun t2 ->
+      (* env should not be needed in the next line -- a reified value should not
+       * have free variables *)
+      SType (VSigma (Underscore, t1, reify t2, env)))
+
   | _ -> failure (sprintf "Cannot infer a type for %a." print exp)
+
+and check_type i env context exp typ =
+  let print_exp () e =
+    try print_expression (get_envt context) e with _ -> "???" in
+  let print_val () v = 
+    try Print_value.string_of_value v with _ -> "???" in
+
+  let tr = function
+    | SType _ as r -> r
+    | SDecl _ -> assert false
+    | F (e, t) ->
+        F (e, lazy (sprintf "%s\nChecking that %a has type %a."
+            (Lazy.force t) print_exp exp print_val typ)) in
+
+  let failure s = tr (F (s, lazy "")) in
+
+  match exp, typ with
+  | Pair (e1, e2), VSigma (Underscore, a, b, sigma_env) -> tr (
+      check_type i env context e1 a
+      >>= fun _ ->
+      check_type i env context e2 (Eval.eval sigma_env b))
+  | Pair (e1, e2), VSigma (Name x, a, b, sigma_env) -> tr (
+      check_type i env context e1 a
+      >>= fun _ ->
+      let sigma_env' = Environment.add env (Eval.eval sigma_env e1) in
+      let context' = Context.add_binder context x a in
+      check_type i env context' e2 (Eval.eval sigma_env' b))
+  | Constructor c, _ ->
+      if check_constructor_type context c typ
+      then SType typ
+      else failure (sprintf "The type of \"%s\" is not %a." c print_val typ)
+  | LocalDeclaration (d, e), _ -> tr (
+      check_declarations i env context d
+      >> fun _ ->
+      let env' = Environment.add_declarations env d in
+      let context' = add_all_to_context env context d in
+      tr (check_type i env' context' e typ))
+  | _ ->
+      let infer_result = infer_type i env context exp in
+      if succeeded infer_result
+      then
+        let inferred_type = get_type infer_result in
+        if (Equality.readback i inferred_type) = (Equality.readback i typ)
+        then SType typ
+        else failure (sprintf "%a is not equal to %a." print_val inferred_type
+               print_val typ)
+      else tr (F (sprintf "Cannot check that %a has type %a."
+             print_exp exp print_val typ, lazy ""))
 
 and check_declarations i env context =
   let tr x = function
@@ -168,44 +231,6 @@ and check_declarations i env context =
           result_cs cs in
         check_decls result_bs result_cs rest_ds rest_bs xs in
   check_decls [] [] [] []
-
-and check_type i env context exp typ =
-  let print_exp () e =
-    try print_expression (get_envt context) e with _ -> "???" in
-  let print_val () v = 
-    try Print_value.string_of_value v with _ -> "???" in
-
-  let tr = function
-    | SType _ as r -> r
-    | SDecl _ -> assert false
-    | F (e, t) ->
-        F (e, lazy (sprintf "%s\nChecking that %a has type %a."
-            (Lazy.force t) print_exp exp print_val typ)) in
-
-  let failure s = tr (F (s, lazy "")) in
-
-  match exp with
-  | Constructor c ->
-      if check_constructor_type context c typ
-      then SType typ
-      else failure (sprintf "The type of \"%s\" is not %a." c print_val typ)
-  | LocalDeclaration (d, e) -> tr (
-      check_declarations i env context d
-      >>= fun _ ->
-      let env' = Environment.add_declarations env d in
-      let context' = add_all_to_context env context d in
-      tr (check_type i env' context' e typ))
-  | _ ->
-      let infer_result = infer_type i env context exp in
-      if succeeded infer_result
-      then
-        let inferred_type = get_type infer_result in
-        if (Equality.readback i inferred_type) = (Equality.readback i typ)
-        then SType typ
-        else failure (sprintf "%a is not equal to %a." print_val inferred_type
-               print_val typ)
-      else tr (F (sprintf "Cannot check that %a has type %a."
-             print_exp exp print_val typ, lazy ""))
 
 let infer_type = infer_type 0
 let check_type = check_type 0
