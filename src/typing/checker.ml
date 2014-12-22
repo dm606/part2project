@@ -197,27 +197,39 @@ and check_type i env context exp typ =
   | Pair (e1, e2), VSigma (Underscore, a, b, sigma_env) -> tr (
       check_type i env context e1 a
       >>= fun _ ->
-      check_type i env context e2 (Eval.eval sigma_env b))
+      check_type i env context e2 (Eval.eval sigma_env b)
+      >>= fun _ ->
+      SType typ)
   | Pair (e1, e2), VSigma (Name x, a, b, sigma_env) -> tr (
       check_type i env context e1 a
       >>= fun _ ->
       let sigma_env' = Environment.add env (Eval.eval sigma_env e1) in
       let context' = Context.add_binder context x a in
-      check_type i env context' e2 (Eval.eval sigma_env' b))
+      check_type i env context' e2 (Eval.eval sigma_env' b)
+      >>= fun _ ->
+      SType typ)
   | Lambda (Underscore, e1), VPi (Underscore, a, b, pi_env) -> tr (
-      check_type i env context e1 (Eval.eval pi_env b))
+      check_type i env context e1 (Eval.eval pi_env b)
+      >>= fun _ ->
+      SType typ)
   | Lambda (Underscore, e1), VPi (Name x, a, b, pi_env) -> tr (
       let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
-      check_type (i + 1) env context e1 (Eval.eval pi_env' b))
+      check_type (i + 1) env context e1 (Eval.eval pi_env' b)
+      >>= fun _ ->
+      SType typ)
   | Lambda (Name x, e1), VPi (Underscore, a, b, pi_env) -> tr (
       let env' = Environment.add env (VNeutral (VVar i)) in
       let context' = Context.add_binder context x a in
-      check_type (i + 1) env' context' e1 (Eval.eval pi_env b))
+      check_type (i + 1) env' context' e1 (Eval.eval pi_env b)
+      >>= fun _ ->
+      SType typ)
   | Lambda (Name x, e1), VPi (Name y, a, b, pi_env) -> tr (
       let env' = Environment.add env (VNeutral (VVar i)) in
       let context' = Context.add_binder context x a in
       let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
-      check_type (i + 1) env' context' e1 (Eval.eval pi_env' b))
+      check_type (i + 1) env' context' e1 (Eval.eval pi_env' b)
+      >>= fun _ ->
+      SType typ)
   | Constructor c, _ -> 
       if check_constructor_type context c typ
       then SType typ
@@ -228,7 +240,7 @@ and check_type i env context exp typ =
       >> fun _ ->
       let env' = Environment.add_declarations env d in
       let context' = add_all_to_context env context d in
-      tr (check_type i env' context' e typ))
+      check_type i env' context' e typ)
   | _ -> tr (
       infer_type i env context exp
       >>= fun inferred_type ->
