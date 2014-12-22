@@ -94,36 +94,58 @@ let rec infer_type i env context exp =
         F (e, lazy (sprintf "%s\nInferring a type for %a."
             (Lazy.force t) print exp)) in
 
-  let failure s = tr (F (s, lazy "")) in
+  let failure s = F (s, lazy "") in
 
   match exp with
   | Pi (Underscore, e1, e2) -> tr (
       check_type i env context e1 VUniverse
       >>= fun _ -> 
-      check_type (i + 1) env context e2 VUniverse)
+      check_type (i + 1) env context e2 VUniverse
+      >>= fun _ ->
+      SType VUniverse)
   | Pi (Name x, e1, e2) -> tr (
       check_type i env context e1 VUniverse
       >>= fun _ ->
       let env' = Environment.add env (VNeutral (VVar i)) in
       let context' = Context.add_binder context x (Eval.eval env e1) in
-      check_type (i + 1) env' context' e2 VUniverse)
+      check_type (i + 1) env' context' e2 VUniverse
+      >>= fun _ ->
+      SType VUniverse)
   | Sigma (Underscore, e1, e2) -> tr (
       check_type i env context e1 VUniverse
       >>= fun _ -> 
-      check_type (i + 1) env context e2 VUniverse)
+      check_type (i + 1) env context e2 VUniverse
+      >>= fun _ ->
+      SType VUniverse)
   | Sigma (Name x, e1, e2) -> tr (
       check_type i env context e1 VUniverse
       >>= fun _ ->
       let env' = Environment.add env (VNeutral (VVar i)) in
       let context' = Context.add_binder context x (Eval.eval env e1) in
-      check_type (i + 1) env' context' e2 VUniverse)
-
+      check_type (i + 1) env' context' e2 VUniverse
+      >>= fun _ -> 
+      SType VUniverse)
+  | Application (e1, e2) -> tr (
+      infer_type i env context e1
+      >>= function
+        | VPi (Underscore, a, b, pi_env) ->
+            check_type i env context e2 a
+            >>= fun _ ->
+            SType (Eval.eval pi_env b)
+        | VPi (Name x, a, b, pi_env) -> 
+            check_type i env context e2 a
+            >>= fun _ ->
+            let pi_env' = Environment.add pi_env (Eval.eval env e2) in
+            SType (Eval.eval pi_env' b)
+        | v ->
+            failure (
+              sprintf "%a is not a function; it cannot be applied." print e1))
   | Universe -> SType VUniverse
   | Unit -> SType VUnitType
   | UnitType -> SType VUniverse
   | Index j -> (match get_binder_type context j with
       | None ->
-          failure (sprintf "The type of index %i is not in the context." j)
+          tr (failure (sprintf "The type of index %i is not in the context." j))
       | Some v -> SType v)
 
   (* normally a type checking rule -- included for declarations given as part of
@@ -184,6 +206,9 @@ and check_type i env context exp typ =
       check_type i env context' e2 (Eval.eval sigma_env' b))
   | Lambda (Underscore, e1), VPi (Underscore, a, b, pi_env) -> tr (
       check_type i env context e1 (Eval.eval pi_env b))
+  | Lambda (Underscore, e1), VPi (Name x, a, b, pi_env) -> tr (
+      let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
+      check_type (i + 1) env context e1 (Eval.eval pi_env' b))
   | Lambda (Name x, e1), VPi (Underscore, a, b, pi_env) -> tr (
       let env' = Environment.add env (VNeutral (VVar i)) in
       let context' = Context.add_binder context x a in
