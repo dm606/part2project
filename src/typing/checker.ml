@@ -137,7 +137,7 @@ let rec infer_type i env context exp =
             >>= fun _ ->
             let pi_env' = Environment.add pi_env (Eval.eval env e2) in
             SType (Eval.eval pi_env' b)
-        | v ->
+        | _ ->
             failure (
               sprintf "%a is not a function; it cannot be applied." print e1))
   | Universe -> SType VUniverse
@@ -147,6 +147,21 @@ let rec infer_type i env context exp =
       | None ->
           tr (failure (sprintf "The type of index %i is not in the context." j))
       | Some v -> SType v)
+  | Proj1 e -> tr (
+      infer_type i env context e
+      >>= function
+        | VSigma (_, a, _, _) -> SType a
+        | _ -> failure (sprintf "%a is not a pair" print e))
+  | Proj2 e -> tr (
+      infer_type i env context e
+      >>= function
+        | VSigma (Underscore, _, b, sigma_env) ->
+            SType (Eval.eval sigma_env b)
+        | VSigma (Name x, a, b, sigma_env) ->
+            let sigma_env' =
+              Environment.add sigma_env (Eval.eval env (Proj1 e)) in
+            SType (Eval.eval sigma_env' b)
+        | _ -> failure (sprintf "%a is not a pair" print e))
 
   (* normally a type checking rule -- included for declarations given as part of
    * expressions in the REPL *)
