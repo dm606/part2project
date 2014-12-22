@@ -3,6 +3,8 @@ open Value
 
 type normal_envt
 
+val empty_envt : normal_envt
+
 type normal =
   | NPair of normal * normal
   | NLambda of int * normal

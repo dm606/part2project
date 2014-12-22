@@ -24,6 +24,8 @@ and normal_neutral =
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral
 
+let empty_envt = []
+
 let rec readback i = 
   let readback_env i =
     Environment.map (fun v -> (`N (readback i v))) (fun d -> `D d) in
