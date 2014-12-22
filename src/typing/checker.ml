@@ -97,6 +97,27 @@ let rec infer_type i env context exp =
   let failure s = tr (F (s, lazy "")) in
 
   match exp with
+  | Pi (Underscore, e1, e2) -> tr (
+      check_type i env context e1 VUniverse
+      >>= fun _ -> 
+      check_type (i + 1) env context e2 VUniverse)
+  | Pi (Name x, e1, e2) -> tr (
+      check_type i env context e1 VUniverse
+      >>= fun _ ->
+      let env' = Environment.add env (VNeutral (VVar i)) in
+      let context' = Context.add_binder context x (Eval.eval env e1) in
+      check_type (i + 1) env' context' e2 VUniverse)
+  | Sigma (Underscore, e1, e2) -> tr (
+      check_type i env context e1 VUniverse
+      >>= fun _ -> 
+      check_type (i + 1) env context e2 VUniverse)
+  | Sigma (Name x, e1, e2) -> tr (
+      check_type i env context e1 VUniverse
+      >>= fun _ ->
+      let env' = Environment.add env (VNeutral (VVar i)) in
+      let context' = Context.add_binder context x (Eval.eval env e1) in
+      check_type (i + 1) env' context' e2 VUniverse)
+
   | Universe -> SType VUniverse
   | Unit -> SType VUnitType
   | UnitType -> SType VUniverse
@@ -148,7 +169,7 @@ and check_type i env context exp typ =
         F (e, lazy (sprintf "%s\nChecking that %a has type %a."
             (Lazy.force t) print_exp exp print_val typ)) in
 
-  let failure s = tr (F (s, lazy "")) in
+  let failure s = F (s, lazy "") in
 
   match exp, typ with
   | Pair (e1, e2), VSigma (Underscore, a, b, sigma_env) -> tr (
@@ -172,27 +193,24 @@ and check_type i env context exp typ =
       let context' = Context.add_binder context x a in
       let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
       check_type (i + 1) env' context' e1 (Eval.eval pi_env' b))
-  | Constructor c, _ ->
+  | Constructor c, _ -> 
       if check_constructor_type context c typ
       then SType typ
-      else failure (sprintf "The type of \"%s\" is not %a." c print_val typ)
+      else
+        tr (failure (sprintf "The type of \"%s\" is not %a." c print_val typ))
   | LocalDeclaration (d, e), _ -> tr (
       check_declarations i env context d
       >> fun _ ->
       let env' = Environment.add_declarations env d in
       let context' = add_all_to_context env context d in
       tr (check_type i env' context' e typ))
-  | _ ->
-      let infer_result = infer_type i env context exp in
-      if succeeded infer_result
-      then
-        let inferred_type = get_type infer_result in
-        if (Equality.readback i inferred_type) = (Equality.readback i typ)
-        then SType typ
-        else failure (sprintf "%a is not equal to %a." print_val inferred_type
-               print_val typ)
-      else tr (F (sprintf "Cannot check that %a has type %a."
-             print_exp exp print_val typ, lazy ""))
+  | _ -> tr (
+      infer_type i env context exp
+      >>= fun inferred_type ->
+      if (Equality.readback i inferred_type) = (Equality.readback i typ)
+      then SType typ
+      else failure (sprintf "%a is not equal to %a." print_val inferred_type
+             print_val typ))
 
 and check_declarations i env context =
   let tr x = function
