@@ -21,7 +21,7 @@ val mk_env : string list * string list -> envt
  *     rec. Declarations which appear before the current one get a lower index
  *     than those after it.
  * * In the body of a declaration, one index is allocated per let or let rec;
- *   closer lets get smaller indices.
+ *     closer lets get smaller indices.
  * * In the indices of a type or the type of a constructor, one index is
  *     assigned for each binder in the parameters of the type. The indices
  *     increase from right to left. *)
