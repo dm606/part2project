@@ -67,6 +67,11 @@ let parse_single_expression lexbuf =
   end_parse lexbuf;
   return_value
 
+let print_typing_result r =
+  (* TODO: only print the error here *)
+  Checker.print_error stderr r;
+  Checker.print_trace stderr r
+
 let handle_are_equal () =
   print_string "Expression 1:";
   match parse_single_expression stdin_lexbuf with
@@ -82,6 +87,17 @@ let handle_are_equal () =
           then print_endline "Expressions are equal"
           else print_endline "Expressions are not equal")
 
+let handle_infer_type () =
+  print_string "Expression: ";
+  match parse_single_expression stdin_lexbuf with
+  | None -> ()
+  | Some exp ->
+    let desugared = desugar_expression !declared exp in
+    let result = Checker.infer_type !env !context desugared in
+    if Checker.succeeded result
+    then Print_value.print_value (Checker.get_type result)
+    else print_typing_result result
+
 let add_declarations_to_context context d =
   let result = Checker.check_declarations !env context d in
   if Checker.succeeded result then
@@ -93,11 +109,6 @@ let add_declarations_to_context context d =
     List.fold_left (fun c (s, v) -> Context.add_constructor c s v) context
       (Checker.get_constructor_types result)
   else raise (Declaration_type result)
-
-let print_typing_result r =
-  (* TODO: only print the error here *)
-  Checker.print_error stderr r;
-  Checker.print_trace stderr r
 
 let rec use_file filename =
   let file = open_in filename in
@@ -113,6 +124,7 @@ and handle_command c =
   | CommandString (Ident "use", arg) -> use_file arg
   | CommandString (Ident s, _) -> raise (Unknown_command s)
   | CommandNone (Ident "areequal") -> handle_are_equal ()
+  | CommandNone (Ident "infertype") -> handle_infer_type ()
   | CommandNone (Ident s) -> raise (Unknown_command s)
 and parse f lexbuf = (
   try Lazy.force (handle_input (f lexbuf)) with
