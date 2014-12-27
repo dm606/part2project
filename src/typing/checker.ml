@@ -46,8 +46,8 @@ let print_trace outchan = function
 let get_envt context =
     mk_env (get_binder_names context, get_constructor_names context)
 
-let get_full_type env ps e =
-  Eval.eval env (List.fold_right (fun (x, t1) t2 -> Pi (x, t1, t2)) ps e)
+let get_full_type ps e =
+  List.fold_right (fun (x, t1) t2 -> Pi (x, t1, t2)) ps e
 
 let filter = List.filter (function
     | LetRec (_, _, _) -> true
@@ -72,10 +72,11 @@ let add_to_context lets env context =
     | (Type (x, ps, e, cs))::xs ->
         let context =
           Context.add_lazy_constructor context x
-            (lazy (get_full_type (get_env env rest_ds xs) ps e)) in
+            (lazy (Eval.eval (get_env env rest_ds xs) (get_full_type ps e))) in
         let context =
           List.fold_left (fun context (x, e) -> Context.add_lazy_constructor
-            context x (lazy (get_full_type (get_env env rest_ds xs) ps e)))
+              context x
+              (lazy (Eval.eval (get_env env rest_ds xs) (get_full_type ps e))))
             context cs in
         add context rest_ds xs in
     add context []
@@ -182,14 +183,17 @@ let rec infer_type i env context exp =
 
   (* not needed in the type system -- included for pairs given as part of
    * expressions in the REPL *)
-  | Pair (e1, e2) -> tr (
+  | Pair (e1, e2) -> tr ( 
       infer_type i env context e1
       >>= fun t1 ->
       infer_type i env context e2
       >>= fun t2 ->
       (* env should not be needed in the next line -- a reified value should not
        * have free variables *)
-      SType (VSigma (Underscore, t1, reify t2, env)))
+      try SType (VSigma (Underscore, t1, reify t2, env))
+      with Cannot_reify _ ->
+        failure (sprintf "Cannot convert the type of %a to an expression"
+          print e2))
 
   | _ -> failure (sprintf "Cannot infer a type for %a." print exp)
 
@@ -265,12 +269,48 @@ and check_type i env context exp typ =
              print_val typ))
 
 and check_declarations i env context =
+  (* checks that a Π type ends with U
+   * checks for syntactic equality; does not use readback *) 
+  let rec does_pi_end_with_U = function
+    | Universe -> true
+    | Pi (_, _, b) -> does_pi_end_with_U b
+    | _ -> false in
+
   let tr x = function
     | SType _ as r -> r
     | SDecl _ -> assert false
     | F (e, t) ->
         F (e, lazy (sprintf "%s\nChecking the declaration of \"%s\"."
             (Lazy.force t) x)) in
+
+  let check_type_family_type x typ =
+    check_type i env context typ VUniverse
+    >>= fun _ ->
+    if does_pi_end_with_U typ then SType VUniverse
+    else tr x (F (sprintf "\"%s\" is not a family of types." x, lazy "")) in
+
+  let rec constructs type_name type_type t = match type_type, t with
+    | Universe, Constructor n when n = type_name -> true
+    | Pi (_, _, b), Application (e1, _) -> constructs type_name b e1
+    | _ -> false in
+
+  (* checks that constructor is strictly positive (Dyjber, 2000, section 1) and
+   * constructs the type with the given name *)
+  let rec strictly_positive type_name type_type = function
+    | Constructor t when t = type_name -> true
+    | Application _ as typ -> constructs type_name type_type typ
+    | Pi (_, a, b) ->
+        (strictly_positive type_name type_type a
+         || does_not_mention type_name a)
+        && strictly_positive type_name type_type b
+    | _ -> false in
+
+  let check_ctor_type type_name type_type constructor_name typ =
+    if strictly_positive type_name type_type typ then SType VUniverse
+    else
+      tr type_name
+        (F (sprintf "\"%s\" is not a strictly positive constructor of %s"
+          constructor_name type_name, lazy "")) in
   
   let get_new_context rest_bs rest_cs xs =
     let context =
@@ -285,31 +325,42 @@ and check_declarations i env context =
   let rec check_decls result_bs result_cs rest_ds rest_bs = function
     | [] -> SDecl (result_bs, result_cs)
     | (Let (x, e1, e2))::xs ->
-        (* FIXME: Should check that e1 is a type first *)
         let decl_env = get_env env rest_ds xs in
-        let t = Eval.eval decl_env e1 in
         let decl_context = get_new_context rest_bs result_cs xs in
+        tr x (check_type i decl_env decl_context e1 VUniverse)
+        >>= fun _ -> 
+        let t = Eval.eval decl_env e1 in
         tr x (check_type i decl_env decl_context e2 t)
         >>= fun _ -> 
         check_decls ((x, t)::result_bs) result_cs rest_ds rest_bs xs
     | (LetRec (x, e1, e2) as d)::xs ->
-        (* FIXME: Should check that e1 is a type first *)
         let decl_env = get_env env rest_ds xs in
         let decl_env2 = 
           Environment.add_declarations env
             (xs @ (List.rev (d::(filter rest_ds)))) in
+        let decl_context = get_new_context rest_bs result_cs xs in
+        tr x (check_type i decl_env decl_context e1 VUniverse)
+        >>= fun _ -> 
         let t = Eval.eval decl_env e1 in
-        let decl_context = get_new_context ((x, t)::rest_bs) result_cs xs in
-        tr x (check_type i decl_env2 decl_context e2 t)
+        let decl_context2 = get_new_context ((x, t)::rest_bs) result_cs xs in
+        tr x (check_type i decl_env2 decl_context2 e2 t)
         >>= fun _ -> 
         check_decls ((x, t)::result_bs) result_cs (d::rest_ds) rest_bs xs
     | (Type (x, ps, e, cs))::xs ->
-        (* FIXME: Should check that the types are actually types *)
         let decl_env = env in
-        let result_cs = (x, (get_full_type decl_env ps e)) :: result_cs in
-        let result_cs = List.fold_left
-          (fun l (x, e) -> (x, (get_full_type decl_env ps e))::l)
-          result_cs cs in
+        let typefam_type = get_full_type ps e in
+        tr x (check_type_family_type x typefam_type) 
+        >>= fun _ ->
+        let constructor_types =
+          List.map (fun (x, e) -> (x, get_full_type ps e)) cs in
+        let check_ctor_type (c, e) = check_ctor_type x typefam_type c e in
+        List.fold_left (fun result p -> result >>= fun _ -> check_ctor_type p)
+          (SType VUniverse) constructor_types 
+        >>= fun _ ->
+        let result_cs = (x, Eval.eval decl_env typefam_type) :: result_cs in
+        let result_cs =
+          List.fold_left (fun l (x, e) -> (x, Eval.eval decl_env e)::l)
+          result_cs constructor_types in
         check_decls result_bs result_cs rest_ds rest_bs xs in
   check_decls [] [] [] []
 

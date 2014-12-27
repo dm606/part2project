@@ -57,6 +57,7 @@ and declaration =
   | Type of string * (binder * expression) list
           * expression * (string * expression) list
 
+val does_not_mention : string -> expression -> bool
 val add_all_declaration_binders : envt -> decl list -> envt
 val desugar_expression : envt -> exp -> expression
 val desugar_declarations : envt -> decl list -> declaration list

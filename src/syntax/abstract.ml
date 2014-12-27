@@ -60,6 +60,29 @@ and declaration =
   | Type of string * (binder * expression) list
           * expression * (string * expression) list
 
+let rec does_not_mention c =
+  let decl = function
+    | Let (_, a, e) -> does_not_mention c a && does_not_mention c e
+    | LetRec (_, a, e) -> does_not_mention c a && does_not_mention c e
+    | Type (_, ps, e, cs) ->
+        does_not_mention c e
+        && List.for_all (fun (_, e) -> does_not_mention c e) ps
+        && List.for_all (fun (_, e) -> does_not_mention c e) cs in
+    
+  function
+  | Constructor c1 when c = c1 -> false
+  | Pair (e1, e2) -> does_not_mention c e1 && does_not_mention c e2
+  | Lambda (_, e) -> does_not_mention c e
+  | Pi (_, e1, e2) -> does_not_mention c e1 && does_not_mention c e2
+  | Sigma (_, e1, e2) -> does_not_mention c e1 && does_not_mention c e2
+  | Function l -> List.for_all (fun (_, e) -> does_not_mention c e) l
+  | LocalDeclaration (l, e) -> List.for_all decl l && does_not_mention c e
+  | Application (e1, e2) -> does_not_mention c e1 && does_not_mention c e2
+  | Proj1 e -> does_not_mention c e
+  | Proj2 e -> does_not_mention c e
+  | _ -> true
+
+
 let add_binder (names, cs) = function
   | BUnderscore -> (names, cs)
   | BName (Ident x) -> (x::names, cs)
