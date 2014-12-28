@@ -359,7 +359,8 @@ and check_declarations i env context =
         List.fold_left (fun result p -> result >>= fun _ -> check_ctor_type p)
           (SType VUniverse) constructor_types 
         >>= fun _ ->
-        let result_cs = (x, "U", Eval.eval decl_env typefam_type) :: result_cs in
+        let result_cs =
+          (x, "U", Eval.eval decl_env typefam_type) :: result_cs in
         let result_cs =
           List.fold_left (fun l (c, e) -> (c, x, Eval.eval decl_env e)::l)
           result_cs constructor_types in

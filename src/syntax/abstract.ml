@@ -140,7 +140,8 @@ let rec add_all_let_recs (names, cs) =
             xs
       | DSimpleType (Ident x, l) ->
           let cs = remove_type x in
-          add_all_let_recs (names, add_constructors x (List.map (get_name x) l) cs)
+          add_all_let_recs
+            (names, add_constructors x (List.map (get_name x) l) cs)
             xs
 
 (* adds all of the bound variables to env in reverse order *)
@@ -167,7 +168,8 @@ let rec add_local_let_recs (names, cs) = function
           add_local_let_recs
             (names, add_constructors x (List.map (fun (c, _) -> c, x) l) cs) xs
 
-let is_constructor_defined (env, cs) x = MS.mem x cs && not (SS.is_empty (MS.find x cs))
+let is_constructor_defined (env, cs) x =
+  MS.mem x cs && not (SS.is_empty (MS.find x cs))
 
 let add_pattern_binders (names, cs) p =
   let rec add names = function
@@ -235,7 +237,8 @@ let rec desugar_expression env = function
 and desugar_declarations env =
   let rec desugar rest_names rest_cs =
     let add_constructors type_name cs = 
-        add_constructors type_name (List.map (fun (Constr (Ident c, _)) -> c, type_name) cs)
+        add_constructors type_name
+          (List.map (fun (Constr (Ident c, _)) -> c, type_name) cs)
           rest_cs in
 
     (* collects all of the parameters of the let or let rec *)
@@ -256,12 +259,14 @@ and desugar_declarations env =
      * and one where all are bound *)
     let get_new_envs xs x = 
       let names, cs = add_all_let_recs env xs in
-      let names, cs = (rest_names @ names, add_all_constructor_names rest_cs cs) in
+      let names, cs =
+        (rest_names @ names, add_all_constructor_names rest_cs cs) in
       ((names, cs), (x :: names, cs)) in
 
     let get_new_env_type xs x = 
       let names, cs = add_all_let_recs env xs in
-      let names, cs = (rest_names @ names, add_all_constructor_names rest_cs cs) in
+      let names, cs =
+        (rest_names @ names, add_all_constructor_names rest_cs cs) in
       (names, inc cs (x, "U")) in
 
     function
@@ -363,7 +368,8 @@ let rec resugar_expression env = function
 and resugar_declarations env =
   let rec resugar rest_names rest_cs =
     let add_constructors type_name cs =
-      add_constructors type_name (List.map (fun (x, _) -> (x, type_name)) cs) rest_cs in
+      add_constructors type_name
+        (List.map (fun (x, _) -> (x, type_name)) cs) rest_cs in
 
     let add_all_constructor_names m names =
       let add a b = match a, b with
@@ -377,12 +383,14 @@ and resugar_declarations env =
      * and one where all are bound *)
     let get_new_envs xs x = 
       let names, cs = add_local_let_recs env xs in
-      let names, cs = (rest_names @ names, add_all_constructor_names rest_cs cs) in
+      let names, cs =
+        (rest_names @ names, add_all_constructor_names rest_cs cs) in
       ((names, cs), (x :: names, cs)) in
 
     let get_new_env_type xs x = 
       let names, cs = add_local_let_recs env xs in
-      let names, cs = (rest_names @ names, add_all_constructor_names rest_cs cs) in
+      let names, cs =
+        (rest_names @ names, add_all_constructor_names rest_cs cs) in
       (names, inc cs (x, "U")) in
 
     function

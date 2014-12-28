@@ -91,13 +91,13 @@ let test_eq_desugar_declarations (name, env, input, expected) =
 
 let test_desugar_declarations = "desugar_declarations" >::: (
   List.map test_eq_desugar_declarations [
-    ("t1", mk_env ([], ["Nat"; "zero"]), DType (Ident "Vec", [Param (BName
-    (Ident "A"), EUniverse)], EArrow (EIdentifier (Ident "Nat"), EUniverse),
-    [Constr (Ident "nil", EApplication (EApplication (EIdentifier (Ident "Vec"),
-    EIdentifier (Ident "A")), EIdentifier (Ident "zero"))) ]), Type ("Vec",
-    [(Name "A", Universe)], Pi (Underscore, Constructor "Nat", Universe), [
-    ("nil", Application (Application (Constructor "Vec", Index 0), Constructor
-    "zero"))]));
+    ("t1", mk_env ([], ["Nat", "U"; "zero", "Nat"]), DType (Ident "Vec", [Param
+    (BName (Ident "A"), EUniverse)], EArrow (EIdentifier (Ident "Nat"),
+    EUniverse), [Constr (Ident "nil", EApplication (EApplication (EIdentifier
+    (Ident "Vec"), EIdentifier (Ident "A")), EIdentifier (Ident "zero"))) ]),
+    Type ("Vec", [(Name "A", Universe)], Pi (Underscore, Constructor "Nat",
+    Universe), [ ("nil", Application (Application (Constructor "Vec", Index 0),
+    Constructor "zero"))]));
     ("t2", mk_env (["A"], []), DLet (Ident "f", [Param (BName (Ident "x"),
     EUniverse); Param (BName (Ident "y"), EUnitType); Param (BUnderscore,
     EIdentifier (Ident "A"))], EUniverse, EUnitType), Let ("f", Pi (Name "x",

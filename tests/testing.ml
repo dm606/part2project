@@ -35,7 +35,7 @@ let arbitrary_identifier =
   let n = ref 0 in
   Gen (fun _ ->
     let name = "a" ^ (string_of_int !n) in
-    all_identifiers := name :: !all_identifiers;
+    all_identifiers := (name, "") :: !all_identifiers;
     n := !n + 1; name)
 
 let arbitrary_binder =

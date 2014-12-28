@@ -24,8 +24,8 @@ let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
   ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VSigma
   (Underscore, VUnitType, Universe, Environment.empty));
   ("constructor" , Environment.empty , Context.add_constructor
-  (Context.add_constructor Context.empty "Bool" VUniverse) "true" (VConstruct
-  ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
+  (Context.add_constructor Context.empty "Bool" "U" VUniverse) "true" "Bool"
+  (VConstruct ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
   ("declarations", Environment.empty, Context.empty, LocalDeclaration ([Let
   ("x", UnitType, Unit)], Index 0), VUnitType);
   ("mutual_declarations", Environment.empty, Context.empty, LocalDeclaration
@@ -70,8 +70,8 @@ let test_check = "check" >::: (List.map test_check_success [
   ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VSigma
   (Underscore, VUnitType, Universe, Environment.empty));
   ("constructor" , Environment.empty , Context.add_constructor
-  (Context.add_constructor Context.empty "Bool" VUniverse) "true" (VConstruct
-  ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
+  (Context.add_constructor Context.empty "Bool" "U" VUniverse) "true" "Bool"
+  (VConstruct ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
   ("declarations", Environment.empty, Context.empty, LocalDeclaration ([Let
   ("x", UnitType, Unit)], Index 0), VUnitType);
   ("mutual_declarations", Environment.empty, Context.empty, LocalDeclaration

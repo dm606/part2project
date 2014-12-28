@@ -112,7 +112,8 @@ let add_declarations_to_context context d =
     let constructor_types = Checker.get_constructor_types result in
     (* the order of constructors does not matter -- use fold_left for
      * efficiency *)
-    List.fold_left (fun c (s, type_name, v) -> Context.add_constructor c s type_name v)
+    List.fold_left
+      (fun c (s, type_name, v) -> Context.add_constructor c s type_name v)
       context constructor_types
   else raise (Declaration_type result)
 
