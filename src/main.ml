@@ -98,16 +98,22 @@ let handle_infer_type () =
     then Print_value.print_value (Checker.get_type result)
     else print_typing_result result
 
+let remove_types context = List.fold_left (fun c -> function 
+  | Type (x, _, _, _) -> Context.remove_constructors_of_type c x
+  | _ -> c) context
+
 let add_declarations_to_context context d =
   let result = Checker.check_declarations !env context d in
   if Checker.succeeded result then
+    let context = remove_types context d in
     let context = List.fold_right
                     (fun (s, v) c -> Context.add_binder c s v)
                     (Checker.get_binder_types result) context in
+    let constructor_types = Checker.get_constructor_types result in
     (* the order of constructors does not matter -- use fold_left for
      * efficiency *)
-    List.fold_left (fun c (s, v) -> Context.add_constructor c s v) context
-      (Checker.get_constructor_types result)
+    List.fold_left (fun c (s, type_name, v) -> Context.add_constructor c s type_name v)
+      context constructor_types
   else raise (Declaration_type result)
 
 let rec use_file filename =

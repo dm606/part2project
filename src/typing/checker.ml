@@ -6,7 +6,7 @@ open Value
 
 type typing_result =
   | SType of value
-  | SDecl of (string * value) list * (string * value) list
+  | SDecl of (string * value) list * (string * string * value) list
   | F of string * string Lazy.t
 
 (* these aren't quite the normal monad operations, but they are close *)
@@ -70,12 +70,13 @@ let add_to_context lets env context =
         add (Context.add_lazy_binder context x
           (lazy (Eval.eval (get_env env rest_ds xs) e1))) (d::rest_ds) xs
     | (Type (x, ps, e, cs))::xs ->
+        let context = Context.remove_constructors_of_type context x in
         let context =
-          Context.add_lazy_constructor context x
+          Context.add_lazy_constructor context x "U"
             (lazy (Eval.eval (get_env env rest_ds xs) (get_full_type ps e))) in
         let context =
-          List.fold_left (fun context (x, e) -> Context.add_lazy_constructor
-              context x
+          List.fold_left (fun context (c, e) -> Context.add_lazy_constructor
+              context c x
               (lazy (Eval.eval (get_env env rest_ds xs) (get_full_type ps e))))
             context cs in
         add context rest_ds xs in
@@ -314,7 +315,8 @@ and check_declarations i env context =
   
   let get_new_context rest_bs rest_cs xs =
     let context =
-       List.fold_left (fun c (s, v) -> Context.add_constructor c s v)
+       List.fold_left (fun c (s, type_name, v)
+         -> Context.add_constructor c s type_name v)
          context rest_cs in
     (* assume that everything in xs has the correct type, without actually
      * checking them *)
@@ -357,9 +359,9 @@ and check_declarations i env context =
         List.fold_left (fun result p -> result >>= fun _ -> check_ctor_type p)
           (SType VUniverse) constructor_types 
         >>= fun _ ->
-        let result_cs = (x, Eval.eval decl_env typefam_type) :: result_cs in
+        let result_cs = (x, "U", Eval.eval decl_env typefam_type) :: result_cs in
         let result_cs =
-          List.fold_left (fun l (x, e) -> (x, Eval.eval decl_env e)::l)
+          List.fold_left (fun l (c, e) -> (c, x, Eval.eval decl_env e)::l)
           result_cs constructor_types in
         check_decls result_bs result_cs rest_ds rest_bs xs in
   check_decls [] [] [] []
