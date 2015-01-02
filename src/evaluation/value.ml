@@ -51,7 +51,8 @@ and substitute_neutral_variable i v =
 
   function
   | VPair (v1, v2) ->
-      VPair (substitute_neutral_variable i v v1, substitute_neutral_variable i v v2)
+      VPair (substitute_neutral_variable i v v1
+           , substitute_neutral_variable i v v2)
   | VLambda _ as l -> l
   | VPi (b, v1, e, env) ->
       VPi (b, substitute_neutral_variable i v v1, e, subst_env env)

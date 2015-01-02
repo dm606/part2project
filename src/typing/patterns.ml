@@ -14,10 +14,12 @@ let mgu =
     (* variables unify than anything, unless they are already in the
      * substitution *)
     | VNeutral (VVar i), v ->
-        if Context.subst_mem i subst then mgu subst (Context.subst_find i subst) v
+        if Context.subst_mem i subst
+        then mgu subst (Context.subst_find i subst) v
         else Some (Context.subst_add i v subst)
     | v, VNeutral (VVar i) ->
-        if Context.subst_mem i subst then mgu subst v (Context.subst_find i subst) 
+        if Context.subst_mem i subst
+        then mgu subst v (Context.subst_find i subst) 
         else Some (Context.subst_add i v subst)
     (* atoms unify than themselves *)
     | VUniverse, VUniverse -> Some subst
@@ -106,10 +108,12 @@ let rec add_binders i context env typ patt = match patt, typ with
             Some (i + 1, context, env, Eval.eval pi_env' b, subst)
         | _ -> None in
       let add constructor_type =
-        List.fold_left aux (Some (i, context, env, constructor_type, Context.subst_empty)) l
+        List.fold_left aux
+          (Some (i, context, env, constructor_type, Context.subst_empty)) l
         >>= fun (i, context, env, remaining, subst) ->
         match mgu typ remaining with
-        | Some subst -> Some (i, Context.subst_apply context subst, Context.subst_env subst env, subst)
+        | Some subst ->
+          Some (i, Context.subst_apply context subst, Context.subst_env subst env, subst)
         | None -> None in
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with
