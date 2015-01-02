@@ -43,6 +43,12 @@ let compare_types t = function
 let check_constructor_type (m, l) c t =
   M.mem c m && List.exists (compare_types t) (M.find c m)
 
+let get_constructor_types (m, l) c =
+  if M.mem c m then List.map (fun (x, v) -> 
+    match v with
+    | `V v -> v
+    | `T v -> Lazy.force v) (M.find c m) else []
+
 let get_unique_constructor_type (m, l) c =
   if M.mem c m
   then match M.find c m with
@@ -50,3 +56,30 @@ let get_unique_constructor_type (m, l) c =
   | [_, `T t] -> Some (Lazy.force t)
   | _ -> None
   else None
+
+(* maps from ints to 'as *)
+module IM = Map.Make(struct
+  type t = int
+  let compare : int -> int -> int = compare
+end)
+
+type subst = value IM.t
+
+let subst_find = IM.find
+let subst_mem = IM.mem
+let subst_empty = IM.empty
+let subst_add = IM.add
+let subst_to_list subst = IM.fold (fun i v l -> (i, v)::l) subst []
+
+let subst_value = IM.fold substitute_neutral_variable
+
+let subst_apply context subst = 
+  let s i value = List.map (function
+    | s, `V v -> s, `V (substitute_neutral_variable i value v)
+    | s, `T _ -> raise (Failure "subst_apply")) in
+  let apply i value (m, l) =
+    (M.map (s i value) m, s i value l) in
+  IM.fold apply subst context
+
+let subst_env subst env = 
+  Environment.map (subst_value subst) (fun x -> x) env

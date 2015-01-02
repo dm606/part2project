@@ -475,3 +475,6 @@ and resugar_pattern = function
 
 let print_expression env exp =
     PrintConcrete.printTree PrintConcrete.prtExp (resugar_expression env exp)
+
+let print_pattern patt = 
+    PrintConcrete.printTree PrintConcrete.prtPattern (resugar_pattern patt)

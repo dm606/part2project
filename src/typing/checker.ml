@@ -203,6 +203,8 @@ and check_type i env context exp typ =
     try print_expression (get_envt context) e with _ -> "???" in
   let print_val () v = 
     try Print_value.string_of_value v with _ -> "???" in
+  let print_pattern () p = 
+    try print_pattern p with _ -> "???" in
 
   let tr = function
     | SType _ as r -> r
@@ -261,6 +263,29 @@ and check_type i env context exp typ =
       let env' = Environment.add_declarations env d in
       let context' = add_all_to_context env context d in
       check_type i env' context' e typ)
+  | Function cases, VPi (Underscore, a, b, pi_env) -> tr (
+      let check_case patt exp =
+        match Patterns.add_binders i context env a patt with
+        | None -> failure (sprintf "The type of the values matched by the pattern %a is not %a."
+            print_pattern patt print_val a)
+        | Some (new_i, new_context, new_env, subst) ->
+            let typ = Context.subst_value subst (Eval.eval pi_env b) in
+            check_type new_i new_env new_context exp typ in
+      List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e) (SType a) cases)
+      (* FIXME: check coverage *)
+  | Function cases, VPi (Name x, a, b, pi_env) -> tr (
+      let check_case patt exp =
+        match Patterns.add_binders i context env a patt with
+        | None -> failure (sprintf "The type of the values matched by the pattern %a is not %a."
+            print_pattern patt print_val a)
+        | Some (new_i, new_context, new_env, subst) ->
+            let pi_env' =
+              Environment.add pi_env (VNeutral (VVar new_i)) in
+            let typ = Context.subst_value subst (Eval.eval pi_env' b) in
+            check_type (new_i + 1) new_env new_context exp typ in
+      List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e) (SType a) cases)
+      (* FIXME: check coverage *)
+
   | _ -> tr (
       infer_type i env context exp
       >>= fun inferred_type ->

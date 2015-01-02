@@ -28,3 +28,4 @@ and neutral =
   | VProj2 of neutral
 
 val reify : value -> expression
+val substitute_neutral_variable : int -> value -> value -> value

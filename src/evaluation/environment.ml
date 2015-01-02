@@ -42,6 +42,10 @@ let rec get env eval i = match env, i with
          | _ -> assert false)
       else get tl eval (i - l)
 
-let map value decl = List.map (function
+let map_to_list value decl = List.map (function
   | Val v -> value v
   | Decl d -> decl d)
+
+let map value decl = List.map (function
+  | Val v -> Val (value v)
+  | Decl d -> Decl (decl d))

@@ -28,7 +28,7 @@ let empty_envt = []
 
 let rec readback i = 
   let readback_env i =
-    Environment.map (fun v -> (`N (readback i v))) (fun d -> `D d) in
+    Environment.map_to_list (fun v -> (`N (readback i v))) (fun d -> `D d) in
   let rec readback_neutral i = function
   | VVar i -> NVar i
   | VFunctionApplication (cases, env, v) ->

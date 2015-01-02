@@ -65,3 +65,4 @@ val resugar_expression : envt -> expression -> exp
 val resugar_declarations : envt -> declaration list -> decl list
 
 val print_expression : envt -> expression -> string
+val print_pattern : pattern -> string
