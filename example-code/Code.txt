@@ -31,14 +31,14 @@ let rec add : Nat -> Nat -> Nat =
     | (succ z) -> succ (add z y)
 
 
-
+(*
 let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
               -> Vec A (add n m) =
   fun A n m x y ->
     match x with
-    | nil A -> y
-    | cons A n a z -> cons A (add n m) a (append A n m z y)
-
+    | nil .A -> y
+    | cons .A .n a z -> cons A (add n m) a (append A n m z y)
+*)
 let Not : U -> U = fun A -> A -> Null
 
 type Or (A : U) (B : U) : U =
@@ -66,13 +66,12 @@ let proof : (A : U) -> (B : U) -> (Not A) * (Or A B) -> B =
   fun A B -> function
   | a, inl _ _ x -> false_elim B (a x)
   | a, inr _ _ x -> x
-(*
+
 let proof2 : (n : Nat) -> Not (Eq Nat n zero) -> (m : Nat) * Eq Nat n (succ m) =
-  fun n -> fun p ->
-    match n with 
-    | zero -> false_elim ((m : Nat) * Eq Nat n (succ m)) (p (refl Nat zero))
-    | succ x -> (x, refl Nat n)
-*)
+  function
+  | zero -> fun p -> false_elim ((m : Nat) * Eq Nat n (succ m)) (p (refl Nat zero))
+  | succ x -> fun p -> (x, refl Nat n)
+
 let one : Nat = succ zero
 let two : Nat = succ one
 let three : Nat = succ two
