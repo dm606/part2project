@@ -164,7 +164,7 @@ let rec infer_type i env context exp =
               Environment.add sigma_env (Eval.eval env (Proj1 e)) in
             SType (Eval.eval sigma_env' b)
         | _ -> failure (sprintf "%a is not a pair" print e))
-
+  
   (* normally a type checking rule -- included for declarations given as part of
    * expressions in the REPL *)
   | LocalDeclaration (d, e) -> tr (
@@ -191,7 +191,7 @@ let rec infer_type i env context exp =
       >>= fun t2 ->
       (* env should not be needed in the next line -- a reified value should not
        * have free variables *)
-      try SType (VSigma (Underscore, t1, reify t2, env))
+      try SType (VSigma (Underscore, t1, reify Eval.eval t2, env))
       with Cannot_reify _ ->
         failure (sprintf "Cannot convert the type of %a to an expression"
           print e2))
@@ -214,6 +214,14 @@ and check_type i env context exp typ =
             (Lazy.force t) print_exp exp print_val typ)) in
 
   let failure s = F (s, lazy "") in
+
+  let try_eq () = tr (
+      infer_type i env context exp
+      >>= fun inferred_type ->
+      if (Equality.readback i inferred_type) = (Equality.readback i typ)
+      then SType typ
+      else failure (sprintf "%a is not equal to %a." print_val inferred_type
+             print_val typ)) in
 
   match exp, typ with
   | Pair (e1, e2), VSigma (Underscore, a, b, sigma_env) -> tr (
@@ -289,15 +297,24 @@ and check_type i env context exp typ =
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
         (SType a) cases)
       (* FIXME: check coverage *)
+  
+  (* not normally a type checking rule -- included because we cannot infer types
+   * for lamdba abstractions or pattern-matching functions, but type inference
+   * for application requires inference of the function being applied *)
+  | Application (e1, e2), t2 -> (match (
+        infer_type i env context e2
+        >>= fun t1 -> (
+        try
+          check_type i env context e1
+            (VPi (Underscore, t1, reify Eval.eval t2, env))
+        with Cannot_reify _ -> failure "")
+        >> fun _ ->
+        SType t2) with
+    | SType t as r -> r
+    | SDecl _ -> assert false
+    | F _ -> try_eq ())
 
-  | _ -> tr (
-      infer_type i env context exp
-      >>= fun inferred_type ->
-      if (Equality.readback i inferred_type) = (Equality.readback i typ)
-      then SType typ
-      else failure (sprintf "%a is not equal to %a." print_val inferred_type
-             print_val typ))
-
+  | _ -> try_eq ()
 and check_declarations i env context =
   (* checks that a Π type ends with U
    * checks for syntactic equality; does not use readback *) 

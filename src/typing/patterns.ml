@@ -112,8 +112,8 @@ let rec add_binders i context env typ patt = match patt, typ with
           (Some (i, context, env, constructor_type, Context.subst_empty)) l
         >>= fun (i, context, env, remaining, subst) ->
         match mgu typ remaining with
-        | Some subst ->
-          Some (i, Context.subst_apply context subst, Context.subst_env subst env, subst)
+        | Some subst -> Some (i, Context.subst_apply context subst
+                            , Context.subst_env subst env, subst)
         | None -> None in
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with

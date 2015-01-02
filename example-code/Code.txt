@@ -23,27 +23,22 @@ let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
     | zero -> fun _ -> nil B
     | succ n -> function cons .A .n a l -> cons B n (f a) (map A B f n l)
 *)
-(*
+
 let rec add : Nat -> Nat -> Nat =
   fun x y ->
     match x with
     | zero -> y
     | (succ z) -> succ (add z y)
-*)
 
-(* remove *)
-let rec add : Nat -> Nat -> Nat =
-  function
-  | zero -> (fun x -> x)
-  | succ x -> (fun y -> succ (add x y))
-(*
+
+
 let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
               -> Vec A (add n m) =
   fun A n m x y ->
     match x with
     | nil A -> y
     | cons A n a z -> cons A (add n m) a (append A n m z y)
-*)
+
 let Not : U -> U = fun A -> A -> Null
 
 type Or (A : U) (B : U) : U =

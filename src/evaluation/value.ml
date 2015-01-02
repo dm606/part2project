@@ -21,19 +21,25 @@ and neutral =
   | VProj1 of neutral
   | VProj2 of neutral
 
-let rec reify = function
-  | VPair (v1, v2) -> Pair (reify v1, reify v2)
-  | VLambda _ -> raise (Cannot_reify "Cannot reify lambda abstractions")
-  | VPi _ ->  raise (Cannot_reify "Cannot reify pi types")
-  | VSigma _ -> raise (Cannot_reify "Cannot reify sigma types")
-  | VFunction _ -> 
-      raise (Cannot_reify "Cannot reify pattern-matching functions")
-  | VUniverse -> Universe
-  | VUnitType -> UnitType
-  | VUnit -> Unit
-  | VConstruct (c, l) ->
-      List.fold_left (fun e v -> Application (e, reify v)) (Constructor c) l
-  | VNeutral _ -> raise (Cannot_reify "Cannot reify neutral terms")
+let reify eval = 
+  let rec reify = function
+    | VPair (v1, v2) -> Pair (reify v1, reify v2)
+    | VLambda _ -> raise (Cannot_reify "Cannot reify lambda abstractions")
+    | VPi (Underscore, a, b, env) -> 
+        Pi (Underscore, reify a, reify (eval env b)) 
+    | VPi (Name _, _, _, _) ->
+        raise (Cannot_reify
+          "Cannot reify pi types where the LHS is bound to a name")
+    | VSigma _ -> raise (Cannot_reify "Cannot reify sigma types")
+    | VFunction _ -> 
+        raise (Cannot_reify "Cannot reify pattern-matching functions")
+    | VUniverse -> Universe
+    | VUnitType -> UnitType
+    | VUnit -> Unit
+    | VConstruct (c, l) ->
+        List.fold_left (fun e v -> Application (e, reify v)) (Constructor c) l
+    | VNeutral _ -> raise (Cannot_reify "Cannot reify neutral terms") in
+  reify
 
 let rec neutral_substitute_neutral_variable i n = function
   | VVar j when j = i -> n

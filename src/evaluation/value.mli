@@ -27,5 +27,5 @@ and neutral =
   | VProj1 of neutral
   | VProj2 of neutral
 
-val reify : value -> expression
+val reify : (value Environment.t -> expression -> value) -> value -> expression
 val substitute_neutral_variable : int -> value -> value -> value
