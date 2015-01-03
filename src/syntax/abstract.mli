@@ -50,6 +50,7 @@ and pattern =
   | PatternApplication of string * pattern list (* Constructor application *)
   | PatternBinder of string (* name only needed for pretty-printing *)
   | PatternUnderscore
+  | PatternInaccessible of expression
 and declaration =
   (* Names only used for pretty-printing, except for constructor names *)
   | Let of string * expression * expression
@@ -65,4 +66,4 @@ val resugar_expression : envt -> expression -> exp
 val resugar_declarations : envt -> declaration list -> decl list
 
 val print_expression : envt -> expression -> string
-val print_pattern : pattern -> string
+val print_pattern : envt -> pattern -> string

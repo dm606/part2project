@@ -15,6 +15,8 @@ let rec try_match env pattern value = match pattern, value with
       try_match_all env ps (List.rev vs)
   | (PatternBinder x), v -> (true, add env v)
   | (PatternUnderscore), _ -> (true, env)
+  (* inaccessible patterns are guaranteed to match by the type checker *)
+  | (PatternInaccessible _), _ -> (true, env)
   | _ -> (false, empty)
 (* attempts to match all of the patterns against their corresponding value *)
 and try_match_all env patterns values = match patterns, values with

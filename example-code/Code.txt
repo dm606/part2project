@@ -9,7 +9,7 @@ type Vec (A : U) : Nat -> U =
 type Fin : Nat -> U =
   | fzero : (n : Nat) -> Fin (succ n)
   | fsucc : (n : Nat) -> (i : Fin n) -> Fin (succ n)
-(*
+
 let rec nth : (A : U) -> (m : Nat) -> Vec A m -> Fin m -> A =
   fun A -> (
     function succ m -> (function cons .A .m a l -> (function
@@ -20,9 +20,8 @@ let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
            -> Vec B n =
   fun A B f ->
     function
-    | zero -> fun _ -> nil B
-    | succ n -> function cons .A .n a l -> cons B n (f a) (map A B f n l)
-*)
+    | zero -> (fun _ -> nil B)
+    | succ n -> (function cons .A .n a l -> cons B n (f a) (map A B f n l))
 
 let rec add : Nat -> Nat -> Nat =
   fun x y ->
@@ -30,15 +29,13 @@ let rec add : Nat -> Nat -> Nat =
     | zero -> y
     | (succ z) -> succ (add z y)
 
-
-(*
 let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
               -> Vec A (add n m) =
   fun A n m x y ->
     match x with
     | nil .A -> y
     | cons .A .n a z -> cons A (add n m) a (append A n m z y)
-*)
+
 let Not : U -> U = fun A -> A -> Null
 
 type Or (A : U) (B : U) : U =
@@ -47,6 +44,7 @@ type Or (A : U) (B : U) : U =
 
 type Eq (A : U) (a : A) : A -> U =
   | refl : Eq A a a
+
 (*
 type DistinctList (A : U) (NotEqual : A -> A -> U) : U =
   | dnil : DistinctList A NotEqual
@@ -59,6 +57,7 @@ and let rec Fresh : (A : U) -> (NotEqual : A -> A -> U) -> (a : A)
     | dnil _ _ -> Unit
     | dcons _ _ b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
 *)
+
 let false_elim : (A : U) -> Null -> A =
   fun _ -> function
 
@@ -69,8 +68,9 @@ let proof : (A : U) -> (B : U) -> (Not A) * (Or A B) -> B =
 
 let proof2 : (n : Nat) -> Not (Eq Nat n zero) -> (m : Nat) * Eq Nat n (succ m) =
   function
-  | zero -> fun p -> false_elim ((m : Nat) * Eq Nat n (succ m)) (p (refl Nat zero))
-  | succ x -> fun p -> (x, refl Nat n)
+  | zero ->
+      (fun p -> false_elim ((m : Nat) * Eq Nat n (succ m)) (p (refl Nat zero)))
+  | succ x -> (fun p -> (x, refl Nat n))
 
 let one : Nat = succ zero
 let two : Nat = succ one

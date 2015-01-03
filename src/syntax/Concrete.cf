@@ -61,6 +61,7 @@ PPair. Pattern ::= Pattern1 "," Pattern ;
 PApplication. Pattern1 ::= Ident [Pattern2] ;
 PIdentifier. Pattern2 ::= Ident ;
 PUnderscore. Pattern2 ::= "_" ;
+PInaccessible. Pattern2 ::= "." Exp5 ;
 separator nonempty Pattern2 "" ;
 coercions Pattern 2 ;
 

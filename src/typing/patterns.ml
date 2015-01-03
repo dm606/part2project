@@ -119,3 +119,5 @@ let rec add_binders i context env typ patt = match patt, typ with
       List.fold_left (fun r t -> match r with
         | Some _ -> r
         | None -> add t) None possible_types
+  (* we do not check inaccessible patterns here *)
+  | PatternInaccessible _, _ -> Some (i, context, env, Context.subst_empty)

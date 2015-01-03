@@ -58,6 +58,7 @@ and pattern =
   | PatternApplication of string * pattern list (* Constructor application *)
   | PatternBinder of string (* name only needed for pretty-printing *)
   | PatternUnderscore
+  | PatternInaccessible of expression
 and declaration =
   (* Names only used for pretty-printing, except for constructor names *)
   | Let of string * expression * expression
@@ -177,6 +178,7 @@ let add_pattern_binders (names, cs) p =
     | PApplication (_, l) -> List.fold_left add names l
     | PIdentifier (Ident x) when is_constructor_defined (names, cs) x -> names
     | PIdentifier (Ident x) -> x::names
+    | PInaccessible _ -> names
     | PUnderscore -> names in
   (add names p, cs)
 
@@ -308,15 +310,27 @@ and desugar_parameter env = function
   | Param (x, e) -> (desugar_binder x, desugar_expression env e)
 and desugar_constructor env = function
   | Constr (Ident x, e) -> (x, desugar_expression env e)
-and desugar_pattern env = function
-  | PPair (p1, p2) ->
-      PatternPair (desugar_pattern env p1, desugar_pattern env p2)
-  | PApplication (Ident x, ps) ->
-      PatternApplication (x, List.map (desugar_pattern env) ps)
-  | PIdentifier (Ident x) when is_constructor_defined env x ->
-      PatternApplication (x, [])
-  | PIdentifier (Ident x) -> PatternBinder x
-  | PUnderscore -> PatternUnderscore
+and desugar_pattern env pattern = 
+  let rec d env = function
+    | PPair (p1, p2) ->
+        let p1, env = d env p1 in
+        let p2, env = d env p2 in
+        (PatternPair (p1, p2), env)
+    | PApplication (Ident x, ps) ->
+        let ps, env = List.fold_left (fun (tl, env) p ->
+            let p, env = d env p in
+            (p::tl, env)) ([], env) ps in
+        (PatternApplication (x, List.rev ps), env)
+    | PIdentifier (Ident x) when is_constructor_defined env x ->
+        (PatternApplication (x, []), env)
+    | PIdentifier (Ident x as i) -> (PatternBinder x, add_binder env (BName i))
+    (* Note: inaccessible patterns cannot refer to variables defined to the right
+     * in the same pattern *)
+    | PInaccessible exp -> (PatternInaccessible (desugar_expression env exp), env)
+    | PUnderscore -> (PatternUnderscore, env) in
+
+  let (desugared, _) = d env pattern in
+  desugared 
 
 let rec resugar_expression env = function
   | Pair (e1, e2) ->
@@ -345,16 +359,16 @@ let rec resugar_expression env = function
             , resugar_expression (add_binder env b) e2)
   | Function cs ->
       EFunction (List.map (fun (p, e) ->
-        CCase (resugar_pattern p
-             , resugar_expression (add_pattern_binders env (resugar_pattern p))
+        CCase (resugar_pattern env p
+             , resugar_expression (add_pattern_binders env (resugar_pattern env p))
           e)) cs)
   | LocalDeclaration (ds, e) ->
       let new_env = add_local_declaration_binders env ds in
       EDeclaration (resugar_declarations env ds, resugar_expression new_env e)
   | Application (Function cs, e) ->
       EMatch (resugar_expression env e, List.map (fun (p, e)
-      -> CCase (resugar_pattern p
-              , resugar_expression (add_pattern_binders env (resugar_pattern p))
+      -> CCase (resugar_pattern env p
+              , resugar_expression (add_pattern_binders env (resugar_pattern env p))
            e)) cs)
   | Application (e1, e2) ->
       EApplication (resugar_expression env e1, resugar_expression env e2)
@@ -465,16 +479,29 @@ and resugar_declarations env =
 and resugar_binder = function
   | Underscore -> BUnderscore
   | Name x -> BName (Ident x)
-and resugar_pattern = function
-  | PatternPair (p1, p2) -> PPair (resugar_pattern p1, resugar_pattern p2)
-  | PatternApplication (x, []) -> PIdentifier (Ident x)
-  | PatternApplication (x, ps) ->
-      PApplication (Ident x, List.map resugar_pattern ps)
-  | PatternBinder x -> PIdentifier (Ident x)
-  | PatternUnderscore -> PUnderscore
+and resugar_pattern env pattern = 
+  let rec r env = function
+    | PatternPair (p1, p2) ->
+        let (p1, env) = r env p1 in
+        let (p2, env) = r env p2 in
+        (PPair (p1, p2), env)
+    | PatternApplication (x, []) ->
+        (PIdentifier (Ident x), env)
+    | PatternApplication (x, ps) ->
+        let (ps, env) = List.fold_left (fun (tl, env) p ->
+          let (p, env) = r env p in
+          (p::tl, env)) ([], env) ps in
+        (PApplication (Ident x, List.rev ps), env)
+    | PatternBinder x ->
+        (PIdentifier (Ident x), add_binder env (BName (Ident x)))
+    | PatternUnderscore -> (PUnderscore, env)
+    | PatternInaccessible e -> (PInaccessible (resugar_expression env e), env) in
+  
+  let (resugared, _) = r env pattern in
+  resugared
 
 let print_expression env exp =
     PrintConcrete.printTree PrintConcrete.prtExp (resugar_expression env exp)
 
-let print_pattern patt = 
-    PrintConcrete.printTree PrintConcrete.prtPattern (resugar_pattern patt)
+let print_pattern env patt = 
+    PrintConcrete.printTree PrintConcrete.prtPattern (resugar_pattern env patt)

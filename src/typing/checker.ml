@@ -204,7 +204,7 @@ and check_type i env context exp typ =
   let print_val () v = 
     try Print_value.string_of_value v with _ -> "???" in
   let print_pattern () p = 
-    try print_pattern p with _ -> "???" in
+    try print_pattern (get_envt context) p with _ -> "???" in
 
   let tr = function
     | SType _ as r -> r
