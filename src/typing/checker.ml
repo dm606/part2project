@@ -282,7 +282,6 @@ and check_type i env context exp typ =
             check_type new_i new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
         (SType a) cases)
-      (* FIXME: check coverage *)
   | Function cases, VPi (Name x, a, b, pi_env) -> tr (
       let check_case patt exp =
         match Patterns.add_binders i context env a patt with
@@ -296,7 +295,6 @@ and check_type i env context exp typ =
             check_type (new_i + 1) new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
         (SType a) cases)
-      (* FIXME: check coverage *)
   
   (* not normally a type checking rule -- included because we cannot infer types
    * for lamdba abstractions or pattern-matching functions, but type inference
