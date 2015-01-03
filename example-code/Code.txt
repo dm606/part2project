@@ -10,18 +10,18 @@ type Fin : Nat -> U =
   | fzero : (n : Nat) -> Fin (succ n)
   | fsucc : (n : Nat) -> (i : Fin n) -> Fin (succ n)
 
-let rec nth : (A : U) -> (m : Nat) -> Vec A m -> Fin m -> A =
+(*let rec nth : (A : U) -> (m : Nat) -> Vec A m -> Fin m -> A =
   fun A -> (
     function succ m -> (function cons .A .m a l -> (function
       | fzero .m -> a
       | fsucc .m i -> nth A m l i)))
-
+*)
 let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
            -> Vec B n =
   fun A B f ->
     function
-    | zero -> (fun _ -> nil B)
-    | succ n -> (function cons .A .n a l -> cons B n (f a) (map A B f n l))
+    | zero -> (function nil .A -> nil B)
+    | succ n -> (function cons .A .n a tl -> cons B n (f a) (map A B f n tl))
 
 let rec add : Nat -> Nat -> Nat =
   fun x y ->
