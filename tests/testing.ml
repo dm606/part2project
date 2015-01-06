@@ -127,8 +127,8 @@ let rec show_pattern = function
       sprintf "PatternApplication (\"%s\", %s)" s (show_list show_pattern l)
   | PatternBinder s -> sprintf "PatternBinder \"%s\"" s
   | PatternUnderscore -> "PatternUnderscore"
-
-let rec show_expression = function
+  | PatternInaccessible e -> sprintf "PatternInaccessible (%s)" (show_expression e)
+and show_expression = function
   | Pair (e1, e2) ->
       sprintf "Pair (%s, %s)" (show_expression e1) (show_expression e2)
   | Lambda (b, e) ->
