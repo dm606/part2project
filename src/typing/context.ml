@@ -1,3 +1,4 @@
+open Equality
 open Value
 
 module M = Map.Make(String)
@@ -37,8 +38,8 @@ let get_binder_type (m, l) i = match List.nth l i with
   | exception (Failure _) -> None
 
 let compare_types t = function
-  | _, `V t2 -> t = t2
-  | _, `T thunk -> t = (Lazy.force thunk)
+  | _, `V t2 -> are_values_equal t t2
+  | _, `T thunk -> are_values_equal t (Lazy.force thunk)
 
 let check_constructor_type (m, l) c t =
   M.mem c m && List.exists (compare_types t) (M.find c m)

@@ -233,9 +233,8 @@ and check_type i env context exp typ =
   | Pair (e1, e2), VSigma (Name x, a, b, sigma_env) -> tr (
       check_type i env context e1 a
       >>= fun _ ->
-      let sigma_env' = Environment.add env (Eval.eval sigma_env e1) in
-      let context' = Context.add_binder context x a in
-      check_type i env context' e2 (Eval.eval sigma_env' b)
+      let sigma_env' = Environment.add sigma_env (Eval.eval env e1) in
+      check_type i env context e2 (Eval.eval sigma_env' b)
       >>= fun _ ->
       SType typ)
   | Lambda (Underscore, e1), VPi (Underscore, a, b, pi_env) -> tr (
@@ -273,26 +272,30 @@ and check_type i env context exp typ =
       check_type i env' context' e typ)
   | Function cases, VPi (Underscore, a, b, pi_env) -> tr (
       let check_case patt exp =
-        match Patterns.add_binders i context env a patt with
+        match Patterns.add_binders
+          (fun i context env e v -> succeeded (check_type i env context e v))
+          i context env a patt with
         | None -> failure (sprintf
             "The type of the values matched by the pattern %a is not %a."
             print_pattern patt print_val a)
-        | Some (new_i, new_context, new_env, subst) ->
+        | Some (_, new_i, new_context, new_env, subst) ->
             let typ = Context.subst_value subst (Eval.eval pi_env b) in
             check_type new_i new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
         (SType a) cases)
   | Function cases, VPi (Name x, a, b, pi_env) -> tr (
       let check_case patt exp =
-        match Patterns.add_binders i context env a patt with
+        match Patterns.add_binders
+          (fun i context env e v -> succeeded (check_type i env context e v))
+          i context env a patt with
         | None -> failure (sprintf
             "The type of the values matched by the pattern %a is not %a."
             print_pattern patt print_val a)
-        | Some (new_i, new_context, new_env, subst) ->
+        | Some (matched_value, new_i, new_context, new_env, subst) ->
             let pi_env' =
-              Environment.add pi_env (VNeutral (VVar new_i)) in
+              Environment.add pi_env matched_value in
             let typ = Context.subst_value subst (Eval.eval pi_env' b) in
-            check_type (new_i + 1) new_env new_context exp typ in
+            check_type new_i new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
         (SType a) cases)
   

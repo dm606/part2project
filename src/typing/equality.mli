@@ -27,5 +27,7 @@ and normal_neutral =
 
 val readback : int -> value -> normal
 
+val are_values_equal : value -> value -> bool
+
 val are_equal : value Environment.t -> Abstract.expression
              -> Abstract.expression -> bool

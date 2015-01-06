@@ -41,6 +41,25 @@ let reify eval =
     | VNeutral _ -> raise (Cannot_reify "Cannot reify neutral terms") in
   reify
 
+let rec neutral_contains i = function
+  | VVar j when i = j -> true
+  | VVar i -> false
+  | VFunctionApplication (_, _, n) -> neutral_contains i n
+  | VApplication (n, v) -> neutral_contains i n || contains i v
+  | VProj1 n -> neutral_contains i n
+  | VProj2 n -> neutral_contains i n
+and contains i = function 
+  | VPair (v1, v2) -> contains i v1 || contains i v2
+  | VLambda _ -> false
+  | VPi (_, a, _, _) -> contains i a
+  | VSigma (_, a, _, _) -> contains i a
+  | VFunction (_, _) -> false
+  | VUniverse -> false
+  | VUnitType -> false
+  | VUnit -> false
+  | VConstruct (_, l) -> List.exists (contains i) l
+  | VNeutral n -> neutral_contains i n
+
 let rec neutral_substitute_neutral_variable i n = function
   | VVar j when j = i -> n
   | VVar j -> VVar j
@@ -72,14 +91,7 @@ and substitute_neutral_variable i v =
       VConstruct (c, List.map (substitute_neutral_variable i v) l)
   | VNeutral (VVar j) when i = j -> v
   | VNeutral n ->
-      let rec contains = function
-        | VVar j when i = j -> true
-        | VVar i -> false
-        | VFunctionApplication (_, _, n) -> contains n
-        | VApplication (n, _) -> contains n
-        | VProj1 n -> contains n
-        | VProj2 n -> contains n in
-      if contains n then
+      if neutral_contains i n then
         match v with
         | VNeutral n1 -> VNeutral (neutral_substitute_neutral_variable i n1 n)
         | _ -> raise (Failure "substitute_neutral_variable")
