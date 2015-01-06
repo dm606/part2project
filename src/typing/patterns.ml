@@ -5,21 +5,44 @@ let (>>=) m f = match m with
   | None -> None
   | Some a -> f a
 
-(* unification
- * there is no occurs check, so this will not return if passed something of the
- * form _ i c (..., i, ...) *)
+let rec occurs v i = match v with
+  | VPair (v1, v2) -> occurs v1 i || occurs v2 i
+  | VLambda _ -> false
+  | VPi (_, v, _, _) -> occurs v i
+  | VSigma (_, v, _, _) -> occurs v i
+  | VFunction _ -> false
+  | VUniverse -> false
+  | VUnitType -> false
+  | VUnit -> false
+  | VConstruct (_, l) -> List.exists (fun v -> occurs v i) l
+  | VNeutral n -> neutral_occurs n i
+and neutral_occurs n i = match n with
+  | VVar j when i = j -> true
+  | VVar j -> false
+  | VFunctionApplication (_, _, n) -> neutral_occurs n i
+  | VApplication (n, v) -> neutral_occurs n i || occurs v i
+  | VProj1 n -> neutral_occurs n i
+  | VProj2 n -> neutral_occurs n i
+
+(* unification *)
 let mgu =
   let rec mgu subst v1 v2 = match v1, v2 with
+    | VNeutral (VVar i), VNeutral (VVar j) when i = j ->
+        Some Context.subst_empty
     (* variables unify than anything, unless they are already in the
      * substitution *)
     | VNeutral (VVar i), v ->
-        if Context.subst_mem i subst
-        then mgu subst (Context.subst_find i subst) v
-        else Some (Context.subst_add i v subst)
+        if occurs v i then None (* occurs check *)
+        else
+          if Context.subst_mem i subst
+          then mgu subst (Context.subst_find i subst) v
+          else Some (Context.subst_add i v subst)
     | v, VNeutral (VVar i) ->
-        if Context.subst_mem i subst
-        then mgu subst v (Context.subst_find i subst) 
-        else Some (Context.subst_add i v subst)
+        if occurs v i then None (* occurs check *)
+        else
+          if Context.subst_mem i subst
+          then mgu subst v (Context.subst_find i subst) 
+          else Some (Context.subst_add i v subst)
     (* atoms unify than themselves *)
     | VUniverse, VUniverse -> Some subst
     | VUnitType, VUnitType -> Some subst
@@ -110,8 +133,8 @@ let rec add_binders checker i context env typ patt = match patt, typ with
         match mgu typ remaining with
         | Some subst ->
             Some (VConstruct (c, tl), i
-               , Context.subst_apply context subst
-               , Context.subst_env subst env, subst)
+                , Context.subst_apply context subst
+                , Context.subst_env subst env, subst)
         | None -> None in
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with

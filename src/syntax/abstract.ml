@@ -324,9 +324,10 @@ and desugar_pattern env pattern =
     | PIdentifier (Ident x) when is_constructor_defined env x ->
         (PatternApplication (x, []), env)
     | PIdentifier (Ident x as i) -> (PatternBinder x, add_binder env (BName i))
-    (* Note: inaccessible patterns cannot refer to variables defined to the right
-     * in the same pattern *)
-    | PInaccessible exp -> (PatternInaccessible (desugar_expression env exp), env)
+    (* Note: inaccessible patterns cannot refer to variables defined to the
+     * right in the same pattern *)
+    | PInaccessible exp -> (PatternInaccessible (desugar_expression env exp)
+                          , env)
     | PUnderscore -> (PatternUnderscore, env) in
 
   let (desugared, _) = d env pattern in
@@ -360,7 +361,8 @@ let rec resugar_expression env = function
   | Function cs ->
       EFunction (List.map (fun (p, e) ->
         CCase (resugar_pattern env p
-             , resugar_expression (add_pattern_binders env (resugar_pattern env p))
+             , resugar_expression
+                 (add_pattern_binders env (resugar_pattern env p))
           e)) cs)
   | LocalDeclaration (ds, e) ->
       let new_env = add_local_declaration_binders env ds in
@@ -368,7 +370,8 @@ let rec resugar_expression env = function
   | Application (Function cs, e) ->
       EMatch (resugar_expression env e, List.map (fun (p, e)
       -> CCase (resugar_pattern env p
-              , resugar_expression (add_pattern_binders env (resugar_pattern env p))
+              , resugar_expression
+                  (add_pattern_binders env (resugar_pattern env p))
            e)) cs)
   | Application (e1, e2) ->
       EApplication (resugar_expression env e1, resugar_expression env e2)
@@ -495,7 +498,8 @@ and resugar_pattern env pattern =
     | PatternBinder x ->
         (PIdentifier (Ident x), add_binder env (BName (Ident x)))
     | PatternUnderscore -> (PUnderscore, env)
-    | PatternInaccessible e -> (PInaccessible (resugar_expression env e), env) in
+    | PatternInaccessible e ->
+        (PInaccessible (resugar_expression env e), env) in
   
   let (resugared, _) = r env pattern in
   resugared
