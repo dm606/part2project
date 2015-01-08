@@ -1,6 +1,14 @@
 open Abstract
 open Value
 
+exception Cannot_pattern_match
+
+let concat_map f =
+  let rec aux acc = function
+    | [] -> acc
+    | x::tl -> aux (f x @ acc) tl in
+  aux []
+
 let (>>=) m f = match m with
   | None -> None
   | Some a -> f a
@@ -88,6 +96,10 @@ let mgu =
     | _ -> None in
   mgu Context.subst_empty
 
+let unify v1 v2 = match mgu v1 v2 with
+  | None -> false
+  | Some _ -> true
+
 let rec add_binders checker i context env typ patt = match patt, typ with
   | PatternUnderscore, _ ->
       Some (VNeutral (VVar i), i + 1, context, env, Context.subst_empty)
@@ -144,3 +156,146 @@ let rec add_binders checker i context env typ patt = match patt, typ with
       if checker i context env e typ
       then Some (Eval.eval env e, i, context, env, Context.subst_empty)
       else None
+
+type match_result = Match | Unknown of int | NoMatch
+
+let (&) m1 = function
+  | Match -> m1
+  | Unknown i -> (match m1 with Match -> Unknown i | _ -> m1)
+  | NoMatch -> NoMatch
+
+let rec check_match pattern value = match pattern, value with
+  | PatternUnderscore, _ -> Match
+  | PatternBinder _, _ -> Match
+  (* assume that inaccessible patterns have already been checked *)
+  | PatternInaccessible _, _ -> Match
+  | PatternPair (p1, p2), VPair (v1, v2) ->
+      check_match p1 v1 & check_match p2 v2
+  | PatternPair _, VConstruct _ -> NoMatch
+  | PatternPair _, VNeutral (VVar i) -> Unknown i
+  | PatternApplication (pc, pl), VConstruct (vc, vl) when pc = vc ->
+      List.fold_left2 (fun m p v -> m & check_match p v) Match pl vl
+  | PatternApplication _, VConstruct _ ->
+      NoMatch (* constructor names do not match *)
+  | PatternApplication _, VPair _ -> NoMatch
+  | PatternApplication _, VNeutral (VVar i) -> Unknown i
+  | _ -> assert false (* value can't have been created by a split *)
+
+(* split along blocker *)
+let rec split i context typ value blocker =
+  let rec get_constructed_type i = function
+    | VPi (Underscore, _, b, env) -> get_constructed_type i (Eval.eval env b)
+    | VPi (Name _, _, b, env) ->
+        get_constructed_type (i + 1)
+          (Eval.eval (Environment.add env (VNeutral (VVar i))) b)
+    | VConstruct _ as t -> t
+    | _ -> assert false in
+
+  let rec construct i = function
+    | VPi (Underscore, _, b, env) ->
+        let (i, l) = construct (i + 1) (Eval.eval env b) in
+        (i, (VNeutral (VVar i))::l)
+    | VPi (Name _, _, b, env) ->
+        let (i, l) = construct (i + 1)
+          (Eval.eval (Environment.add env (VNeutral (VVar i))) b) in
+        (i, (VNeutral (VVar i))::l)
+    | VConstruct _ -> (i, [])
+    | _ -> assert false in
+
+  match value with 
+  | VNeutral (VVar j) when j = blocker -> (match typ with
+      | VConstruct (type_name, _) ->
+          (* return all valid constructors of type_name *)
+          let ctors =
+            Context.get_constructors_of_type context type_name in
+          (* the constructors which could possibly be used to create a value of type
+           * typ *)
+          let valid_ctors =
+            List.filter (fun (c, v) -> unify (get_constructed_type i v) typ)
+              ctors in
+          List.map (fun (c, v) ->
+            let (i, l) = construct i v in
+            (i, VConstruct (c, l))) valid_ctors
+      | VSigma _ ->
+          (* return a pair of variables *)
+          [i + 2, VPair (VNeutral (VVar i), VNeutral (VVar (i + 1)))]
+      | _ -> raise Cannot_pattern_match)
+  | VNeutral (VVar j) -> [i, value]
+  | VPair (v1, v2) -> (match typ with
+      | VSigma (Underscore, a, b, env) ->
+          let l = split i context a v1 blocker in
+          concat_map (fun (i, v1) -> 
+            let l2 = split i context (Eval.eval env b) v2 blocker in
+            List.map (fun (i, v2) -> i, VPair (v1, v2)) l2) l
+      | VSigma (Name _, a, b, env) ->
+          let l = split i context a v1 blocker in
+          concat_map (fun (i, v1) -> 
+            let env' = Environment.add env v1 in
+            let l2 = split i context (Eval.eval env' b) v2 blocker in
+            List.map (fun (i, v2) -> i, VPair (v1, v2)) l2) l
+      | _ ->
+          (* value could only have been produced by a split; a split will only
+           * produce a pair if typ is of the form VSigma _ *)
+          assert false)
+  | VConstruct (c, l) -> (match typ with
+      | VConstruct (type_name, _) ->
+          let _, ctor_type =
+            List.find (fun (d, _) -> d = c)
+              (Context.get_constructors_of_type context type_name) in
+          let aux i v typ = match typ with
+            | VPi (Underscore, a, b, env) ->
+                let l = split i context a v blocker in
+                let t = Eval.eval env b in
+                List.map (fun (i, v) -> (i, v, t)) l
+            | VPi (Name _, a, b, env) ->
+                let l = split i context a v blocker in
+                List.map (fun (i, v) ->
+                  let env' = Environment.add env v in
+                  (i, v, Eval.eval env' b)) l
+            | _ -> assert false in
+          let aux2 v (i, l, typ) =
+            let split_results = aux i v typ in
+            List.map (fun (i, v, typ) -> (i, v::l, typ)) split_results in
+          List.map (fun (i, l, _) -> (i, VConstruct (c, l)))
+            (List.fold_right (fun v l -> concat_map (aux2 v) l) 
+              l [i, [], ctor_type])
+      | _ -> assert false)
+  | _ -> assert false
+
+(* typ is caseless if spliting [i]:typ along i produces no values *)
+let caseless i context typ =
+  split (i + 1) context typ (VNeutral (VVar i)) i = []
+
+(* checks that patterns covers all values of the form value (patterns must not be
+ * []) *)
+let rec cover_rec i context patterns typ value =
+  let result = ref None in
+  let blocker = ref 0 in
+  let rec find_matches = function
+    | [] -> []
+    | p::tl -> (
+        match check_match p value with
+        | Match -> result := Some true; []
+        | Unknown b ->
+            result := Some false; blocker := b; p::(find_matches tl)
+        | NoMatch -> find_matches tl) in
+  let unknowns = find_matches patterns in
+
+  match !result with
+  (* there is no pattern which may match *)
+  | None -> false
+  | Some true -> true (* there is a match for all values of the form value *)
+  | Some false -> (
+      (* there may or may not be a match -- split *)
+      match unknowns with
+      | p::tl ->
+          let split_result = split i context typ value !blocker in
+          List.for_all (fun (i, v) -> cover_rec i context unknowns typ v) split_result
+      (* find_matches must return a list containing at least one element *)
+      | _ -> assert false)
+
+let cover i context patterns typ =
+  (* if the type has no valid constructors, then no patterns are need to form a
+   * covering *)
+  if patterns = [] then caseless i context typ 
+  else cover_rec (i + 1) context patterns typ (VNeutral (VVar i))

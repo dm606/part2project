@@ -50,6 +50,15 @@ let get_constructor_types (m, l) c =
     | `V v -> v
     | `T v -> Lazy.force v) (M.find c m) else []
 
+let get_constructors_of_type (m, l) t =
+  M.fold (fun ctor l rest ->
+    let l = List.filter (fun (typ, _) -> typ = t) l in
+    let l = List.rev_map (fun (typ, v) ->
+      match v with
+      | `V v -> ctor, v
+      | `T v -> ctor, Lazy.force v) l in
+    List.rev_append l rest) m []
+
 let get_unique_constructor_type (m, l) c =
   if M.mem c m
   then match M.find c m with

@@ -282,7 +282,11 @@ and check_type i env context exp typ =
             let typ = Context.subst_value subst (Eval.eval pi_env b) in
             check_type new_i new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
-        (SType a) cases)
+        (SType a) cases
+      >>= fun _ ->
+      if Patterns.cover i context (List.map (fun (p, _) -> p) cases) a
+      then SType typ
+      else failure (sprintf "The patterns do not cover all cases"))
   | Function cases, VPi (Name x, a, b, pi_env) -> tr (
       let check_case patt exp =
         match Patterns.add_binders
@@ -297,7 +301,11 @@ and check_type i env context exp typ =
             let typ = Context.subst_value subst (Eval.eval pi_env' b) in
             check_type new_i new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
-        (SType a) cases)
+        (SType a) cases
+      >>= fun _ ->
+      if Patterns.cover i context (List.map (fun (p, _) -> p) cases) a
+      then SType typ
+      else failure (sprintf "The patterns do not cover all cases"))
   
   (* not normally a type checking rule -- included because we cannot infer types
    * for lamdba abstractions or pattern-matching functions, but type inference

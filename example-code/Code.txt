@@ -1,5 +1,7 @@
 type Null = 
 
+type Bool = true : Bool | false : Bool
+
 type Nat = zero : Nat | succ : Nat -> Nat
 
 type Vec (A : U) : Nat -> U =
@@ -10,12 +12,24 @@ type Fin : Nat -> U =
   | fzero : (n : Nat) -> Fin (succ n)
   | fsucc : (n : Nat) -> (i : Fin n) -> Fin (succ n)
 
-let rec nth : (A : U) -> (m : Nat) -> Vec A m -> Fin m -> A =
-  fun A -> (
-    function succ m -> (function cons .A .m a l -> (function
-      | fzero .m -> a
-      | fsucc .m i -> nth A m l i)))
+let rec is_even : Nat -> Bool = function
+  | zero -> true
+  | succ (succ x) -> is_even x
+  | succ zero -> false
 
+let maj : Bool * Bool * Bool -> Bool = function
+  | true, true, true -> true
+  | true, false, z -> z
+  | false, y, true -> y
+  | x, true, false -> x
+  | false, false, false -> false
+
+(*
+let rec nth : (A : U) -> (m : Nat) -> Vec A (succ m) -> Fin (succ m) -> A =
+  fun A n -> function cons .A .n a tl -> (function
+      | fzero .n -> a
+      | fsucc .n i -> nth A n tl i)))
+*)
 (*let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
            -> Vec B n =
   fun A B f _ -> function
@@ -86,8 +100,8 @@ let false_elim : (A : U) -> Null -> A =
 
 let proof : (A : U) -> (B : U) -> (Not A) * (Or A B) -> B =
   fun A B -> function
-  | a, inl _ _ x -> false_elim B (a x)
-  | a, inr _ _ x -> x
+  | a, inl .A .B x -> false_elim B (a x)
+  | a, inr .A .B x -> x
 
 let proof2 : (n : Nat) -> Not (Eq Nat n zero) -> (m : Nat) * Eq Nat n (succ m) =
   function

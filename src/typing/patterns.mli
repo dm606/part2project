@@ -16,3 +16,11 @@ val add_binders
   : (int -> Context.t -> value Environment.t -> expression -> value -> bool)
  -> int -> Context.t -> value Environment.t -> value -> pattern
  -> (value * int * Context.t * value Environment.t * Context.subst) option
+
+(** checks that the list of patterns form a covering
+ * cover i patterns typ value returns true if, for each value v of type typ and
+ * of the form value, there is at least one patterns in patterns which matches
+ * v. i must be such that all neutral variables j with j >= i are fresh.
+ * 
+ * the implementation is based on the algorithm given by Norell *)
+val cover : int -> Context.t -> pattern list -> value -> bool
