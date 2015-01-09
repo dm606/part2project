@@ -36,7 +36,7 @@ and neutral_occurs n i = match n with
 let mgu =
   let rec mgu subst v1 v2 = match v1, v2 with
     | VNeutral (VVar i), VNeutral (VVar j) when i = j ->
-        Some Context.subst_empty
+        Some subst
     (* variables unify than anything, unless they are already in the
      * substitution *)
     | VNeutral (VVar i), v ->
@@ -208,8 +208,8 @@ let rec split i context typ value blocker =
           (* return all valid constructors of type_name *)
           let ctors =
             Context.get_constructors_of_type context type_name in
-          (* the constructors which could possibly be used to create a value of type
-           * typ *)
+          (* the constructors which could possibly be used to create a value of
+           * type typ *)
           let valid_ctors =
             List.filter (fun (c, v) -> unify (get_constructed_type i v) typ)
               ctors in
@@ -266,8 +266,8 @@ let rec split i context typ value blocker =
 let caseless i context typ =
   split (i + 1) context typ (VNeutral (VVar i)) i = []
 
-(* checks that patterns covers all values of the form value (patterns must not be
- * []) *)
+(* checks that patterns covers all values of the form value (patterns must not
+ * be []) *)
 let rec cover_rec i context patterns typ value =
   let result = ref None in
   let blocker = ref 0 in
@@ -290,7 +290,8 @@ let rec cover_rec i context patterns typ value =
       match unknowns with
       | p::tl ->
           let split_result = split i context typ value !blocker in
-          List.for_all (fun (i, v) -> cover_rec i context unknowns typ v) split_result
+          List.for_all (fun (i, v) -> cover_rec i context unknowns typ v)
+            split_result
       (* find_matches must return a list containing at least one element *)
       | _ -> assert false)
 
