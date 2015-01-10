@@ -49,8 +49,10 @@ let rec eval env =
   function
   | Pair (e1, e2) -> VPair (eval env e1, eval env e2)
   | Lambda (b, e) -> VLambda (b, e, env)
-  | Pi (b, e1, e2) -> VPi (b, eval env e1, e2, env)
-  | Sigma (b, e1, e2) -> VSigma (b, eval env e1, e2, env)
+  | Pi (Underscore, e1, e2) -> VArrow (eval env e1, eval env e2)
+  | Pi (Name b, e1, e2) -> VPi (b, eval env e1, e2, env)
+  | Sigma (Underscore, e1, e2) -> VTimes (eval env e1, eval env e2)
+  | Sigma (Name b, e1, e2) -> VSigma (b, eval env e1, e2, env)
   | Function l -> VFunction (l, env)
   | LocalDeclaration (l, e) -> eval (add_declarations env l) e
   | Application (e1, e2) ->

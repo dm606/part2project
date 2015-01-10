@@ -130,11 +130,11 @@ let rec infer_type i env context exp =
   | Application (e1, e2) -> tr (
       infer_type i env context e1
       >>= function
-        | VPi (Underscore, a, b, pi_env) ->
+        | VArrow (a, b) ->
             check_type i env context e2 a
             >>= fun _ ->
-            SType (Eval.eval pi_env b)
-        | VPi (Name x, a, b, pi_env) -> 
+            SType b 
+        | VPi (x, a, b, pi_env) -> 
             check_type i env context e2 a
             >>= fun _ ->
             let pi_env' = Environment.add pi_env (Eval.eval env e2) in
@@ -152,14 +152,15 @@ let rec infer_type i env context exp =
   | Proj1 e -> tr (
       infer_type i env context e
       >>= function
+        | VTimes (a, _) -> SType a
         | VSigma (_, a, _, _) -> SType a
         | _ -> failure (sprintf "%a is not a pair" print e))
   | Proj2 e -> tr (
       infer_type i env context e
       >>= function
-        | VSigma (Underscore, _, b, sigma_env) ->
-            SType (Eval.eval sigma_env b)
-        | VSigma (Name x, a, b, sigma_env) ->
+        | VTimes (_, b) ->
+            SType b
+        | VSigma (x, a, b, sigma_env) ->
             let sigma_env' =
               Environment.add sigma_env (Eval.eval env (Proj1 e)) in
             SType (Eval.eval sigma_env' b)
@@ -191,7 +192,7 @@ let rec infer_type i env context exp =
       >>= fun t2 ->
       (* env should not be needed in the next line -- a reified value should not
        * have free variables *)
-      try SType (VSigma (Underscore, t1, reify Eval.eval t2, env))
+      try SType (VTimes (t1, t2))
       with Cannot_reify _ ->
         failure (sprintf "Cannot convert the type of %a to an expression"
           print e2))
@@ -224,35 +225,35 @@ and check_type i env context exp typ =
              print_val typ)) in
 
   match exp, typ with
-  | Pair (e1, e2), VSigma (Underscore, a, b, sigma_env) -> tr (
+  | Pair (e1, e2), VTimes (a, b) -> tr (
       check_type i env context e1 a
       >>= fun _ ->
-      check_type i env context e2 (Eval.eval sigma_env b)
+      check_type i env context e2 b
       >>= fun _ ->
       SType typ)
-  | Pair (e1, e2), VSigma (Name x, a, b, sigma_env) -> tr (
+  | Pair (e1, e2), VSigma (x, a, b, sigma_env) -> tr (
       check_type i env context e1 a
       >>= fun _ ->
       let sigma_env' = Environment.add sigma_env (Eval.eval env e1) in
       check_type i env context e2 (Eval.eval sigma_env' b)
       >>= fun _ ->
       SType typ)
-  | Lambda (Underscore, e1), VPi (Underscore, a, b, pi_env) -> tr (
-      check_type i env context e1 (Eval.eval pi_env b)
+  | Lambda (Underscore, e1), VArrow (a, b) -> tr (
+      check_type i env context e1 b
       >>= fun _ ->
       SType typ)
-  | Lambda (Underscore, e1), VPi (Name x, a, b, pi_env) -> tr (
+  | Lambda (Underscore, e1), VPi (x, a, b, pi_env) -> tr (
       let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
       check_type (i + 1) env context e1 (Eval.eval pi_env' b)
       >>= fun _ ->
       SType typ)
-  | Lambda (Name x, e1), VPi (Underscore, a, b, pi_env) -> tr (
+  | Lambda (Name x, e1), VArrow (a, b) -> tr (
       let env' = Environment.add env (VNeutral (VVar i)) in
       let context' = Context.add_binder context x a in
-      check_type (i + 1) env' context' e1 (Eval.eval pi_env b)
+      check_type (i + 1) env' context' e1 b
       >>= fun _ ->
       SType typ)
-  | Lambda (Name x, e1), VPi (Name y, a, b, pi_env) -> tr (
+  | Lambda (Name x, e1), VPi (y, a, b, pi_env) -> tr (
       let env' = Environment.add env (VNeutral (VVar i)) in
       let context' = Context.add_binder context x a in
       let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
@@ -270,7 +271,7 @@ and check_type i env context exp typ =
       let env' = Environment.add_declarations env d in
       let context' = add_all_to_context env context d in
       check_type i env' context' e typ)
-  | Function cases, VPi (Underscore, a, b, pi_env) -> tr (
+  | Function cases, VArrow (a, b) -> tr (
       let check_case patt exp =
         match Patterns.add_binders
           (fun i context env e v -> succeeded (check_type i env context e v))
@@ -279,7 +280,7 @@ and check_type i env context exp typ =
             "The type of the values matched by the pattern %a is not %a."
             print_pattern patt print_val a)
         | Some (_, new_i, new_context, new_env, subst) ->
-            let typ = Context.subst_value subst (Eval.eval pi_env b) in
+            let typ = Context.subst_value subst b in
             check_type new_i new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r >>= fun _ -> check_case p e)
         (SType a) cases
@@ -287,7 +288,7 @@ and check_type i env context exp typ =
       if Patterns.cover i context (List.map (fun (p, _) -> p) cases) a
       then SType typ
       else failure (sprintf "The patterns do not cover all cases"))
-  | Function cases, VPi (Name x, a, b, pi_env) -> tr (
+  | Function cases, VPi (x, a, b, pi_env) -> tr (
       let check_case patt exp =
         match Patterns.add_binders
           (fun i context env e v -> succeeded (check_type i env context e v))
@@ -315,13 +316,13 @@ and check_type i env context exp typ =
         >>= fun t1 -> (
         try
           check_type i env context e1
-            (VPi (Underscore, t1, reify Eval.eval t2, env))
+            (VArrow (t1, t2))
         with Cannot_reify _ -> failure "")
         >> fun _ ->
         SType t2) with
     | SType t as r -> r
     | SDecl _ -> assert false
-    | F _ -> try_eq ())
+    | F _ as f -> match try_eq () with F _ -> f | x -> x)
 
   | _ -> try_eq ()
 and check_declarations i env context =

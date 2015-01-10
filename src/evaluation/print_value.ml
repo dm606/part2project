@@ -26,9 +26,11 @@ and pr_value1 fmt = function
   | VFunction (_, _) -> fprintf fmt "<function>"
   | v -> pr_value2 fmt v
 and pr_value2 fmt = function
+  | VArrow (a, b) -> fprintf fmt "@[<hov2>%a@ -> %a@]" pr_value3 a pr_value2 b
   | VPi (_, _, _, _) -> fprintf fmt "<pi>"
   | v -> pr_value3 fmt v
 and pr_value3 fmt = function
+  | VTimes (a, b) -> fprintf fmt "@[<hov2>%a@ * %a@]" pr_value4 a pr_value3 b
   | VSigma (_, _, _, _) -> fprintf fmt "<sigma>"
   | v -> pr_value4 fmt v
 and pr_value4 fmt = function

@@ -7,8 +7,10 @@ exception Cannot_reify of string
 type value =
   | VPair of value * value
   | VLambda of binder * expression * value Environment.t
-  | VPi of binder * value * expression * value Environment.t
-  | VSigma of binder * value * expression * value Environment.t
+  | VPi of string * value * expression * value Environment.t
+  | VArrow of value * value (* Π (_ : A) . B *)
+  | VSigma of string * value * expression * value Environment.t
+  | VTimes of value * value (* Σ (_ : A) . B *)
   | VFunction of (pattern * expression) list * value Environment.t
   | VUniverse
   | VUnitType

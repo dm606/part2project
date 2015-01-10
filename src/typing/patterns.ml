@@ -16,7 +16,9 @@ let (>>=) m f = match m with
 let rec occurs v i = match v with
   | VPair (v1, v2) -> occurs v1 i || occurs v2 i
   | VLambda _ -> false
+  | VArrow (a, b) -> occurs a i || occurs b i
   | VPi (_, v, _, _) -> occurs v i
+  | VTimes (a, b) -> occurs a i || occurs b i
   | VSigma (_, v, _, _) -> occurs v i
   | VFunction _ -> false
   | VUniverse -> false
@@ -61,16 +63,16 @@ let mgu =
         if e = e' && env = env' then Some subst else None
     | VLambda (Name _, e, env), VLambda (Name _, e', env') ->
         if e = e' && env = env' then Some subst else None
-    | VPi (Underscore, v, e, env), VPi (Underscore, v', e', env') ->
+    | VArrow (a, b), VArrow (a', b') ->
+        mgu subst a a' >>= fun subst ->
+        mgu subst b b'
+    | VPi (_, v, e, env), VPi (_, v', e', env') ->
         mgu subst v v' >>= fun u ->
         if e = e' && env = env' then Some u else None
-    | VPi (Name _, v, e, env), VPi (Name _, v', e', env') ->
-        mgu subst v v' >>= fun u ->
-        if e = e' && env = env' then Some u else None
-    | VSigma (Underscore, v, e, env), VSigma (Underscore, v', e', env') ->
-        mgu subst v v' >>= fun u ->
-        if e = e' && env = env' then Some u else None
-    | VSigma (Name _, v, e, env), VSigma (Name _, v', e', env') ->
+    | VTimes (a, b), VTimes (a', b') ->
+        mgu subst a a' >>= fun subst ->
+        mgu subst b b'
+    | VSigma (_, v, e, env), VSigma (_, v', e', env') ->
         mgu subst v v' >>= fun u ->
         if e = e' && env = env' then Some u else None
     | VFunction _, VFunction _ -> if v1 = v2 then Some subst else None
@@ -109,16 +111,15 @@ let rec add_binders checker i context env typ patt = match patt, typ with
           , Context.add_binder context x typ
           , Environment.add env (VNeutral (VVar i))
           , Context.subst_empty)
-  | PatternPair (p1, p2), VSigma (Underscore, a, b, sigma_env) ->
+  | PatternPair (p1, p2), VTimes (a, b) ->
       add_binders checker i context env a p1
       >>= fun (v1, i, context, env, subst) ->
-      add_binders checker i context env (Eval.eval sigma_env b) p2
+      add_binders checker i context env b p2
       >>= fun (v2, i, context, env, subst) ->
       Some (VPair (v1, v2), i, context, env, subst)
-  | PatternPair (p1, p2), VSigma (Name x, a, b, sigma_env) ->
+  | PatternPair (p1, p2), VSigma (x, a, b, sigma_env) ->
       add_binders checker i context env a p1
       >>= fun (v1, i, context, env, subst) ->
-      (* TODO: is this correct?? *)
       let sigma_env' = Environment.add sigma_env v1 in
       add_binders checker (i + 1) context env (Eval.eval sigma_env' b) p2 
       >>= fun (v2, i, context, env, subst) ->
@@ -128,11 +129,11 @@ let rec add_binders checker i context env typ patt = match patt, typ with
       let aux result p = result
         >>= fun (tl, i, context, env, t, subst) -> 
         match t with
-        | VPi (Underscore, a, b, pi_env) ->
+        | VArrow (a, b) ->
             add_binders checker i context env a p
             >>= fun (v, i, context, env, subst) ->
-            Some (v::tl, i, context, env, Eval.eval pi_env b, subst)
-        | VPi (Name x, a, b, pi_env) ->
+            Some (v::tl, i, context, env, b, subst)
+        | VPi (x, a, b, pi_env) ->
             add_binders checker i context env a p
             >>= fun (v, i, context, env, subst) ->
             let pi_env' = Environment.add pi_env v in
@@ -184,18 +185,18 @@ let rec check_match pattern value = match pattern, value with
 (* split along blocker *)
 let rec split i context typ value blocker =
   let rec get_constructed_type i = function
-    | VPi (Underscore, _, b, env) -> get_constructed_type i (Eval.eval env b)
-    | VPi (Name _, _, b, env) ->
+    | VArrow (a, b) -> get_constructed_type i b
+    | VPi (_, _, b, env) ->
         get_constructed_type (i + 1)
           (Eval.eval (Environment.add env (VNeutral (VVar i))) b)
     | VConstruct _ as t -> t
     | _ -> assert false in
 
   let rec construct i = function
-    | VPi (Underscore, _, b, env) ->
-        let (i, l) = construct (i + 1) (Eval.eval env b) in
+    | VArrow (a, b) ->
+        let (i, l) = construct (i + 1) b in
         (i, (VNeutral (VVar i))::l)
-    | VPi (Name _, _, b, env) ->
+    | VPi (_, _, b, env) ->
         let (i, l) = construct (i + 1)
           (Eval.eval (Environment.add env (VNeutral (VVar i))) b) in
         (i, (VNeutral (VVar i))::l)
@@ -216,18 +217,18 @@ let rec split i context typ value blocker =
           List.map (fun (c, v) ->
             let (i, l) = construct i v in
             (i, VConstruct (c, l))) valid_ctors
-      | VSigma _ ->
+      | VSigma _ | VTimes _ ->
           (* return a pair of variables *)
           [i + 2, VPair (VNeutral (VVar i), VNeutral (VVar (i + 1)))]
       | _ -> raise Cannot_pattern_match)
   | VNeutral (VVar j) -> [i, value]
   | VPair (v1, v2) -> (match typ with
-      | VSigma (Underscore, a, b, env) ->
+      | VTimes (a, b) ->
           let l = split i context a v1 blocker in
           concat_map (fun (i, v1) -> 
-            let l2 = split i context (Eval.eval env b) v2 blocker in
+            let l2 = split i context b v2 blocker in
             List.map (fun (i, v2) -> i, VPair (v1, v2)) l2) l
-      | VSigma (Name _, a, b, env) ->
+      | VSigma (_, a, b, env) ->
           let l = split i context a v1 blocker in
           concat_map (fun (i, v1) -> 
             let env' = Environment.add env v1 in
@@ -235,7 +236,7 @@ let rec split i context typ value blocker =
             List.map (fun (i, v2) -> i, VPair (v1, v2)) l2) l
       | _ ->
           (* value could only have been produced by a split; a split will only
-           * produce a pair if typ is of the form VSigma _ *)
+           * produce a pair if typ is of the form VSigma _ or VTimes _ *)
           assert false)
   | VConstruct (c, l) -> (match typ with
       | VConstruct (type_name, _) ->
@@ -243,11 +244,10 @@ let rec split i context typ value blocker =
             List.find (fun (d, _) -> d = c)
               (Context.get_constructors_of_type context type_name) in
           let aux i v typ = match typ with
-            | VPi (Underscore, a, b, env) ->
+            | VArrow (a, b) ->
                 let l = split i context a v blocker in
-                let t = Eval.eval env b in
-                List.map (fun (i, v) -> (i, v, t)) l
-            | VPi (Name _, a, b, env) ->
+                List.map (fun (i, v) -> (i, v, b)) l
+            | VPi (_, a, b, env) ->
                 let l = split i context a v blocker in
                 List.map (fun (i, v) ->
                   let env' = Environment.add env v in

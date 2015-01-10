@@ -44,13 +44,13 @@ let rec readback i =
   | VLambda (_, e, env) -> 
       NLambda (i, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
-  | VPi (Underscore, v, e, env) ->
-      NPi (i, readback i v, readback (i + 1) (eval env e))
+  | VArrow (a, b) ->
+      NPi (i, readback i a, readback (i + 1) b)
   | VPi (_, v, e, env) -> 
       NPi (i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
-  | VSigma (Underscore, v, e, env) ->
-      NSigma (i, readback i v, readback (i + 1) (eval env e))
+  | VTimes (a, b) ->
+      NSigma (i, readback i a, readback (i + 1) b)
   | VSigma (_, v, e, env) ->
       NSigma (i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))

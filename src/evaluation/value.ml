@@ -5,8 +5,10 @@ exception Cannot_reify of string
 type value =
   | VPair of value * value
   | VLambda of binder * expression * value Environment.t
-  | VPi of binder * value * expression * value Environment.t
-  | VSigma of binder * value * expression * value Environment.t
+  | VPi of string * value * expression * value Environment.t
+  | VArrow of value * value (* Π (_ : A) . B *)
+  | VSigma of string * value * expression * value Environment.t
+  | VTimes of value * value (* Σ (_ : A) . B *)
   | VFunction of (pattern * expression) list * value Environment.t
   | VUniverse
   | VUnitType
@@ -25,11 +27,13 @@ let reify eval =
   let rec reify = function
     | VPair (v1, v2) -> Pair (reify v1, reify v2)
     | VLambda _ -> raise (Cannot_reify "Cannot reify lambda abstractions")
-    | VPi (Underscore, a, b, env) -> 
-        Pi (Underscore, reify a, reify (eval env b)) 
-    | VPi (Name _, _, _, _) ->
+    | VArrow (a, b) -> 
+        Pi (Underscore, reify a, reify b) 
+    | VPi (_, _, _, _) ->
         raise (Cannot_reify
           "Cannot reify pi types where the LHS is bound to a name")
+    | VTimes (a, b) ->
+        Sigma (Underscore, reify a, reify b)
     | VSigma _ -> raise (Cannot_reify "Cannot reify sigma types")
     | VFunction _ -> 
         raise (Cannot_reify "Cannot reify pattern-matching functions")
@@ -51,7 +55,9 @@ let rec neutral_contains i = function
 and contains i = function 
   | VPair (v1, v2) -> contains i v1 || contains i v2
   | VLambda _ -> false
+  | VArrow (a, b) -> contains i a || contains i b
   | VPi (_, a, _, _) -> contains i a
+  | VTimes (a, b) -> contains i a || contains i b
   | VSigma (_, a, _, _) -> contains i a
   | VFunction (_, _) -> false
   | VUniverse -> false
@@ -79,8 +85,12 @@ and substitute_neutral_variable i v =
       VPair (substitute_neutral_variable i v v1
            , substitute_neutral_variable i v v2)
   | VLambda _ as l -> l
+  | VArrow (a, b) ->
+      VArrow (substitute_neutral_variable i v a, substitute_neutral_variable i v b)
   | VPi (b, v1, e, env) ->
       VPi (b, substitute_neutral_variable i v v1, e, subst_env env)
+  | VTimes (a, b) ->
+      VTimes (substitute_neutral_variable i v a, substitute_neutral_variable i v b)
   | VSigma (b, v1, e, env) ->
       VSigma (b, substitute_neutral_variable i v v1, e, subst_env env)
   | VFunction _ as f -> f

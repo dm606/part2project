@@ -84,7 +84,9 @@ type Bool = true : Bool | false : Bool
 
 let conj (x : Bool) (y : Bool) : Bool = match x, y with
   | true, true -> true
-  | _ -> false
+  | true, false -> false
+  | false, true -> false
+  | false, false -> false
 
 (* proof that conjunction is associative *)
 let conj_associativity (a : Bool) (b : Bool) (c : Bool) :
