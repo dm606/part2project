@@ -9,6 +9,9 @@ src/syntax/AbsConcrete.ml: src/syntax/Concrete.cf
 all: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) main.native
 
+prof: src/syntax/AbsConcrete.ml
+	ocamlbuild $(OCAMLBUILD_FLAGS) main.p.native
+
 debug: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) main.d.byte
 
