@@ -20,7 +20,7 @@ and normal_neutral =
   | NVar of int 
   | NFunctionApplication of (pattern * expression) list
                           * normal_envt
-                          * normal_neutral
+                          * normal
   | NApplication of normal_neutral * normal
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral

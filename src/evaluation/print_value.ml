@@ -10,7 +10,7 @@ and pr_neutral4 fmt = function
   | VApplication (n, v) ->
       fprintf fmt "@[<hov2>%a@ %a@]" pr_neutral4 n pr_value5 v
   | VFunctionApplication (_, _, n) ->
-      fprintf fmt "@[<hov2>%s@ %a@]" "<function>" pr_neutral5 n
+      fprintf fmt "@[<hov2>%s@ %a@]" "<function>" pr_value5 n
   | v -> pr_neutral5 fmt v
 and pr_neutral5 fmt = function
   | VProj1 v -> fprintf fmt "%a.1" pr_neutral5 v

@@ -19,7 +19,7 @@ and normal_neutral =
   | NVar of int 
   | NFunctionApplication of (pattern * expression) list
                           * normal_envt
-                          * normal_neutral
+                          * normal
   | NApplication of normal_neutral * normal
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral
@@ -32,7 +32,7 @@ let rec readback i =
   let rec readback_neutral i = function
   | VVar i -> NVar i
   | VFunctionApplication (cases, env, v) ->
-      NFunctionApplication (cases, readback_env i env, readback_neutral i v)
+      NFunctionApplication (cases, readback_env i env, readback i v)
   | VApplication (v1, v2) ->
       NApplication (readback_neutral i v1, readback i v2)
   | VProj1 v -> NProj1 (readback_neutral i v)

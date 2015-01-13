@@ -29,7 +29,7 @@ let rec occurs v i = match v with
 and neutral_occurs n i = match n with
   | VVar j when i = j -> true
   | VVar j -> false
-  | VFunctionApplication (_, _, n) -> neutral_occurs n i
+  | VFunctionApplication (_, _, n) -> occurs n i
   | VApplication (n, v) -> neutral_occurs n i || occurs v i
   | VProj1 n -> neutral_occurs n i
   | VProj2 n -> neutral_occurs n i
@@ -84,7 +84,7 @@ let mgu =
     | VNeutral (VFunctionApplication (l, env, n))
     , VNeutral (VFunctionApplication (l', env', n')) ->
         if l = l' && env = env'
-        then mgu subst (VNeutral n) (VNeutral n')
+        then mgu subst n n'
         else None
     | VNeutral (VApplication (n, v)), VNeutral (VApplication (n', v')) ->
         mgu subst (VNeutral n) (VNeutral n')

@@ -17,8 +17,9 @@ type value =
   | VNeutral of neutral
 and neutral =
   | VVar of int
+  (* the value should contain a neutral variable *)
   | VFunctionApplication of (pattern * expression) list
-                          * value Environment.t * neutral
+                          * value Environment.t * value
   | VApplication of neutral * value
   | VProj1 of neutral
   | VProj2 of neutral
@@ -48,7 +49,7 @@ let reify eval =
 let rec neutral_contains i = function
   | VVar j when i = j -> true
   | VVar i -> false
-  | VFunctionApplication (_, _, n) -> neutral_contains i n
+  | VFunctionApplication (_, _, n) -> contains i n
   | VApplication (n, v) -> neutral_contains i n || contains i v
   | VProj1 n -> neutral_contains i n
   | VProj2 n -> neutral_contains i n
@@ -70,7 +71,8 @@ let rec neutral_substitute_neutral_variable i n = function
   | VVar j when j = i -> n
   | VVar j -> VVar j
   | VFunctionApplication (l, env, n1) ->
-      VFunctionApplication (l, env, neutral_substitute_neutral_variable i n n1)
+      VFunctionApplication (l, env
+                          , substitute_neutral_variable i (VNeutral n) n1)
   | VApplication (n1, v) ->
       VApplication (neutral_substitute_neutral_variable i n n1
                   , substitute_neutral_variable i (VNeutral n) v)

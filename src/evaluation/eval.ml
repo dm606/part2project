@@ -4,19 +4,22 @@ open Value
 
 exception Cannot_evaluate of string
 exception Pattern_match
+exception Match_neutral
 
 (* attempts to match the given pattern with the given value, and returns the
  * modifications resulting from the binders in the pattern if successful *)
 let rec try_match env pattern value = match pattern, value with
-  | (PatternPair (p1, p2)), (VPair (v1, v2)) ->
+  | PatternPair (p1, p2), VPair (v1, v2) ->
       let (m, new_env) = try_match env p1 v1 in
       if m then try_match new_env p2 v2 else (false, empty)
-  | (PatternApplication (s, ps)), (VConstruct (c, vs)) when c = s ->
+  | PatternPair _, VNeutral _ -> raise Match_neutral
+  | PatternApplication (s, ps), VConstruct (c, vs) when c = s ->
       try_match_all env ps (List.rev vs)
-  | (PatternBinder x), v -> (true, add env v)
-  | (PatternUnderscore), _ -> (true, env)
+  | PatternApplication _, VNeutral _ -> raise Match_neutral
+  | PatternBinder x, v -> (true, add env v)
+  | PatternUnderscore, _ -> (true, env)
   (* inaccessible patterns are guaranteed to match by the type checker *)
-  | (PatternInaccessible _), _ -> (true, env)
+  | PatternInaccessible _, _ -> (true, env)
   | _ -> (false, empty)
 (* attempts to match all of the patterns against their corresponding value *)
 and try_match_all env patterns values = match patterns, values with
@@ -41,10 +44,11 @@ let rec eval env =
   | Underscore -> eval fun_env e
   | Name _ -> eval (add fun_env v) e in
 
-  let apply_function cases fun_env = function
-    | VNeutral n -> VNeutral (VFunctionApplication (cases, fun_env, n))
-    | v -> let (new_env, e) = pattern_match fun_env cases v in
-        eval new_env e in
+  let apply_function cases fun_env v =
+    try 
+      let (new_env, e) = pattern_match fun_env cases v in
+      eval new_env e with
+    | Match_neutral -> VNeutral (VFunctionApplication (cases, fun_env, v)) in
 
   function
   | Pair (e1, e2) -> VPair (eval env e1, eval env e2)

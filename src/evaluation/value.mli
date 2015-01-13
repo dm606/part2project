@@ -24,7 +24,7 @@ and neutral =
   | VVar of int
   (* application of a neutral value to a function defined by pattern matching *)
   | VFunctionApplication of (pattern * expression) list
-                          * value Environment.t * neutral
+                          * value Environment.t * value
   | VApplication of neutral * value
   | VProj1 of neutral
   | VProj2 of neutral
