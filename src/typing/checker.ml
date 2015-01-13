@@ -321,7 +321,7 @@ and check_type i env context exp typ =
         >> fun _ ->
         SType t2) with
     | SType t as r -> r
-    | SDecl _ -> assert false
+    | SDecl _ -> assert false 
     | F _ as f -> match try_eq () with F _ -> f | x -> x)
 
   | _ -> try_eq ()

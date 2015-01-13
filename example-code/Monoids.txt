@@ -88,16 +88,4 @@ let conj (x : Bool) (y : Bool) : Bool = match x, y with
   | false, true -> false
   | false, false -> false
 
-(* proof that conjunction is associative *)
-let conj_associativity (a : Bool) (b : Bool) (c : Bool) :
-  Eq Bool (conj a (conj b c)) (conj (conj a b) c) =
-  match a, b, c with  
-  | true, true, true -> refl Bool true
-  | true, true, false -> refl Bool false
-  | true, false, true -> refl Bool false
-  | true, false, false -> refl Bool false
-  | false, true, true -> refl Bool false
-  | false, true, false -> refl Bool false
-  | false, false, true -> refl Bool false 
-  | false, false, false -> refl Bool false
 

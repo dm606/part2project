@@ -104,50 +104,60 @@ let unify v1 v2 = match mgu v1 v2 with
 
 let rec add_binders checker i context env typ patt = match patt, typ with
   | PatternUnderscore, _ ->
-      Some (VNeutral (VVar i), i + 1, context, env, Context.subst_empty)
+      Some (VNeutral (VVar i)
+          , i + 1
+          , context
+          , env
+          , Context.subst_empty
+          , VNeutral (VVar i)
+          , [])
   | PatternBinder x, _ ->
       Some (VNeutral (VVar i)
           , i + 1
           , Context.add_binder context x typ
           , Environment.add env (VNeutral (VVar i))
-          , Context.subst_empty)
+          , Context.subst_empty
+          , VNeutral (VVar i)
+          , [])
   | PatternPair (p1, p2), VTimes (a, b) ->
       add_binders checker i context env a p1
-      >>= fun (v1, i, context, env, subst) ->
+      >>= fun (v1, i, context, env, subst, in1, inaccessible) ->
       add_binders checker i context env b p2
-      >>= fun (v2, i, context, env, subst) ->
-      Some (VPair (v1, v2), i, context, env, subst)
+      >>= fun (v2, i, context, env, subst, in2, inaccessible2) ->
+      Some (VPair (v1, v2), i, context, env, subst, VPair (in1, in2), inaccessible @ inaccessible2)
   | PatternPair (p1, p2), VSigma (x, a, b, sigma_env) ->
       add_binders checker i context env a p1
-      >>= fun (v1, i, context, env, subst) ->
+      >>= fun (v1, i, context, env, subst, in1, inaccessible) ->
       let sigma_env' = Environment.add sigma_env v1 in
       add_binders checker (i + 1) context env (Eval.eval sigma_env' b) p2 
-      >>= fun (v2, i, context, env, subst) ->
-      Some (VPair (v1, v2), i, context, env, subst)
+      >>= fun (v2, i, context, env, subst, in2, inaccessible2) ->
+      Some (VPair (v1, v2), i, context, env, subst, VPair (in1, in2), inaccessible @ inaccessible2)
   | PatternPair _, _ -> None
   | PatternApplication (c, l), _ ->
       let aux result p = result
-        >>= fun (tl, i, context, env, t, subst) -> 
+        >>= fun (tl, i, context, env, t, subst, itl, inaccessible) -> 
         match t with
         | VArrow (a, b) ->
             add_binders checker i context env a p
-            >>= fun (v, i, context, env, subst) ->
-            Some (v::tl, i, context, env, b, subst)
+            >>= fun (v, i, context, env, subst, ina, inaccessible2) ->
+            Some (v::tl, i, context, env, b, subst, ina::itl, inaccessible @ inaccessible2)
         | VPi (x, a, b, pi_env) ->
             add_binders checker i context env a p
-            >>= fun (v, i, context, env, subst) ->
+            >>= fun (v, i, context, env, subst, ina, inaccessible2) ->
             let pi_env' = Environment.add pi_env v in
-            Some (v::tl, i + 1, context, env, Eval.eval pi_env' b, subst)
+            Some (v::tl, i + 1, context, env, Eval.eval pi_env' b, subst,
+            ina::itl, inaccessible @ inaccessible2)
         | _ -> None in
       let add constructor_type =
         List.fold_left aux
-          (Some ([], i, context, env, constructor_type, Context.subst_empty)) l
-        >>= fun (tl, i, context, env, remaining, subst) ->
+          (Some ([], i, context, env, constructor_type, Context.subst_empty, [], [])) l
+        >>= fun (tl, i, context, env, remaining, subst, itl, inaccessible) ->
         match mgu typ remaining with
         | Some subst ->
-            Some (VConstruct (c, tl), i
+            let value_matched = VConstruct (c, tl) in
+            Some (value_matched, i
                 , Context.subst_apply context subst
-                , Context.subst_env subst env, subst)
+                , Context.subst_env subst env, subst, VConstruct (c, itl), inaccessible)
         | None -> None in
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with
@@ -155,8 +165,15 @@ let rec add_binders checker i context env typ patt = match patt, typ with
         | None -> add t) None possible_types
   | PatternInaccessible e, _ -> 
       if checker i context env e typ
-      then Some (Eval.eval env e, i, context, env, Context.subst_empty)
+      then
+        let evaluated = Eval.eval env e in
+        Some (evaluated, i + 1, context, env, Context.subst_empty, VNeutral (VVar i), [i, Eval.eval env e])
       else None
+
+ let add_binders checker i context env typ patt =
+   add_binders checker i context env typ patt
+   >>= fun (v, i, context, env, subst, _, _) ->
+   Some (v, i, context, env, subst)
 
 type match_result = Match | Unknown of int | NoMatch
 
