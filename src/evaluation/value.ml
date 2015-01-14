@@ -108,3 +108,20 @@ and substitute_neutral_variable i v =
         | VNeutral n1 -> VNeutral (neutral_substitute_neutral_variable i n1 n)
         | _ -> raise (Failure "substitute_neutral_variable")
       else VNeutral n
+
+let rec lift_neutral a = function
+  | VVar i -> VVar (i + a)
+  | VFunctionApplication _ -> raise (Failure "lift_neutral")
+  | VApplication (n, v) -> VApplication (lift_neutral a n, lift a v)
+  | VProj1 n -> VProj1 (lift_neutral a n)
+  | VProj2 n -> VProj2 (lift_neutral a n)
+and lift a = function
+  | VPair (v1, v2) -> VPair (lift a v1, lift a v2)
+  | VArrow (v1, v2) -> VArrow (lift a v1, lift a v2)
+  | VTimes (v1, v2) -> VTimes (lift a v1, lift a v2)
+  | VUniverse -> VUniverse
+  | VUnitType -> VUnitType
+  | VUnit -> VUnit
+  | VConstruct (c, l) -> VConstruct (c, List.map (lift a) l)
+  | VNeutral n -> VNeutral (lift_neutral a n)
+  | VLambda _ | VPi _ | VSigma _ | VFunction _ -> raise (Failure "lift")

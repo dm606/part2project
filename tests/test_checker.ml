@@ -21,8 +21,8 @@ let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
   ("universe", Environment.empty, Context.empty, Universe, VUniverse);
   ("unit_type", Environment.empty, Context.empty, UnitType, VUniverse);
   ("unit", Environment.empty, Context.empty, Unit, VUnitType);
-  ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VSigma
-  (Underscore, VUnitType, Universe, Environment.empty));
+  ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VTimes
+  (VUnitType, VUniverse));
   ("constructor" , Environment.empty , Context.add_constructor
   (Context.add_constructor Context.empty "Bool" "U" VUniverse) "true" "Bool"
   (VConstruct ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
@@ -32,8 +32,8 @@ let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
   ([Let ("x", UnitType, Index 0); LetRec ("y", UnitType, Unit)], Index 1),
   VUnitType);
   ("application", Environment.add Environment.empty (VLambda (Name "x", Index 0,
-  Environment.empty)), Context.add_binder Context.empty "f" (VPi (Underscore,
-  VUnitType, UnitType, Environment.empty)), Application (Index 0, Unit),
+  Environment.empty)), Context.add_binder Context.empty "f" (VArrow (
+  VUnitType, VUnitType)), Application (Index 0, Unit),
   VUnitType);
   ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe,
   Universe)), VUniverse)
@@ -43,8 +43,8 @@ let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
   ("application_cannot_infer", Environment.empty, Context.empty,
   Application (Lambda (Name "x", Unit), Unit));
   ("application_invalid", Environment.add Environment.empty (VLambda (Name "x",
-  Index 0, Environment.empty)), Context.add_binder Context.empty "f" (VPi
-  (Underscore, VUnitType, UnitType, Environment.empty)), Application (Index 0,
+  Index 0, Environment.empty)), Context.add_binder Context.empty "f" (VArrow
+  (VUnitType, VUnitType)), Application (Index 0,
   UnitType));
   ("application_invalid2", Environment.empty, Context.empty, Application (Unit,
   Unit));
@@ -67,8 +67,8 @@ let test_check = "check" >::: (List.map test_check_success [
   ("universe", Environment.empty, Context.empty, Universe, VUniverse);
   ("unit_type", Environment.empty, Context.empty, UnitType, VUniverse);
   ("unit", Environment.empty, Context.empty, Unit, VUnitType);
-  ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VSigma
-  (Underscore, VUnitType, Universe, Environment.empty));
+  ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VTimes
+  (VUnitType, VUniverse));
   ("constructor" , Environment.empty , Context.add_constructor
   (Context.add_constructor Context.empty "Bool" "U" VUniverse) "true" "Bool"
   (VConstruct ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
@@ -78,19 +78,19 @@ let test_check = "check" >::: (List.map test_check_success [
   ([Let ("x", UnitType, Index 0); LetRec ("y", UnitType, Unit)], Index 1),
   VUnitType);
   ("application", Environment.add Environment.empty (VLambda (Name "x", Index 0,
-  Environment.empty)), Context.add_binder Context.empty "f" (VPi (Underscore,
-  VUnitType, UnitType, Environment.empty)), Application (Index 0, Unit),
+  Environment.empty)), Context.add_binder Context.empty "f" (VArrow (
+  VUnitType, VUnitType)), Application (Index 0, Unit),
   VUnitType);
   ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe,
   Universe)), VUniverse);
-  ("lambda", Environment.empty, Context.empty, Lambda (Name "x", Index 0), VPi
-  (Underscore, VUnitType, UnitType, Environment.empty));
+  ("lambda", Environment.empty, Context.empty, Lambda (Name "x", Index 0),
+  VArrow (VUnitType, VUnitType));
   ("pair2", Environment.empty, Context.empty, Pair (UnitType, Unit), VSigma
-  (Name "A", VUniverse, Index 0, Environment.empty))
+  ("A", VUniverse, Index 0, Environment.empty))
 ]) @ (List.map test_check_fail [
   ("application", Environment.add Environment.empty (VLambda (Name "x", Index 0,
-  Environment.empty)), Context.add_binder Context.empty "f" (VPi (Underscore,
-  VUnitType, UnitType, Environment.empty)), Application (Index 0, UnitType),
+  Environment.empty)), Context.add_binder Context.empty "f" (VArrow (
+  VUnitType, VUnitType)), Application (Index 0, UnitType),
   VUnit);
   ("application2", Environment.empty, Context.empty, Application (Unit, Unit),
   VUnit);

@@ -22,8 +22,9 @@ let test_lambdas = "lambdas" >::: (List.map test_readback [
 
 let test_functions = "functions" >::: (List.map test_readback [
   ("empty", VFunction ([], Environment.empty), NFunction ([], empty_envt));
-  ("appl", VNeutral (VFunctionApplication ([], Environment.empty, VVar 0)),
-  NNeutral (NFunctionApplication ([], empty_envt, NVar 0)))
+  ("appl", VNeutral (VFunctionApplication ([], Environment.empty, (VNeutral
+  (VVar 0)))),
+  NNeutral (NFunctionApplication ([], empty_envt, NNeutral (NVar 0))))
 ])
 
 let test_readback_other = "readback_other" >::: (List.map test_readback [
