@@ -7,13 +7,13 @@ src/syntax/AbsConcrete.ml: src/syntax/Concrete.cf
 	cd src/syntax/; bnfc --ocaml Concrete.cf
 
 all: src/syntax/AbsConcrete.ml
-	ocamlbuild $(OCAMLBUILD_FLAGS) main.native
+	ocamlbuild $(OCAMLBUILD_FLAGS) repl.native
 
 prof: src/syntax/AbsConcrete.ml
-	ocamlbuild $(OCAMLBUILD_FLAGS) main.p.native
+	ocamlbuild $(OCAMLBUILD_FLAGS) repl.p.native
 
 debug: src/syntax/AbsConcrete.ml
-	ocamlbuild $(OCAMLBUILD_FLAGS) main.d.byte
+	ocamlbuild $(OCAMLBUILD_FLAGS) repl.d.byte
 
 test: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) -I tests -package oUnit -package quickcheck all_tests.native
