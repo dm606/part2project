@@ -88,11 +88,13 @@ and substitute_neutral_variable i v =
            , substitute_neutral_variable i v v2)
   | VLambda _ as l -> l
   | VArrow (a, b) ->
-      VArrow (substitute_neutral_variable i v a, substitute_neutral_variable i v b)
+      VArrow (substitute_neutral_variable i v a
+            , substitute_neutral_variable i v b)
   | VPi (b, v1, e, env) ->
       VPi (b, substitute_neutral_variable i v v1, e, subst_env env)
   | VTimes (a, b) ->
-      VTimes (substitute_neutral_variable i v a, substitute_neutral_variable i v b)
+      VTimes (substitute_neutral_variable i v a
+            , substitute_neutral_variable i v b)
   | VSigma (b, v1, e, env) ->
       VSigma (b, substitute_neutral_variable i v v1, e, subst_env env)
   | VFunction _ as f -> f

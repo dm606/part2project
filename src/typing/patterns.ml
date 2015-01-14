@@ -108,56 +108,51 @@ let rec add_binders checker i context env typ patt = match patt, typ with
           , i + 1
           , context
           , env
-          , Context.subst_empty
-          , VNeutral (VVar i)
-          , [])
+          , Context.subst_empty)
   | PatternBinder x, _ ->
       Some (VNeutral (VVar i)
           , i + 1
           , Context.add_binder context x typ
           , Environment.add env (VNeutral (VVar i))
-          , Context.subst_empty
-          , VNeutral (VVar i)
-          , [])
+          , Context.subst_empty)
   | PatternPair (p1, p2), VTimes (a, b) ->
       add_binders checker i context env a p1
-      >>= fun (v1, i, context, env, subst, in1, inaccessible) ->
+      >>= fun (v1, i, context, env, subst) ->
       add_binders checker i context env b p2
-      >>= fun (v2, i, context, env, subst, in2, inaccessible2) ->
-      Some (VPair (v1, v2), i, context, env, subst, VPair (in1, in2), inaccessible @ inaccessible2)
+      >>= fun (v2, i, context, env, subst) ->
+      Some (VPair (v1, v2), i, context, env, subst)
   | PatternPair (p1, p2), VSigma (x, a, b, sigma_env) ->
       add_binders checker i context env a p1
-      >>= fun (v1, i, context, env, subst, in1, inaccessible) ->
+      >>= fun (v1, i, context, env, subst) ->
       let sigma_env' = Environment.add sigma_env v1 in
       add_binders checker (i + 1) context env (Eval.eval sigma_env' b) p2 
-      >>= fun (v2, i, context, env, subst, in2, inaccessible2) ->
-      Some (VPair (v1, v2), i, context, env, subst, VPair (in1, in2), inaccessible @ inaccessible2)
+      >>= fun (v2, i, context, env, subst) ->
+      Some (VPair (v1, v2), i, context, env, subst)
   | PatternPair _, _ -> None
   | PatternApplication (c, l), _ ->
       let aux result p = result
-        >>= fun (tl, i, context, env, t, subst, itl, inaccessible) -> 
+        >>= fun (tl, i, context, env, t, subst) -> 
         match t with
         | VArrow (a, b) ->
             add_binders checker i context env a p
-            >>= fun (v, i, context, env, subst, ina, inaccessible2) ->
-            Some (v::tl, i, context, env, b, subst, ina::itl, inaccessible @ inaccessible2)
+            >>= fun (v, i, context, env, subst) ->
+            Some (v::tl, i, context, env, b, subst)
         | VPi (x, a, b, pi_env) ->
             add_binders checker i context env a p
-            >>= fun (v, i, context, env, subst, ina, inaccessible2) ->
+            >>= fun (v, i, context, env, subst) ->
             let pi_env' = Environment.add pi_env v in
-            Some (v::tl, i + 1, context, env, Eval.eval pi_env' b, subst,
-            ina::itl, inaccessible @ inaccessible2)
+            Some (v::tl, i + 1, context, env, Eval.eval pi_env' b, subst)
         | _ -> None in
       let add constructor_type =
         List.fold_left aux
-          (Some ([], i, context, env, constructor_type, Context.subst_empty, [], [])) l
-        >>= fun (tl, i, context, env, remaining, subst, itl, inaccessible) ->
+          (Some ([], i, context, env, constructor_type, Context.subst_empty)) l
+        >>= fun (tl, i, context, env, remaining, subst) ->
         match mgu typ remaining with
         | Some subst ->
             let value_matched = VConstruct (c, tl) in
             Some (value_matched, i
                 , Context.subst_apply context subst
-                , Context.subst_env subst env, subst, VConstruct (c, itl), inaccessible)
+                , Context.subst_env subst env, subst)
         | None -> None in
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with
@@ -167,12 +162,12 @@ let rec add_binders checker i context env typ patt = match patt, typ with
       if checker i context env e typ
       then
         let evaluated = Eval.eval env e in
-        Some (evaluated, i + 1, context, env, Context.subst_empty, VNeutral (VVar i), [i, Eval.eval env e])
+        Some (evaluated, i + 1, context, env, Context.subst_empty)
       else None
 
  let add_binders checker i context env typ patt =
    add_binders checker i context env typ patt
-   >>= fun (v, i, context, env, subst, _, _) ->
+   >>= fun (v, i, context, env, subst) ->
    Some (v, i, context, env, subst)
 
 type match_result = Match | Unknown of int | NoMatch
