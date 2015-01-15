@@ -34,14 +34,11 @@ and neutral_occurs n i = match n with
   | VProj1 n -> neutral_occurs n i
   | VProj2 n -> neutral_occurs n i
 
-let rec add_unify subst i v =
-  (* substitute the value first, so that it does not refer to anthing in the
-   * substitution TODO: Move this bit to subst_add? *)
-  match Context.subst_value subst v with 
+let rec add_unify subst i = function
   | VNeutral (VVar j) when j > i ->
       add_unify subst j (VNeutral (VVar i))
   | VNeutral (VVar j) when i = j -> Some subst
-  | _ ->
+  | v ->
     if Context.subst_mem i subst
     then mgu subst (Context.subst_find i subst) v
     else Some (Context.subst_add i v subst)
@@ -188,8 +185,8 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
             | Some (tl, i, context, env, subst) -> 
                 let value_matched = VConstruct (c, tl) in
                 Some (value_matched, i
-                    , Context.subst_apply context subst
-                    , Context.subst_env subst env, subst)) in
+                    , context
+                    , env, subst)) in
 
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with
@@ -207,10 +204,7 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
 let add_binders checker i context env typ patt =
   add_binders checker i context env Context.subst_empty typ patt
   >>= fun (v, i, context, env, subst) ->
-  Some (Context.subst_value subst v
-      , i
-      , Context.subst_apply context subst
-      , Context.subst_env subst env, subst)
+  Some (v, i, context, env, subst)
 
 type match_result = Match | Unknown of int | NoMatch
 
