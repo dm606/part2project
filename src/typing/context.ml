@@ -78,10 +78,15 @@ type subst = value IM.t
 let subst_find = IM.find
 let subst_mem = IM.mem
 let subst_empty = IM.empty
-let subst_add = IM.add
 let subst_to_list subst = IM.fold (fun i v l -> (i, v)::l) subst []
 
 let subst_value = IM.fold substitute_neutral_variable
+
+
+let subst_add i v subst =
+  (* doing this instead of simply IM.add means that the right hand of each
+   * substitution does not contain the left hand side of any substitution *)
+  IM.map (fun v2 -> Value.substitute_neutral_variable i v v2) (IM.add i (subst_value subst v) subst)
 
 let subst_apply context subst = 
   let s i value = List.map (function

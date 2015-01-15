@@ -34,141 +34,180 @@ and neutral_occurs n i = match n with
   | VProj1 n -> neutral_occurs n i
   | VProj2 n -> neutral_occurs n i
 
-(* unification *)
-let mgu =
-  let rec mgu subst v1 v2 = match v1, v2 with
-    | VNeutral (VVar i), VNeutral (VVar j) when i = j ->
-        Some subst
-    (* variables unify than anything, unless they are already in the
-     * substitution *)
-    | VNeutral (VVar i), v ->
-        if occurs v i then None (* occurs check *)
-        else
-          if Context.subst_mem i subst
-          then mgu subst (Context.subst_find i subst) v
-          else Some (Context.subst_add i v subst)
-    | v, VNeutral (VVar i) ->
-        if occurs v i then None (* occurs check *)
-        else
-          if Context.subst_mem i subst
-          then mgu subst v (Context.subst_find i subst) 
-          else Some (Context.subst_add i v subst)
-    (* atoms unify than themselves *)
-    | VUniverse, VUniverse -> Some subst
-    | VUnitType, VUnitType -> Some subst
-    | VUnit, VUnit -> Some subst
-    (* terms unify if they have the same structure and all subterms
-     * are unify *)
-    | VLambda (Underscore, e, env), VLambda (Underscore, e', env') ->
-        if e = e' && env = env' then Some subst else None
-    | VLambda (Name _, e, env), VLambda (Name _, e', env') ->
-        if e = e' && env = env' then Some subst else None
-    | VArrow (a, b), VArrow (a', b') ->
-        mgu subst a a' >>= fun subst ->
-        mgu subst b b'
-    | VPi (_, v, e, env), VPi (_, v', e', env') ->
-        mgu subst v v' >>= fun u ->
-        if e = e' && env = env' then Some u else None
-    | VTimes (a, b), VTimes (a', b') ->
-        mgu subst a a' >>= fun subst ->
-        mgu subst b b'
-    | VSigma (_, v, e, env), VSigma (_, v', e', env') ->
-        mgu subst v v' >>= fun u ->
-        if e = e' && env = env' then Some u else None
-    | VFunction _, VFunction _ -> if v1 = v2 then Some subst else None
-    | VConstruct (c,  l), VConstruct (c', l') ->
-        if c = c'
-        then List.fold_left2
-          (fun r v v2 -> r >>= fun u -> mgu u v v2) (Some subst) l l'
-        else None
-    | VNeutral (VFunctionApplication (l, env, n))
-    , VNeutral (VFunctionApplication (l', env', n')) ->
-        if l = l' && env = env'
-        then mgu subst n n'
-        else None
-    | VNeutral (VApplication (n, v)), VNeutral (VApplication (n', v')) ->
-        mgu subst (VNeutral n) (VNeutral n')
-        >>= fun u ->
-        mgu u v v'
-    | VNeutral (VProj1 n), VNeutral (VProj1 n') ->
-        mgu subst (VNeutral n) (VNeutral n')
-    | VNeutral (VProj2 n), VNeutral (VProj2 n') ->
-        mgu subst (VNeutral n) (VNeutral n')
-    (* if none of the above cases match, v1 is not unify than v2 *)
-    | _ -> None in
-  mgu Context.subst_empty
+let rec add_unify subst i v =
+  (* substitute the value first, so that it does not refer to anthing in the
+   * substitution TODO: Move this bit to subst_add? *)
+  match Context.subst_value subst v with 
+  | VNeutral (VVar j) when j > i ->
+      add_unify subst j (VNeutral (VVar i))
+  | VNeutral (VVar j) when i = j -> Some subst
+  | _ ->
+    if Context.subst_mem i subst
+    then mgu subst (Context.subst_find i subst) v
+    else Some (Context.subst_add i v subst)
 
-let unify v1 v2 = match mgu v1 v2 with
+(* unification *)
+and mgu subst v1 v2 = match v1, v2 with
+  | VNeutral (VVar i), VNeutral (VVar j) when i = j ->
+      Some subst
+  (* variables unify than anything, unless they are already in the
+   * substitution *)
+  | VNeutral (VVar i), v ->
+      if occurs v i then None (* occurs check *)
+      else add_unify subst i v
+   | v, VNeutral (VVar i) ->
+      if occurs v i then None (* occurs check *)
+      else add_unify subst i v
+  (* atoms unify than themselves *)
+  | VUniverse, VUniverse -> Some subst
+  | VUnitType, VUnitType -> Some subst
+  | VUnit, VUnit -> Some subst
+  (* terms unify if they have the same structure and all subterms
+   * are unify *)
+  | VLambda (Underscore, e, env), VLambda (Underscore, e', env') ->
+      if e = e' && env = env' then Some subst else None
+  | VLambda (Name _, e, env), VLambda (Name _, e', env') ->
+      if e = e' && env = env' then Some subst else None
+  | VArrow (a, b), VArrow (a', b') ->
+      mgu subst a a' >>= fun subst ->
+      mgu subst b b'
+  | VPi (_, v, e, env), VPi (_, v', e', env') ->
+      mgu subst v v' >>= fun u ->
+      if e = e' && env = env' then Some u else None
+  | VTimes (a, b), VTimes (a', b') ->
+      mgu subst a a' >>= fun subst ->
+      mgu subst b b'
+  | VSigma (_, v, e, env), VSigma (_, v', e', env') ->
+      mgu subst v v' >>= fun u ->
+      if e = e' && env = env' then Some u else None
+  | VFunction _, VFunction _ -> if v1 = v2 then Some subst else None
+  | VConstruct (c,  l), VConstruct (c', l') ->
+      if c = c'
+      then List.fold_left2
+        (fun r v v2 -> r >>= fun u -> mgu u v v2) (Some subst) l l'
+      else None
+  | VNeutral (VFunctionApplication (l, env, n))
+  , VNeutral (VFunctionApplication (l', env', n')) ->
+      if l = l' && env = env'
+      then mgu subst n n'
+      else None
+  | VNeutral (VApplication (n, v)), VNeutral (VApplication (n', v')) ->
+      mgu subst (VNeutral n) (VNeutral n')
+      >>= fun u ->
+      mgu u v v'
+  | VNeutral (VProj1 n), VNeutral (VProj1 n') ->
+      mgu subst (VNeutral n) (VNeutral n')
+  | VNeutral (VProj2 n), VNeutral (VProj2 n') ->
+      mgu subst (VNeutral n) (VNeutral n')
+  (* if none of the above cases match, v1 cannot be unified with v2 *)
+  | _ -> None
+
+let unify v1 v2 = match mgu Context.subst_empty v1 v2 with
   | None -> false
   | Some _ -> true
 
-let rec add_binders checker i context env typ patt = match patt, typ with
+let rec pi_to_list i =
+  function
+  | VArrow (a, b) ->
+      let (i, l, v) = pi_to_list i b in
+      (i, (-1, a)::l, v)
+  | VPi (_, a, b, env) ->
+      let j, env = i, Environment.add env (VNeutral (VVar i)) in
+      let (i, l, v) = pi_to_list (i + 1) (Eval.eval env b) in
+      (i, (j, a)::l, v)
+  | v -> (i, [], v)
+
+let rec add_binders checker i context env subst typ patt = match patt, typ with
   | PatternUnderscore, _ ->
       Some (VNeutral (VVar i)
           , i + 1
           , context
           , env
-          , Context.subst_empty)
+          , subst)
   | PatternBinder x, _ ->
       Some (VNeutral (VVar i)
           , i + 1
           , Context.add_binder context x typ
           , Environment.add env (VNeutral (VVar i))
-          , Context.subst_empty)
+          , subst)
   | PatternPair (p1, p2), VTimes (a, b) ->
-      add_binders checker i context env a p1
+      add_binders checker i context env subst a p1
       >>= fun (v1, i, context, env, subst) ->
-      add_binders checker i context env b p2
+      add_binders checker i context env subst b p2
       >>= fun (v2, i, context, env, subst) ->
       Some (VPair (v1, v2), i, context, env, subst)
   | PatternPair (p1, p2), VSigma (x, a, b, sigma_env) ->
-      add_binders checker i context env a p1
+      add_binders checker i context env subst a p1
       >>= fun (v1, i, context, env, subst) ->
       let sigma_env' = Environment.add sigma_env v1 in
-      add_binders checker (i + 1) context env (Eval.eval sigma_env' b) p2 
+      add_binders checker (i + 1) context env subst (Eval.eval sigma_env' b) p2 
       >>= fun (v2, i, context, env, subst) ->
       Some (VPair (v1, v2), i, context, env, subst)
   | PatternPair _, _ -> None
   | PatternApplication (c, l), _ ->
-      let aux result p = result
-        >>= fun (tl, i, context, env, t, subst) -> 
-        match t with
-        | VArrow (a, b) ->
-            add_binders checker i context env a p
+      let rec add i context env subst values_matched = function
+        | [], [] ->
+            Some (values_matched, i, context, env, subst)
+        | p::ps, (j, t)::ts ->
+            let t = Context.subst_value subst t in
+            (match p with 
+             | PatternInaccessible e ->
+                 if checker i context env e t
+                 then
+                   let evaluated = (Eval.eval env e) in
+                   (* all values which are checked against the inaccessible
+                    * pattern will have the form matched *)
+                   let matched = Context.subst_value subst (VNeutral (VVar j)) in
+                   (* check that the inaccessible pattern matches in all cases *)
+                   let correct =
+                     j <> -1
+                     && Equality.are_values_equal evaluated matched in
+                   if correct then Some (evaluated, i, context, env, subst)
+                   else None
+                 else None
+              | _ -> add_binders checker i context env subst t p)
             >>= fun (v, i, context, env, subst) ->
-            Some (v::tl, i, context, env, b, subst)
-        | VPi (x, a, b, pi_env) ->
-            add_binders checker i context env a p
-            >>= fun (v, i, context, env, subst) ->
-            let pi_env' = Environment.add pi_env v in
-            Some (v::tl, i + 1, context, env, Eval.eval pi_env' b, subst)
-        | _ -> None in
-      let add constructor_type =
-        List.fold_left aux
-          (Some ([], i, context, env, constructor_type, Context.subst_empty)) l
-        >>= fun (tl, i, context, env, remaining, subst) ->
-        match mgu typ remaining with
-        | Some subst ->
-            let value_matched = VConstruct (c, tl) in
-            Some (value_matched, i
-                , Context.subst_apply context subst
-                , Context.subst_env subst env, subst)
-        | None -> None in
+            if j <> -1 then
+              match add_unify subst j v with
+              | Some subst -> add i context env subst (v::values_matched) (ps, ts)
+              | None -> None
+            else add i context env subst (v::values_matched) (ps, ts)
+        | _ -> raise Cannot_pattern_match in
+
+      let rec try_constructor_type constructor_type =
+        let (i, ts, constructed) = pi_to_list i constructor_type in
+        match mgu subst typ constructed with
+        | None -> None
+        | Some subst -> (
+            match add i context env subst [] (l, ts) with
+            | None -> None
+            | Some (tl, i, context, env, subst) -> 
+                let value_matched = VConstruct (c, tl) in
+                Some (value_matched, i
+                    , Context.subst_apply context subst
+                    , Context.subst_env subst env, subst)) in
+
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with
         | Some _ -> r
-        | None -> add t) None possible_types
-  | PatternInaccessible e, _ -> 
-      if checker i context env e typ
-      then
-        let evaluated = Eval.eval env e in
-        Some (evaluated, i + 1, context, env, Context.subst_empty)
-      else None
+        | None -> try_constructor_type t) None possible_types
+  | PatternInaccessible _, _ -> 
+      (* this function will only accept a pattern if all inaccessible patterns
+       * are guaranteed to match. Inaccessible patterns can only be guaranteed
+       * to match if they are in a PatternApplication (except in degenerate
+       * cases where inaccessible patterns are useless. Hence this case always
+       * returns None. Inaccessible patterns inside PatternApplications are
+       * handed in the PatternApplication case.  *)
+      None
 
  let add_binders checker i context env typ patt =
-   add_binders checker i context env typ patt
+   add_binders checker i context env Context.subst_empty typ patt
    >>= fun (v, i, context, env, subst) ->
-   Some (v, i, context, env, subst)
+  ( List.iter (fun (i, v) -> print_endline (Printf.sprintf "%i |-> %s" i
+   (Print_value.string_of_value v))) (Context.subst_to_list subst);
+   print_newline ();
+   Some (Context.subst_value subst v, i, Context.subst_apply context subst,
+   Context.subst_env subst env, subst))
 
 type match_result = Match | Unknown of int | NoMatch
 

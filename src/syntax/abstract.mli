@@ -1,14 +1,22 @@
 open AbsConcrete
 
+(** raised when an invalid value of type expr is used *)
 exception Invalid_expression of string
+
+(** raised when a construtor which has not been declared is used *)
 exception Constructor_not_defined of string
 
+(** the type of environments used for desugaring and resugaring *)
 type envt
 
+(** the empty environment *)
 val empty_env : envt
+
+(* mk_env (binders, constructors) returns the environment which contains the
+ * names of binders in binders, and all of the constructors in constructors *)
 val mk_env : string list * (string * string) list -> envt
 
-(* The type of desugared expressions.
+(** The type of desugared expressions.
  * Expressions use de Bruijn indices, which are allocated as follows:
  * * One index is allocated in the body of a lambda abstraction, if the binder
  *     is not Underscore
@@ -58,12 +66,28 @@ and declaration =
   | Type of string * (binder * expression) list
           * expression * (string * expression) list
 
+(** determines if an expression references a constructor *)
 val does_not_mention : string -> expression -> bool
+
+(** adds each of the lets and let recs in the list to the environment *)
 val add_all_declaration_binders : envt -> decl list -> envt
+
+(** removes the syntactic sugar from the expression, in the given environment *)
 val desugar_expression : envt -> exp -> expression
+
+(** removes the syntactic sugar from the declarations, in the given environment *)
 val desugar_declarations : envt -> decl list -> declaration list
+
+(** adds syntactic sugar to the expression in the given environment for pretty
+ * printing *)
 val resugar_expression : envt -> expression -> exp
+
+(** adds syntactic sugar to the declarations in the given environment for pretty
+ * printing *)
 val resugar_declarations : envt -> declaration list -> decl list
 
+(** converts the given expression to a string *)
 val print_expression : envt -> expression -> string
+
+(** converts the given pattern to a string *)
 val print_pattern : envt -> pattern -> string
