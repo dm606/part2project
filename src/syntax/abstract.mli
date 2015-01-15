@@ -75,7 +75,8 @@ val add_all_declaration_binders : envt -> decl list -> envt
 (** removes the syntactic sugar from the expression, in the given environment *)
 val desugar_expression : envt -> exp -> expression
 
-(** removes the syntactic sugar from the declarations, in the given environment *)
+(** removes the syntactic sugar from the list of declarations, in the given
+ * environment *)
 val desugar_declarations : envt -> decl list -> declaration list
 
 (** adds syntactic sugar to the expression in the given environment for pretty

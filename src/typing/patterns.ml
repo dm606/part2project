@@ -157,8 +157,11 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
                    let evaluated = (Eval.eval env e) in
                    (* all values which are checked against the inaccessible
                     * pattern will have the form matched *)
-                   let matched = Context.subst_value subst (VNeutral (VVar j)) in
-                   (* check that the inaccessible pattern matches in all cases *)
+                   let matched =
+                     Context.subst_value subst (VNeutral (VVar j)) in
+                   (* check that the inaccessible pattern matches in all cases,
+                    * i.e. the for of value to be matched is equal to the
+                    * expression in the pattern *)
                    let correct =
                      j <> -1
                      && Equality.are_values_equal evaluated matched in
@@ -169,7 +172,8 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
             >>= fun (v, i, context, env, subst) ->
             if j <> -1 then
               match add_unify subst j v with
-              | Some subst -> add i context env subst (v::values_matched) (ps, ts)
+              | Some subst ->
+                  add i context env subst (v::values_matched) (ps, ts)
               | None -> None
             else add i context env subst (v::values_matched) (ps, ts)
         | _ -> raise Cannot_pattern_match in
@@ -200,14 +204,13 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
        * handed in the PatternApplication case.  *)
       None
 
- let add_binders checker i context env typ patt =
-   add_binders checker i context env Context.subst_empty typ patt
-   >>= fun (v, i, context, env, subst) ->
-  ( List.iter (fun (i, v) -> print_endline (Printf.sprintf "%i |-> %s" i
-   (Print_value.string_of_value v))) (Context.subst_to_list subst);
-   print_newline ();
-   Some (Context.subst_value subst v, i, Context.subst_apply context subst,
-   Context.subst_env subst env, subst))
+let add_binders checker i context env typ patt =
+  add_binders checker i context env Context.subst_empty typ patt
+  >>= fun (v, i, context, env, subst) ->
+  Some (Context.subst_value subst v
+      , i
+      , Context.subst_apply context subst
+      , Context.subst_env subst env, subst)
 
 type match_result = Match | Unknown of int | NoMatch
 
