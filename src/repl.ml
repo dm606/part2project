@@ -168,6 +168,11 @@ and handle_input l = lazy (
 
 let rec repl lexbuf =
   try
+    (* evaluating an expression will generally leave a lot of unreachable data,
+     * and a pause is probably acceptable here, so do a full garbage collection
+     * cycle here *)
+    Gc.full_major ();
+
     prompt := "# ";
     parse Parser.parse_repl lexbuf;
     repl lexbuf
