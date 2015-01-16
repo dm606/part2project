@@ -14,8 +14,8 @@ type Fin : Nat -> U =
 
 let rec is_even : Nat -> Bool = function
   | zero -> true
-  | succ (succ x) -> is_even x
   | succ zero -> false
+  | succ (succ x) -> is_even x
 
 let maj : Bool * Bool * Bool -> Bool = function
   | true, true, true -> true
@@ -24,18 +24,6 @@ let maj : Bool * Bool * Bool -> Bool = function
   | x, true, false -> x
   | false, false, false -> false
 
-(*
-let rec nth : (A : U) -> (m : Nat) -> Vec A (succ m) -> Fin (succ m) -> A =
-  fun A n -> function cons .A .n a tl -> (function
-      | fzero .n -> a
-      | fsucc .n i -> nth A n tl i)))
-*)
-(*let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
-           -> Vec B n =
-  fun A B f _ -> function
-    | nil .A -> nil B
-    | cons .A n a tl -> cons B n (f a) (map A B f n tl)
-*)
 let rec map : (A : U) -> (B : U) -> (A -> B) -> (n : Nat) -> Vec A n
            -> Vec B n =
   fun A B f -> (function
@@ -48,24 +36,8 @@ let rec add : Nat -> Nat -> Nat =
     | zero -> y
     | (succ z) -> succ (add z y)
 
-(*let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
-              -> Vec A (add n m) =
-  fun A n m x y ->
-    match x with
-    | nil .A -> y
-    | cons .A .n a z -> cons A (add n m) a (append A n m z y)
-*)
-(*let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m
-              -> Vec A (add n m) =
-  fun A n m x y ->
-    (let f : Vec A n -> Vec A (add n m) = function
-      | nil .A -> y
-      | cons .A .n a z -> cons A (add n m) a (append A n m z y) in
-    f x)
-*)
-
-let rec append : (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m -> Vec
-A (add n m) =
+let rec append :
+  (A : U) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m -> Vec A (add n m) =
   fun A ->
     function
     | zero -> (fun m -> function nil .A -> (fun l -> l))
@@ -82,7 +54,6 @@ type Or (A : U) (B : U) : U =
 type Eq (A : U) (a : A) : A -> U =
   | refl : Eq A a a
 
-(*
 type DistinctList (A : U) (NotEqual : A -> A -> U) : U =
   | dnil : DistinctList A NotEqual
   | dcons : (a : A) -> (l : DistinctList A NotEqual)
@@ -91,9 +62,8 @@ and let rec Fresh : (A : U) -> (NotEqual : A -> A -> U) -> (a : A)
                  -> (l : DistinctList A NotEqual) -> U =
   fun A NotEqual a ->
     function
-    | dnil _ _ -> Unit
-    | dcons _ _ b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
-*)
+    | dnil .A .NotEqual -> Unit
+    | dcons .A .NotEqual b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
 
 let false_elim : (A : U) -> Null -> A =
   fun _ -> function

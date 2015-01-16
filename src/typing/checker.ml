@@ -405,7 +405,7 @@ and check_declarations i env context =
         >>= fun _ -> 
         check_decls ((x, t)::result_bs) result_cs (d::rest_ds) rest_bs xs
     | (Type (x, ps, e, cs))::xs ->
-        let decl_env = env in
+        let decl_env = get_env env rest_ds xs in
         let typefam_type = get_full_type ps e in
         tr x (check_type_family_type x typefam_type) 
         >>= fun _ ->
