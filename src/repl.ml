@@ -159,9 +159,7 @@ and handle_input l = lazy (
         let decl = desugar_declarations !declared d in
         let new_context = add_declarations_to_context !context decl in
         let new_env = Environment.add_declarations !env decl in
-        print_endline (PrintConcrete.printTree PrintConcrete.prtReplStructure
-          (ReplDeclarations (LLDCons
-            (resugar_declarations !declared decl, LLDEmpty), SEMISEMI ";;")));
+        print_endline (print_declarations !declared decl);
         declared := new_declared;
         env := new_env;
         context := new_context

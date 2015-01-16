@@ -264,7 +264,7 @@ and check_type i env context exp typ =
       if check_constructor_type context c typ
       then SType typ
       else
-        tr (failure (sprintf "The type of \"%s\" is not %a." c print_val typ))
+        tr (failure (sprintf "\"%s\" does not have type %a." c print_val typ))
   | LocalDeclaration (d, e), _ -> tr (
       check_declarations i env context d
       >> fun _ ->

@@ -1,4 +1,5 @@
 open AbsConcrete
+open Format
 
 module MS = Map.Make(String)
 module SS = Set.Make(String)
@@ -504,8 +505,116 @@ and resugar_pattern env pattern =
   let (resugared, _) = r env pattern in
   resugared
 
+(* exp printing functions -- should be modified if Concrete.cf is modified *)
+let rec pr_exp fmt = function
+  | EPair (e1, e2) -> fprintf fmt "@[<hov2>%a,@ %a@]" pr_exp3 e1 pr_exp e2
+  | EDeclaration (l, e) -> fprintf fmt "@[<hov>%a in@ %a@]" pr_decls l pr_exp e
+  | e -> pr_exp1 fmt e
+and pr_exp1 fmt = function
+  | ELambda (l, e) ->
+      fprintf fmt "@[<hov2>fun %a ->@ %a@]" pr_binders l pr_exp1 e
+  | EFunction l -> fprintf fmt "@[<hov2>function@ %a@]" pr_cases l
+  | EMatch (e, l) ->
+      fprintf fmt "@[<hov2>match %a with@ %a" pr_exp e pr_cases l
+  | e -> pr_exp2 fmt e
+and pr_exp2 fmt = function
+  | EArrow (e1, e2) -> fprintf fmt "@[<hov2>%a@ -> %a@]" pr_exp3 e1 pr_exp2 e2
+  | EPi (b, e1, e2) ->
+      fprintf fmt "@[<hov2>(%a : %a)@ -> %a@]" pr_binder b pr_exp e1 pr_exp2 e2
+  | e -> pr_exp3 fmt e
+and pr_exp3 fmt = function
+  | ESigma (b, e1, e2) ->
+      fprintf fmt "@[<hov2>(%a : %a)@ * %a@]" pr_binder b pr_exp e1 pr_exp3 e2
+  | ETimes (e1, e2) -> fprintf fmt "@[<hov2>%a@ * %a@]" pr_exp4 e1 pr_exp3 e2
+  | e -> pr_exp4 fmt e
+and pr_exp4 fmt = function
+  | EApplication (e1, e2) ->
+      fprintf fmt "@[<hov2>%a@ %a@]" pr_exp4 e1 pr_exp5 e2
+  | e -> pr_exp5 fmt e
+and pr_exp5 fmt = function
+  | EUniverse -> fprintf fmt "U"
+  | EUnit -> fprintf fmt "()"
+  | EUnitType -> fprintf fmt "Unit"
+  | EIdentifier (Ident i) -> fprintf fmt "%s" i
+  | EProj1 e -> fprintf fmt "%a.1" pr_exp5 e
+  | EProj2 e -> fprintf fmt "%a.2" pr_exp5 e
+  | e -> fprintf fmt "(%a)" pr_exp e
+
+and pr_binder fmt = function
+  | BName (Ident i) -> fprintf fmt "%s" i
+  | BUnderscore -> fprintf fmt "_"
+and pr_binders fmt = function
+  | [] -> ()
+  | [x] -> pr_binder fmt x
+  | x::xs -> fprintf fmt "%a %a" pr_binder x pr_binders xs
+
+and pr_case fmt = function
+  | CCase (p, e) -> fprintf fmt "@[<hov>| %a@ -> %a@]" pr_pattern p pr_exp2 e
+and pr_cases fmt = function
+  | [] -> ()
+  | [x] -> pr_case fmt x
+  | x::xs -> fprintf fmt "@[<hov>%a@ %a@]" pr_case x pr_cases xs
+
+and pr_pattern fmt = function
+  | PPair (p1, p2) ->
+      fprintf fmt "@[<hov2>%a,@ %a@]" pr_pattern1 p1 pr_pattern p2
+  | p -> pr_pattern1 fmt p
+and pr_pattern1 fmt = function
+  | PApplication (Ident i, l) -> fprintf fmt "@[<hov2>%s@ %a@]" i pr_pattern2s l
+  | p -> pr_pattern2 fmt p
+and pr_pattern2 fmt = function
+  | PIdentifier (Ident i) -> fprintf fmt "%s" i
+  | PUnderscore -> fprintf fmt "_"
+  | PInaccessible e -> fprintf fmt ".%a" pr_exp5 e
+  | p -> fprintf fmt "(%a)" pr_pattern p
+and pr_pattern2s fmt = function
+  | [] -> ()
+  | [x] -> pr_pattern2 fmt x
+  | x::xs -> fprintf fmt "@[<hov>%a@ %a@]" pr_pattern2 x pr_pattern2s xs
+
+and pr_decl fmt = function
+  | DLet (Ident i, ps, a, e) ->
+      fprintf fmt "@[<hov2>let %s%a@ : %a =@ %a@]" i pr_params ps pr_exp a pr_exp e
+  | DLetRec (Ident i, ps, a, e) ->
+      fprintf fmt "@[<hov2>let rec %s%a@ : %a =@ %a@]" i pr_params ps pr_exp a pr_exp e
+  | DType (Ident i, ps, e, cs) -> 
+      fprintf fmt "@[<hov2>type %s%a@ : %a =@ %a@]" i pr_params ps pr_exp e pr_constructors cs
+  | DSimpleType (Ident i, cs) ->
+      fprintf fmt "@[<hov2>type %s =@ %a@]" i pr_constructors cs
+and pr_decls fmt = function
+  | [] -> ()
+  | [x] -> pr_decl fmt x
+  | x::xs -> fprintf fmt "@[<hov>%a@ and %a@]" pr_decl x pr_decls xs
+
+and pr_param fmt = function
+  | Param (b, e) -> fprintf fmt "@[<hov>@ (%a : %a)@]" pr_binder b pr_exp e
+and pr_params fmt = function
+  | [] -> ()
+  | [x] -> pr_param fmt x
+  | x::xs -> fprintf fmt "@[<hov>%a%a@]" pr_param x pr_params xs
+
+and pr_constructor fmt = function
+  | Constr (Ident i, e) -> fprintf fmt "@[<hov>| %s@ : %a@]" i pr_exp2 e
+and pr_constructors fmt = function
+  | [] -> ()
+  | [x] -> pr_constructor fmt x
+  | x::xs -> fprintf fmt "@[<hov>%a@ %a@]" pr_constructor x pr_constructors xs
+
 let print_expression env exp =
-    PrintConcrete.printTree PrintConcrete.prtExp (resugar_expression env exp)
+  Buffer.clear stdbuf;
+  pr_exp str_formatter (resugar_expression env exp);
+  pp_print_flush str_formatter ();
+  Buffer.contents stdbuf
 
 let print_pattern env patt = 
-    PrintConcrete.printTree PrintConcrete.prtPattern (resugar_pattern env patt)
+  Buffer.clear stdbuf;
+  pr_pattern str_formatter (resugar_pattern env patt);
+  pp_print_flush str_formatter ();
+  Buffer.contents stdbuf
+
+let print_declarations env decl = 
+  Buffer.clear stdbuf;
+  pr_decls str_formatter (resugar_declarations env decl);
+  pp_print_flush str_formatter ();
+  Buffer.contents stdbuf
+ 

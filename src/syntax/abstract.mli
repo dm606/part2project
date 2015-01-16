@@ -92,3 +92,7 @@ val print_expression : envt -> expression -> string
 
 (** converts the given pattern to a string *)
 val print_pattern : envt -> pattern -> string
+
+(** converts the given declarations to a string *)
+val print_declarations : envt -> declaration list -> string
+
