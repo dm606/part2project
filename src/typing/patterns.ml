@@ -312,7 +312,9 @@ let rec split i context typ value blocker =
 
 (* typ is caseless if spliting [i]:typ along i produces no values *)
 let caseless i context typ =
-  split (i + 1) context typ (VNeutral (VVar i)) i = []
+  match split (i + 1) context typ (VNeutral (VVar i)) i with
+  | [] -> None (* typ is caseless *)
+  | (_, v)::_ -> Some v
 
 (* checks that patterns covers all values of the form value (patterns must not
  * be []) *)
@@ -331,14 +333,18 @@ let rec cover_rec i context patterns typ value =
 
   match !result with
   (* there is no pattern which may match *)
-  | None -> false
-  | Some true -> true (* there is a match for all values of the form value *)
+  | None -> Some value 
+  | Some true -> None (* there is a match for all values of the form value *)
   | Some false -> (
       (* there may or may not be a match -- split *)
       match unknowns with
       | p::tl ->
           let split_result = split i context typ value !blocker in
-          List.for_all (fun (i, v) -> cover_rec i context unknowns typ v)
+          List.fold_left
+            (fun r (i, v) -> match r with
+               | None -> cover_rec i context unknowns typ v
+               | Some v -> r)
+            None
             split_result
       (* find_matches must return a list containing at least one element *)
       | _ -> assert false)
