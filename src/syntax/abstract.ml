@@ -574,11 +574,14 @@ and pr_pattern2s fmt = function
 
 and pr_decl fmt = function
   | DLet (Ident i, ps, a, e) ->
-      fprintf fmt "@[<hov2>let %s%a@ : %a =@ %a@]" i pr_params ps pr_exp a pr_exp e
+      fprintf fmt "@[<hov2>let %s%a@ : %a =@ %a@]" i
+        pr_params ps pr_exp a pr_exp e
   | DLetRec (Ident i, ps, a, e) ->
-      fprintf fmt "@[<hov2>let rec %s%a@ : %a =@ %a@]" i pr_params ps pr_exp a pr_exp e
+      fprintf fmt "@[<hov2>let rec %s%a@ : %a =@ %a@]" i
+        pr_params ps pr_exp a pr_exp e
   | DType (Ident i, ps, e, cs) -> 
-      fprintf fmt "@[<hov2>type %s%a@ : %a =@ %a@]" i pr_params ps pr_exp e pr_constructors cs
+      fprintf fmt "@[<hov2>type %s%a@ : %a =@ %a@]" i
+        pr_params ps pr_exp e pr_constructors cs
   | DSimpleType (Ident i, cs) ->
       fprintf fmt "@[<hov2>type %s =@ %a@]" i pr_constructors cs
 and pr_decls fmt = function
