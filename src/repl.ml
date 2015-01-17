@@ -21,6 +21,7 @@ let env = ref Environment.empty
 let context = ref Context.empty
 
 let prompt = ref ""
+let last_typing_result = ref None
 
 let rec read_into_buffer index buffer length = 
   if !prompt <> "" then (print_string !prompt; flush stdout);
@@ -68,9 +69,15 @@ let parse_single_expression lexbuf =
   return_value
 
 let print_typing_result r =
-  (* TODO: only print the error here *)
   Checker.print_error stderr r;
-  Checker.print_trace stderr r
+  last_typing_result := Some r
+
+let handle_trace () =
+  match !last_typing_result with
+  | Some r ->
+      Checker.print_error stderr r;
+      Checker.print_trace stderr r
+  | None -> ()
 
 let handle_are_equal () =
   print_string "Expression 1:";
@@ -132,6 +139,7 @@ and handle_command c =
   | CommandString (Ident s, _) -> raise (Unknown_command s)
   | CommandNone (Ident "areequal") -> handle_are_equal ()
   | CommandNone (Ident "infertype") -> handle_infer_type ()
+  | CommandNone (Ident "trace") -> handle_trace ()
   | CommandNone (Ident s) -> raise (Unknown_command s)
 and parse f lexbuf = (
   try Lazy.force (handle_input (f lexbuf)) with
