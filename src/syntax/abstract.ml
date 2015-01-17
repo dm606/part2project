@@ -42,7 +42,7 @@ type expression =
   | Function of (pattern * expression) list
   | LocalDeclaration of declaration list * expression
   | Application of expression * expression
-  | Universe
+  | Universe of int
   | UnitType
   | Unit
   | Index of int (* de Bruijn index *)
@@ -219,7 +219,10 @@ let rec desugar_expression env = function
         (desugar_declarations env d, desugar_expression new_env e1)
   | EApplication (e1, e2) ->
       Application (desugar_expression env e1, desugar_expression env e2)
-  | EUniverse -> Universe
+  | EUniverse i when i >= 0 -> Universe i
+  | EUniverse i ->
+      raise (Invalid_expression "The universe level must be nonnegative.")
+  | EUnindexedUniverse -> Universe 0
   | EUnitType -> UnitType
   | EUnit -> Unit
   | EIdentifier (Ident x) -> ( 
@@ -298,7 +301,7 @@ and desugar_declarations env =
         :: (desugar rest_names (add_constructors x cs) xs)
     | (DSimpleType (Ident x, cs))::xs -> 
         let env2 = get_new_env_type xs x in
-        (Type (x, [], Universe, List.map (desugar_constructor env2) cs))
+        (Type (x, [], Universe 0, List.map (desugar_constructor env2) cs))
         :: (desugar rest_names (add_constructors x cs) xs) in
   desugar [] MS.empty
 and desugar_binder = function 
@@ -376,7 +379,8 @@ let rec resugar_expression env = function
            e)) cs)
   | Application (e1, e2) ->
       EApplication (resugar_expression env e1, resugar_expression env e2)
-  | Universe -> EUniverse
+  | Universe 0 -> EUnindexedUniverse
+  | Universe i -> EUniverse i
   | UnitType -> EUnitType
   | Unit -> EUnit
   | Index i -> EIdentifier (Ident (get_binder_name env i))
@@ -462,7 +466,7 @@ and resugar_declarations env =
                          , resugar_expression type_env t, ELambda (bs, e)))
          | e -> DLetRec (Ident x, [], resugar_expression env1 e1, e))
         :: (resugar (x::rest_names) rest_cs xs)
-    | (Type (x, [], Universe, cs))::xs ->
+    | (Type (x, [], Universe i, cs))::xs ->
         let env2 = get_new_env_type xs x in
         (DSimpleType (Ident x, List.map (fun (x, e) ->
           Constr (Ident x, resugar_expression env2 e)) cs))
@@ -532,7 +536,8 @@ and pr_exp4 fmt = function
       fprintf fmt "@[<hov2>%a@ %a@]" pr_exp4 e1 pr_exp5 e2
   | e -> pr_exp5 fmt e
 and pr_exp5 fmt = function
-  | EUniverse -> fprintf fmt "U"
+  | EUniverse i -> fprintf fmt "U %i" i
+  | EUnindexedUniverse -> fprintf fmt "U"
   | EUnit -> fprintf fmt "()"
   | EUnitType -> fprintf fmt "Unit"
   | EIdentifier (Ident i) -> fprintf fmt "%s" i

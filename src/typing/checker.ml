@@ -88,6 +88,8 @@ let add_to_context = add_to_context false
 let rec infer_type i env context exp =
   let print () e = 
     try print_expression (get_envt context) e with _ -> "???" in
+  let print_in context e =
+    try print_expression (get_envt context) e with _ -> "???" in
 
   let tr = function
     | SType _ as r -> r
@@ -100,33 +102,45 @@ let rec infer_type i env context exp =
 
   match exp with
   | Pi (Underscore, e1, e2) -> tr (
-      check_type i env context e1 VUniverse
-      >>= fun _ -> 
-      check_type (i + 1) env context e2 VUniverse
-      >>= fun _ ->
-      SType VUniverse)
+      infer_type i env context e1
+      >>= (function
+      | VUniverse j ->
+          infer_type (i + 1) env context e2
+          >>= (function
+          | VUniverse k -> SType (VUniverse (max j k))
+          | _ -> failure (sprintf "%a is not a type" print e2))
+      | _ -> failure (sprintf "%a is not a type." print e1)))
   | Pi (Name x, e1, e2) -> tr (
-      check_type i env context e1 VUniverse
-      >>= fun _ ->
-      let env' = Environment.add env (VNeutral (VVar i)) in
-      let context' = Context.add_binder context x (Eval.eval env e1) in
-      check_type (i + 1) env' context' e2 VUniverse
-      >>= fun _ ->
-      SType VUniverse)
+      infer_type i env context e1
+      >>= (function
+      | VUniverse j ->
+          let env' = Environment.add env (VNeutral (VVar i)) in
+          let context' = Context.add_binder context x (Eval.eval env e1) in
+          infer_type (i + 1) env' context' e2
+          >>= (function
+          | VUniverse k -> SType (VUniverse (max j k))
+          | _ -> failure (sprintf "%s is not a type." (print_in context' e2)))
+      | _ -> failure (sprintf "%a is not a type." print e1)))
   | Sigma (Underscore, e1, e2) -> tr (
-      check_type i env context e1 VUniverse
-      >>= fun _ -> 
-      check_type (i + 1) env context e2 VUniverse
-      >>= fun _ ->
-      SType VUniverse)
+      infer_type i env context e1
+      >>= (function
+      | VUniverse j ->
+          infer_type (i + 1) env context e2
+          >>= (function
+          | VUniverse k -> SType (VUniverse (max j k))
+          | _ -> failure (sprintf "%a is not a type" print e2))
+      | _ -> failure (sprintf "%a is not a type." print e1)))
   | Sigma (Name x, e1, e2) -> tr (
-      check_type i env context e1 VUniverse
-      >>= fun _ ->
-      let env' = Environment.add env (VNeutral (VVar i)) in
-      let context' = Context.add_binder context x (Eval.eval env e1) in
-      check_type (i + 1) env' context' e2 VUniverse
-      >>= fun _ -> 
-      SType VUniverse)
+      infer_type i env context e1
+      >>= (function
+      | VUniverse j ->
+          let env' = Environment.add env (VNeutral (VVar i)) in
+          let context' = Context.add_binder context x (Eval.eval env e1) in
+          infer_type (i + 1) env' context' e2
+          >>= (function
+          | VUniverse k -> SType (VUniverse (max j k))
+          | _ -> failure (sprintf "%s is not a type." (print_in context' e2)))
+      | _ -> failure (sprintf "%a is not a type." print e1)))
   | Application (e1, e2) -> tr (
       infer_type i env context e1
       >>= function
@@ -142,9 +156,9 @@ let rec infer_type i env context exp =
         | _ ->
             failure (
               sprintf "%a is not a function; it cannot be applied." print e1))
-  | Universe -> SType VUniverse
+  | Universe i -> SType (VUniverse (i + 1))
   | Unit -> SType VUnitType
-  | UnitType -> SType VUniverse
+  | UnitType -> SType (VUniverse 0)
   | Index j -> (match get_binder_type context j with
       | None ->
           tr (failure (sprintf "The type of index %i is not in the context." j))
@@ -334,12 +348,12 @@ and check_type i env context exp typ =
 
   | _ -> try_eq ()
 and check_declarations i env context =
-  (* checks that a Π type ends with U
+  (* checks that a Π type ends with Ui for some i, and returns i
    * checks for syntactic equality; does not use readback *) 
-  let rec does_pi_end_with_U = function
-    | Universe -> true
-    | Pi (_, _, b) -> does_pi_end_with_U b
-    | _ -> false in
+  let rec get_universe = function
+    | Universe i -> Some i
+    | Pi (_, _, b) -> get_universe b
+    | _ -> None in
 
   let tr x = function
     | SType _ as r -> r
@@ -348,14 +362,16 @@ and check_declarations i env context =
         F (e, lazy (sprintf "%s\nChecking the declaration of \"%s\"."
             (Lazy.force t) x)) in
 
-  let check_type_family_type x typ =
-    check_type i env context typ VUniverse
-    >>= fun _ ->
-    if does_pi_end_with_U typ then SType VUniverse
-    else tr x (F (sprintf "\"%s\" is not a family of types." x, lazy "")) in
+  let check_type_family_type env context x typ =
+    infer_type i env context typ 
+    >>= (function
+    | VUniverse j -> (match get_universe typ with
+        | Some k -> SType (VUniverse k)
+        | None -> tr x (F (sprintf "\"%s\" is not a family of types." x, lazy "")))
+    | _ -> tr x (F (sprintf "\"%s\" is not a family of types." x, lazy ""))) in
 
   let rec constructs type_name type_type t = match type_type, t with
-    | Universe, Constructor n when n = type_name -> true
+    | Universe _, Constructor n when n = type_name -> true
     | Pi (_, _, b), Application (e1, _) -> constructs type_name b e1
     | _ -> false in
 
@@ -370,12 +386,24 @@ and check_declarations i env context =
         && strictly_positive type_name type_type b
     | _ -> false in
 
-  let check_ctor_type type_name type_type constructor_name typ =
-    if strictly_positive type_name type_type typ then SType VUniverse
+  let check_ctor_type i env context type_name type_type type_universe constructor_name typ =
+    if strictly_positive type_name type_type typ then
+      tr type_name (check_type i env context typ type_universe)
+      >>= fun _ ->
+      SType type_universe
     else
       tr type_name
         (F (sprintf "\"%s\" is not a strictly positive constructor of %s"
           constructor_name type_name, lazy "")) in
+
+  let add_parameters i env context =
+    List.fold_left
+      (fun (i, env, context) -> function
+       | Underscore, _ -> (i, env, context)
+       | Name x, e -> 
+           (i + 1, Environment.add env (VNeutral (VVar i))
+          , Context.add_binder context x (Eval.eval env e)))
+      (i, env, context) in
   
   let get_new_context rest_bs rest_cs xs =
     let context =
@@ -393,42 +421,59 @@ and check_declarations i env context =
     | (Let (x, e1, e2))::xs ->
         let decl_env = get_env env rest_ds xs in
         let decl_context = get_new_context rest_bs result_cs xs in
-        tr x (check_type i decl_env decl_context e1 VUniverse)
-        >>= fun _ -> 
-        let t = Eval.eval decl_env e1 in
-        tr x (check_type i decl_env decl_context e2 t)
-        >>= fun _ -> 
-        check_decls ((x, t)::result_bs) result_cs rest_ds rest_bs xs
+        tr x (infer_type i decl_env decl_context e1)
+        >>= (function 
+        | VUniverse j -> 
+            let t = Eval.eval decl_env e1 in
+            tr x (check_type i decl_env decl_context e2 t)
+            >>= fun _ -> 
+            check_decls ((x, t)::result_bs) result_cs rest_ds rest_bs xs
+        | _ ->
+            tr x (F (sprintf
+                "The expression given as the type of \"%s\" is not a type" x
+              , lazy "")))
     | (LetRec (x, e1, e2) as d)::xs ->
         let decl_env = get_env env rest_ds xs in
         let decl_env2 = 
           Environment.add_declarations env
             (xs @ (List.rev (d::(filter rest_ds)))) in
         let decl_context = get_new_context rest_bs result_cs xs in
-        tr x (check_type i decl_env decl_context e1 VUniverse)
-        >>= fun _ -> 
-        let t = Eval.eval decl_env e1 in
-        let decl_context2 = get_new_context ((x, t)::rest_bs) result_cs xs in
-        tr x (check_type i decl_env2 decl_context2 e2 t)
-        >>= fun _ -> 
-        check_decls ((x, t)::result_bs) result_cs (d::rest_ds) rest_bs xs
-    | (Type (x, ps, e, cs))::xs ->
+        tr x (infer_type i decl_env decl_context e1)
+        >>= (function
+        | VUniverse j ->
+            let t = Eval.eval decl_env e1 in
+            let decl_context2 = get_new_context ((x, t)::rest_bs) result_cs xs in
+            tr x (check_type i decl_env2 decl_context2 e2 t)
+            >>= fun _ -> 
+            check_decls ((x, t)::result_bs) result_cs (d::rest_ds) rest_bs xs
+        | _ ->
+            tr x (F (sprintf
+                "The expression given as the type of \"%s\" is not a type" x
+              , lazy "")))
+    | (Type (x, ps, e, constructor_types))::xs ->
         let decl_env = get_env env rest_ds xs in
+        let decl_context = get_new_context rest_bs result_cs xs in
         let typefam_type = get_full_type ps e in
-        tr x (check_type_family_type x typefam_type) 
-        >>= fun _ ->
-        let constructor_types =
-          List.map (fun (x, e) -> (x, get_full_type ps e)) cs in
-        let check_ctor_type (c, e) = check_ctor_type x typefam_type c e in
-        List.fold_left (fun result p -> result >>= fun _ -> check_ctor_type p)
-          (SType VUniverse) constructor_types 
-        >>= fun _ ->
-        let result_cs =
-          (x, "U", Eval.eval decl_env typefam_type) :: result_cs in
-        let result_cs =
-          List.fold_left (fun l (c, e) -> (c, x, Eval.eval decl_env e)::l)
-          result_cs constructor_types in
-        check_decls result_bs result_cs rest_ds rest_bs xs in
+        let eval_typefam_type = Eval.eval decl_env typefam_type in
+        tr x (check_type_family_type decl_env decl_context x typefam_type) 
+        >>= (function
+        | VUniverse j as type_universe ->
+            let universe_name = "U " ^ (string_of_int j) in
+            let (constructor_i, constructor_env, constructor_context) =
+              add_parameters i decl_env (Context.add_constructor decl_context x universe_name eval_typefam_type) ps in
+            let check_ctor_type (c, e) =
+              check_ctor_type constructor_i constructor_env constructor_context
+                x typefam_type type_universe c e in
+            List.fold_left (fun result p -> result >>= fun _ -> check_ctor_type p)
+              (SType type_universe) constructor_types 
+            >>= fun _ ->
+            let result_cs =
+              (x, universe_name, eval_typefam_type) :: result_cs in
+            let result_cs =
+              List.fold_left (fun l (c, e) -> (c, x, Eval.eval decl_env (get_full_type ps e))::l)
+              result_cs constructor_types in
+            check_decls result_bs result_cs rest_ds rest_bs xs
+        | _ -> assert false) in
   check_decls [] [] [] []
 
 let infer_type = infer_type 0

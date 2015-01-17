@@ -10,7 +10,7 @@ and normal =
   | NSigma of int * normal * normal
   | NFunction of (pattern * expression) list 
                * normal_envt
-  | NUniverse
+  | NUniverse of int
   | NUnitType
   | NUnit
   | NConstruct of string * normal list
@@ -55,7 +55,7 @@ let rec readback i =
       NSigma (i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar i))) e))
   | VFunction (l, env) -> NFunction (l, readback_env i env)
-  | VUniverse -> NUniverse
+  | VUniverse i -> NUniverse i
   | VUnitType -> NUnitType
   | VUnit -> NUnit
   | VConstruct (c, vs) -> NConstruct (c, List.map (readback i) vs)

@@ -12,7 +12,7 @@ type value =
   | VSigma of string * value * expression * value Environment.t
   | VTimes of value * value (* Σ (_ : A) . B *)
   | VFunction of (pattern * expression) list * value Environment.t
-  | VUniverse
+  | VUniverse of int
   | VUnitType
   | VUnit
   (* constructor applied to arguments

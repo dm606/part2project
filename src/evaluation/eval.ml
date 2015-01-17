@@ -68,7 +68,7 @@ let rec eval env =
        | VNeutral v -> VNeutral (VApplication (v, v2))
        | _ -> raise (Cannot_evaluate
                 "Attempted to apply a value which is not a function"))
-  | Universe -> VUniverse
+  | Universe i -> VUniverse i
   | UnitType -> VUnitType
   | Unit -> VUnit
   | Index i -> 

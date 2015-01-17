@@ -21,7 +21,7 @@ let rec occurs v i = match v with
   | VTimes (a, b) -> occurs a i || occurs b i
   | VSigma (_, v, _, _) -> occurs v i
   | VFunction _ -> false
-  | VUniverse -> false
+  | VUniverse _ -> false
   | VUnitType -> false
   | VUnit -> false
   | VConstruct (_, l) -> List.exists (fun v -> occurs v i) l
@@ -56,7 +56,7 @@ and mgu subst v1 v2 = match v1, v2 with
       if occurs v i then None (* occurs check *)
       else add_unify subst i v
   (* atoms unify than themselves *)
-  | VUniverse, VUniverse -> Some subst
+  | VUniverse i, VUniverse j when i = j -> Some subst
   | VUnitType, VUnitType -> Some subst
   | VUnit, VUnit -> Some subst
   (* terms unify if they have the same structure and all subterms

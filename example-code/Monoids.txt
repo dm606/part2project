@@ -6,7 +6,7 @@ let cong (A : U) (B : U) (f : A -> B) (a : A) (b : A) :
   Eq A a b -> Eq B (f a) (f b) =
   function refl .A .a -> refl B (f a)
 
-type Monoid = monoid :
+type Monoid : U 1 = monoid :
   (* the type *)
   (A : U) 
   (* the monoid operation *)

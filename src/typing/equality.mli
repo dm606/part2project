@@ -11,7 +11,7 @@ type normal =
   | NPi of int * normal * normal
   | NSigma of int * normal * normal
   | NFunction of (pattern * expression) list * normal_envt
-  | NUniverse
+  | NUniverse of int
   | NUnitType
   | NUnit
   | NConstruct of string * normal list

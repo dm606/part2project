@@ -41,7 +41,7 @@ type expression =
   | Function of (pattern * expression) list
   | LocalDeclaration of declaration list * expression
   | Application of expression * expression
-  | Universe
+  | Universe of int
   | UnitType
   | Unit
   | Index of int (* de Bruijn index *)

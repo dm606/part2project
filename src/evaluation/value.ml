@@ -10,7 +10,7 @@ type value =
   | VSigma of string * value * expression * value Environment.t
   | VTimes of value * value (* Σ (_ : A) . B *)
   | VFunction of (pattern * expression) list * value Environment.t
-  | VUniverse
+  | VUniverse of int
   | VUnitType
   | VUnit
   | VConstruct of string * value list
@@ -38,7 +38,7 @@ let reify eval =
     | VSigma _ -> raise (Cannot_reify "Cannot reify sigma types")
     | VFunction _ -> 
         raise (Cannot_reify "Cannot reify pattern-matching functions")
-    | VUniverse -> Universe
+    | VUniverse i -> Universe i
     | VUnitType -> UnitType
     | VUnit -> Unit
     | VConstruct (c, l) ->
@@ -61,7 +61,7 @@ and contains i = function
   | VTimes (a, b) -> contains i a || contains i b
   | VSigma (_, a, _, _) -> contains i a
   | VFunction (_, _) -> false
-  | VUniverse -> false
+  | VUniverse i -> false
   | VUnitType -> false
   | VUnit -> false
   | VConstruct (_, l) -> List.exists (contains i) l
@@ -98,7 +98,7 @@ and substitute_neutral_variable i v =
   | VSigma (b, v1, e, env) ->
       VSigma (b, substitute_neutral_variable i v v1, e, subst_env env)
   | VFunction _ as f -> f
-  | VUniverse -> VUniverse
+  | VUniverse i -> VUniverse i
   | VUnitType -> VUnitType
   | VUnit -> VUnit
   | VConstruct (c, l) ->
@@ -121,7 +121,7 @@ and lift a = function
   | VPair (v1, v2) -> VPair (lift a v1, lift a v2)
   | VArrow (v1, v2) -> VArrow (lift a v1, lift a v2)
   | VTimes (v1, v2) -> VTimes (lift a v1, lift a v2)
-  | VUniverse -> VUniverse
+  | VUniverse i -> VUniverse i
   | VUnitType -> VUnitType
   | VUnit -> VUnit
   | VConstruct (c, l) -> VConstruct (c, List.map (lift a) l)
