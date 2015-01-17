@@ -10,7 +10,7 @@ let size_factor = 3
 
 let quickCheck_config = {
   quick with
-    maxTest = 130
+    maxTest = 115
 }
 
 let quickCheck_test name testable test = name >:: fun _ ->
