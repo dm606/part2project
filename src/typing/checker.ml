@@ -367,7 +367,8 @@ and check_declarations i env context =
     >>= (function
     | VUniverse j -> (match get_universe typ with
         | Some k -> SType (VUniverse k)
-        | None -> tr x (F (sprintf "\"%s\" is not a family of types." x, lazy "")))
+        | None ->
+            tr x (F (sprintf "\"%s\" is not a family of types." x, lazy "")))
     | _ -> tr x (F (sprintf "\"%s\" is not a family of types." x, lazy ""))) in
 
   let rec constructs type_name type_type t = match type_type, t with
@@ -386,7 +387,8 @@ and check_declarations i env context =
         && strictly_positive type_name type_type b
     | _ -> false in
 
-  let check_ctor_type i env context type_name type_type type_universe constructor_name typ =
+  let check_ctor_type i env context type_name type_type type_universe
+        constructor_name typ =
     if strictly_positive type_name type_type typ then
       tr type_name (check_type i env context typ type_universe)
       >>= fun _ ->
@@ -442,7 +444,8 @@ and check_declarations i env context =
         >>= (function
         | VUniverse j ->
             let t = Eval.eval decl_env e1 in
-            let decl_context2 = get_new_context ((x, t)::rest_bs) result_cs xs in
+            let decl_context2 =
+              get_new_context ((x, t)::rest_bs) result_cs xs in
             tr x (check_type i decl_env2 decl_context2 e2 t)
             >>= fun _ -> 
             check_decls ((x, t)::result_bs) result_cs (d::rest_ds) rest_bs xs
@@ -460,18 +463,21 @@ and check_declarations i env context =
         | VUniverse j as type_universe ->
             let universe_name = "Type " ^ (string_of_int j) in
             let (constructor_i, constructor_env, constructor_context) =
-              add_parameters i decl_env (Context.add_constructor decl_context x universe_name eval_typefam_type) ps in
+              add_parameters i decl_env (Context.add_constructor
+                decl_context x universe_name eval_typefam_type) ps in
             let check_ctor_type (c, e) =
               check_ctor_type constructor_i constructor_env constructor_context
                 x typefam_type type_universe c e in
-            List.fold_left (fun result p -> result >>= fun _ -> check_ctor_type p)
+            List.fold_left
+              (fun result p -> result >>= fun _ -> check_ctor_type p)
               (SType type_universe) constructor_types 
             >>= fun _ ->
             let result_cs =
               (x, universe_name, eval_typefam_type) :: result_cs in
             let result_cs =
-              List.fold_left (fun l (c, e) -> (c, x, Eval.eval decl_env (get_full_type ps e))::l)
-              result_cs constructor_types in
+              List.fold_left (fun l (c, e) ->
+                  (c, x, Eval.eval decl_env (get_full_type ps e))::l)
+                result_cs constructor_types in
             check_decls result_bs result_cs rest_ds rest_bs xs
         | _ -> assert false) in
   check_decls [] [] [] []
