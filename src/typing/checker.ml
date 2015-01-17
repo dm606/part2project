@@ -213,6 +213,25 @@ let rec infer_type i env context exp =
 
   | _ -> failure (sprintf "Cannot infer a type for %a." print exp)
 
+and check_subtype i a b =
+  let are_equal a b = (Equality.readback i a) = (Equality.readback i b) in
+
+  match a, b with
+  | VUniverse j, VUniverse k -> j <= k
+  | VArrow (a1, b1), VArrow (a2, b2) ->
+      are_equal a1 a2 && check_subtype i b1 b2
+  | VPi (x1, a1, b1, pi_env1), VPi (x2, a2, b2, pi_env2) ->
+      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar i))) b1 in
+      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar i))) b2 in
+      are_equal a1 a2 && check_subtype (i + 1) b1 b2
+  | VTimes (a1, b1), VTimes (a2, b2) ->
+      are_equal a1 a2 && check_subtype i b1 b2
+  | VSigma (x1, a1, b1, pi_env1), VSigma (x2, a2, b2, pi_env2) ->
+      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar i))) b1 in
+      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar i))) b2 in
+      are_equal a1 a2 && check_subtype (i + 1) b1 b2
+  | _ -> are_equal a b
+
 and check_type i env context exp typ =
   let print_exp () e =
     try print_expression (get_envt context) e with _ -> "???" in
@@ -230,12 +249,12 @@ and check_type i env context exp typ =
 
   let failure s = F (s, lazy "") in
 
-  let try_eq () = tr (
+  let try_subtype () = tr (
       infer_type i env context exp
       >>= fun inferred_type ->
-      if (Equality.readback i inferred_type) = (Equality.readback i typ)
+      if check_subtype i inferred_type typ
       then SType typ
-      else failure (sprintf "%a is not equal to %a." print_val inferred_type
+      else failure (sprintf "%a is not a subtype of %a." print_val inferred_type
              print_val typ)) in
 
   match exp, typ with
@@ -344,9 +363,9 @@ and check_type i env context exp typ =
         SType t2) with
     | SType t as r -> r
     | SDecl _ -> assert false 
-    | F _ as f -> match try_eq () with F _ -> f | x -> x)
+    | F _ -> try_subtype ())
 
-  | _ -> try_eq ()
+  | _ -> try_subtype ()
 and check_declarations i env context =
   (* checks that a Π type ends with Ui for some i, and returns i
    * checks for syntactic equality; does not use readback *) 
