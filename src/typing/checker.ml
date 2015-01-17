@@ -457,10 +457,10 @@ and check_declarations i env context =
         let decl_env = get_env env rest_ds xs in
         let decl_context = get_new_context rest_bs result_cs xs in
         let typefam_type = get_full_type ps e in
-        let eval_typefam_type = Eval.eval decl_env typefam_type in
         tr x (check_type_family_type decl_env decl_context x typefam_type) 
         >>= (function
         | VUniverse j as type_universe ->
+            let eval_typefam_type = Eval.eval decl_env typefam_type in
             let universe_name = "Type " ^ (string_of_int j) in
             let (constructor_i, constructor_env, constructor_context) =
               add_parameters i decl_env (Context.add_constructor

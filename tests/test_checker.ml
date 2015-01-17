@@ -18,13 +18,13 @@ let test_infer_type_fail (name, env, context, input) =
     assert_bool "Expected infer_type to fail" (not (succeeded result))
 
 let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
-  ("universe", Environment.empty, Context.empty, Universe, VUniverse);
-  ("unit_type", Environment.empty, Context.empty, UnitType, VUniverse);
+  ("universe", Environment.empty, Context.empty, Universe 0, VUniverse 1);
+  ("unit_type", Environment.empty, Context.empty, UnitType, VUniverse 0);
   ("unit", Environment.empty, Context.empty, Unit, VUnitType);
   ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VTimes
-  (VUnitType, VUniverse));
+  (VUnitType, VUniverse 0));
   ("constructor" , Environment.empty , Context.add_constructor
-  (Context.add_constructor Context.empty "Bool" "U" VUniverse) "true" "Bool"
+  (Context.add_constructor Context.empty "Bool" "U" (VUniverse 0)) "true" "Bool"
   (VConstruct ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
   ("declarations", Environment.empty, Context.empty, LocalDeclaration ([Let
   ("x", UnitType, Unit)], Index 0), VUnitType);
@@ -32,24 +32,22 @@ let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
   ([Let ("x", UnitType, Index 0); LetRec ("y", UnitType, Unit)], Index 1),
   VUnitType);
   ("application", Environment.add Environment.empty (VLambda (Name "x", Index 0,
-  Environment.empty)), Context.add_binder Context.empty "f" (VArrow (
-  VUnitType, VUnitType)), Application (Index 0, Unit),
-  VUnitType);
-  ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe,
-  Universe)), VUniverse)
+  Environment.empty)), Context.add_binder Context.empty "f" (VArrow ( VUnitType,
+  VUnitType)), Application (Index 0, Unit), VUnitType);
+  ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe 0,
+  Universe 2)), VUniverse 1)
 ]) @ (List.map test_infer_type_fail [
   ("lambda_cannot_infer", Environment.empty, Context.empty, Lambda (Name "x",
   Index 0));
-  ("application_cannot_infer", Environment.empty, Context.empty,
-  Application (Lambda (Name "x", Unit), Unit));
+  ("application_cannot_infer", Environment.empty, Context.empty, Application
+  (Lambda (Name "x", Unit), Unit));
   ("application_invalid", Environment.add Environment.empty (VLambda (Name "x",
   Index 0, Environment.empty)), Context.add_binder Context.empty "f" (VArrow
-  (VUnitType, VUnitType)), Application (Index 0,
-  UnitType));
+  (VUnitType, VUnitType)), Application (Index 0, UnitType));
   ("application_invalid2", Environment.empty, Context.empty, Application (Unit,
   Unit));
   ("projection_invalid", Environment.empty, Context.empty, Proj1 Unit);
-  ("pi_invalid", Environment.empty, Context.empty, Pi (Name "A", Universe, Pi
+  ("pi_invalid", Environment.empty, Context.empty, Pi (Name "A", Universe 0, Pi
   (Name "a", Index 0, Index 0)))
 ])
 
@@ -64,13 +62,13 @@ let test_check_fail (name, env, context, expression, typ) =
     assert_bool "Type checker expected to fail" (not (succeeded result))
 
 let test_check = "check" >::: (List.map test_check_success [
-  ("universe", Environment.empty, Context.empty, Universe, VUniverse);
-  ("unit_type", Environment.empty, Context.empty, UnitType, VUniverse);
+  ("universe", Environment.empty, Context.empty, Universe 0, VUniverse 1);
+  ("unit_type", Environment.empty, Context.empty, UnitType, VUniverse 0);
   ("unit", Environment.empty, Context.empty, Unit, VUnitType);
   ("pair", Environment.empty, Context.empty, Pair (Unit, UnitType), VTimes
-  (VUnitType, VUniverse));
+  (VUnitType, VUniverse 0));
   ("constructor" , Environment.empty , Context.add_constructor
-  (Context.add_constructor Context.empty "Bool" "U" VUniverse) "true" "Bool"
+  (Context.add_constructor Context.empty "Bool" "U" (VUniverse 0)) "true" "Bool"
   (VConstruct ("Bool", [])) , Constructor "true", VConstruct ("Bool", []));
   ("declarations", Environment.empty, Context.empty, LocalDeclaration ([Let
   ("x", UnitType, Unit)], Index 0), VUnitType);
@@ -78,26 +76,24 @@ let test_check = "check" >::: (List.map test_check_success [
   ([Let ("x", UnitType, Index 0); LetRec ("y", UnitType, Unit)], Index 1),
   VUnitType);
   ("application", Environment.add Environment.empty (VLambda (Name "x", Index 0,
-  Environment.empty)), Context.add_binder Context.empty "f" (VArrow (
-  VUnitType, VUnitType)), Application (Index 0, Unit),
-  VUnitType);
-  ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe,
-  Universe)), VUniverse);
+  Environment.empty)), Context.add_binder Context.empty "f" (VArrow ( VUnitType,
+  VUnitType)), Application (Index 0, Unit), VUnitType);
+  ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe 0,
+  Universe 2)), VUniverse 1);
   ("lambda", Environment.empty, Context.empty, Lambda (Name "x", Index 0),
   VArrow (VUnitType, VUnitType));
   ("pair2", Environment.empty, Context.empty, Pair (UnitType, Unit), VSigma
-  ("A", VUniverse, Index 0, Environment.empty))
+  ("A", VUniverse 0, Index 0, Environment.empty))
 ]) @ (List.map test_check_fail [
   ("application", Environment.add Environment.empty (VLambda (Name "x", Index 0,
-  Environment.empty)), Context.add_binder Context.empty "f" (VArrow (
-  VUnitType, VUnitType)), Application (Index 0, UnitType),
-  VUnit);
+  Environment.empty)), Context.add_binder Context.empty "f" (VArrow ( VUnitType,
+  VUnitType)), Application (Index 0, UnitType), VUnit);
   ("application2", Environment.empty, Context.empty, Application (Unit, Unit),
   VUnit);
-  ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe,
-  Universe)), VUnitType);
-  ("pi", Environment.empty, Context.empty, Pi (Name "A", Universe, Pi (Name "a",
-  Index 0, Index 0)), VUniverse)
+  ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe 0,
+  Universe 0)), VUnitType);
+  ("pi", Environment.empty, Context.empty, Pi (Name "A", Universe 0, Pi (Name
+  "a", Index 0, Index 0)), VUniverse 0)
 ])
 
 let test_infer_check =

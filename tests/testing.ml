@@ -6,7 +6,7 @@ open Bytes
 
 open Abstract
 
-let size_factor = 3
+let size_factor = 4
 
 let quickCheck_config = {
   quick with
@@ -83,7 +83,6 @@ let arbitrary_declaration =
 let rec arbitrary_expression =
   let rec f = function
     | 0 -> oneof [
-      ret_gen Universe;
       ret_gen UnitType;
       ret_gen Unit;
       arbitrary_identifier >>= (fun s -> ret_gen (Constructor s));
@@ -105,7 +104,7 @@ let rec arbitrary_expression =
           (arbitrary_nonempty_list decl) >>= (fun l -> (g
             >>= (fun e -> ret_gen (LocalDeclaration (l, e)))));
           g >>= (fun e1 -> (g >>= (fun e2 -> ret_gen (Application (e1, e2)))));
-          ret_gen Universe;
+          arbitrary_int >>= (fun i -> ret_gen (Universe ((abs i) + 1)));
           ret_gen UnitType;
           ret_gen Unit;
           arbitrary_identifier >>= (fun s -> ret_gen (Constructor s));
@@ -148,7 +147,7 @@ and show_expression = function
         (show_expression e)
   | Application (e1, e2) ->
       sprintf "Application (%s, %s)" (show_expression e1) (show_expression e2)
-  | Universe -> "Universe"
+  | Universe i -> sprintf "Universe %i" i
   | UnitType -> "UnitType"
   | Unit -> "Unit"
   | Constructor i -> sprintf "Constructor \"%s\"" i

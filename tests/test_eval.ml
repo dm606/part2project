@@ -8,23 +8,24 @@ let test_eval (name, env, input, expected) =
   name >:: fun _ -> (assert_equal (eval env input) expected)
 
 let test_tuples = "tuples" >::: (List.map test_eval [
-  ("tuple", Environment.empty, Pair (Pair (Universe, Unit), Pair (UnitType,
-  Universe)), VPair (VPair (VUniverse, VUnit), VPair (VUnitType, VUniverse)));
-  ("proj1", Environment.empty, Proj1 (Pair (Universe, Unit)), VUniverse);
-  ("proj2", Environment.empty, Proj2 (Pair (Universe, Unit)), VUnit);
+  ("tuple", Environment.empty, Pair (Pair (Universe 0, Unit), Pair (UnitType,
+  Universe 0)), VPair (VPair (VUniverse 0, VUnit), VPair (VUnitType, VUniverse
+  0)));
+  ("proj1", Environment.empty, Proj1 (Pair (Universe 0, Unit)), VUniverse 0);
+  ("proj2", Environment.empty, Proj2 (Pair (Universe 0, Unit)), VUnit);
   ("nested", Environment.empty, Proj1 (Proj2 (Pair (Unit, Pair (Proj1 (Pair
-  (UnitType, Universe)), UnitType)))), VUnitType)
+  (UnitType, Universe 0)), UnitType)))), VUnitType)
 ]) @ [
   ("not_a_pair" >:: fun _ -> (
     assert_raises
       (Cannot_evaluate
         "Attempted to project an element out of a value which is not a pair")
-      (fun () -> eval Environment.empty (Proj1 Universe))))
+      (fun () -> eval Environment.empty (Proj1 (Universe 0)))))
 ]
 
 let test_lambdas = "lambdas" >::: (List.map test_eval [
-  ("simple_lambda", Environment.empty, Lambda (Underscore, Proj1 Universe),
-  VLambda (Underscore, Proj1 Universe, Environment.empty));
+  ("simple_lambda", Environment.empty, Lambda (Underscore, Proj1 (Universe 0)),
+  VLambda (Underscore, Proj1 (Universe 0), Environment.empty));
   ("simple_application", Environment.empty, Application (Lambda (Name "x", Index
   0), Unit), VUnit);
   ("higher_order1", Environment.empty, Application (Lambda (Underscore, Lambda
@@ -50,8 +51,8 @@ let test_patterns = "patterns" >::: (List.map test_eval [
   [PatternUnderscore; PatternPair (PatternUnderscore, PatternApplication ("b",
   [PatternBinder "x"])); PatternBinder "y"; PatternUnderscore]), Pair (Index 1,
   Index 0)], Application (Application (Application (Application (Constructor
-  "a", Universe), Pair (Universe, Application (Constructor "b", Unit))),
-  UnitType), Universe)), VPair (VUnit, VUnitType))
+  "a", Universe 0), Pair (Universe 0, Application (Constructor "b", Unit))),
+  UnitType), Universe 0)), VPair (VUnit, VUnitType))
 ]) @ [
   ("no_match" >:: fun _ -> (
     assert_raises
@@ -61,12 +62,13 @@ let test_patterns = "patterns" >::: (List.map test_eval [
         ; PatternApplication ("b", []), Unit], Constructor "c")))))]
 
 let test_eval_other = "eval_other" >::: (List.map test_eval [
-  ("declaration", Environment.empty, LocalDeclaration ([Let ("x", Universe,
+  ("declaration", Environment.empty, LocalDeclaration ([Let ("x", Universe 0,
   UnitType)], Index 0), VUnitType);
   ("mutual_declarations", Environment.empty, LocalDeclaration ([Let ("x",
-  Universe, Application (Index 0, Constructor "true")); LetRec ("y", Universe,
-  Function [PatternApplication ("true", []), Application (Index 0, Constructor
-  "false"); PatternApplication ("false", []), UnitType])], Index 1), VUnitType)
+  Universe 0, Application (Index 0, Constructor "true")); LetRec ("y", Universe
+  0, Function [PatternApplication ("true", []), Application (Index 0,
+  Constructor "false"); PatternApplication ("false", []), UnitType])], Index 1),
+  VUnitType)
 ])
 
 let test_eval = "eval" >::: [test_tuples

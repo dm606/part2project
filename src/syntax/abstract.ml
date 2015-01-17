@@ -466,7 +466,7 @@ and resugar_declarations env =
                          , resugar_expression type_env t, ELambda (bs, e)))
          | e -> DLetRec (Ident x, [], resugar_expression env1 e1, e))
         :: (resugar (x::rest_names) rest_cs xs)
-    | (Type (x, [], Universe i, cs))::xs ->
+    | (Type (x, [], Universe 0, cs))::xs ->
         let env2 = get_new_env_type xs x in
         (DSimpleType (Ident x, List.map (fun (x, e) ->
           Constr (Ident x, resugar_expression env2 e)) cs))

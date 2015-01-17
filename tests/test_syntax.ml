@@ -14,9 +14,9 @@ let test_eq_parser_repl (name, input, expected) =
   name >:: fun _ -> (assert_equal (parse_repl (from_string input)) expected)
 
 let test_parser_repl = "parser_repl" >::: (List.map test_eq_parser_repl [
-  ("t1", "U;;", [Exp EUniverse]);
-  ("t2", "let x : U = U;;", [Decl [DLet (Ident "x", [], EUniverse,
-  EUniverse)]]);
+  ("t1", "Type;;", [Exp (EUnindexedUniverse)]);
+  ("t2", "let x : Type 1 = Type;;", [Decl [DLet (Ident "x", [], EUniverse 1,
+  EUnindexedUniverse)]]);
   ("t3", "let f : Nat -> Nat * Bool -> Nat = fun x _ -> succ x;;", [Decl [DLet
   (Ident "f", [], EArrow (EIdentifier (Ident "Nat"), EArrow (ETimes (EIdentifier
   (Ident "Nat"), EIdentifier (Ident "Bool")), EIdentifier (Ident "Nat"))),
@@ -30,38 +30,40 @@ let test_parser_repl = "parser_repl" >::: (List.map test_eq_parser_repl [
   EIdentifier (Ident "zero")); DSimpleType (Ident "Nat", [Constr (Ident
   "zero", EIdentifier (Ident "Nat")); Constr (Ident "succ", EPi (BUnderscore,
   EIdentifier (Ident "Nat"), EIdentifier (Ident "Nat")))])])]);
-  ("t7", "let f : U = U in type Empty = in Empty;;", [Exp  (EDeclaration ([DLet
-  (Ident "f", [], EUniverse, EUniverse)], EDeclaration ([DSimpleType (Ident
-  "Empty", [])], EIdentifier (Ident "Empty"))))]);
-  ("t8", "type Id (A : U) (a : A) : A -> U = | refl : Id A a a;;", [Decl ([DType
-  (Ident "Id", [Param (BName (Ident "A"), EUniverse); Param (BName (Ident "a"),
-  EIdentifier (Ident "A"))], EArrow (EIdentifier (Ident "A"), EUniverse),
-  [Constr (Ident "refl", EApplication (EApplication (EApplication (EIdentifier
-  (Ident "Id"), EIdentifier (Ident "A")), EIdentifier (Ident "a")), EIdentifier
-  (Ident "a")))])])]);
+  ("t7", "let f : Type 1 = Type in type Empty = in Empty;;", [Exp  (EDeclaration
+  ([DLet (Ident "f", [], EUniverse 1, EUnindexedUniverse)], EDeclaration
+  ([DSimpleType (Ident "Empty", [])], EIdentifier (Ident "Empty"))))]);
+  ("t8", "type Id (A : Type) (a : A) : A -> Type = | refl : Id A a a;;", [Decl
+  ([DType (Ident "Id", [Param (BName (Ident "A"), EUnindexedUniverse); Param
+  (BName (Ident "a"), EIdentifier (Ident "A"))], EArrow (EIdentifier (Ident
+  "A"), EUnindexedUniverse), [Constr (Ident "refl", EApplication (EApplication
+  (EApplication (EIdentifier (Ident "Id"), EIdentifier (Ident "A")), EIdentifier
+  (Ident "a")), EIdentifier (Ident "a")))])])]);
   ("t9", "a (b c) d;;", [Exp (EApplication (EApplication (EIdentifier (Ident
   "a"), EApplication (EIdentifier (Ident "b"), EIdentifier (Ident "c"))),
   EIdentifier (Ident "d")))]);
   ("t10", "(x, y, z).1;;", [Exp (EProj1 (EPair (EIdentifier (Ident "x"), EPair
   (EIdentifier (Ident "y"), EIdentifier (Ident "z")))))]);
-  ("t9", "let rec f (x : A) (_ : B) : U = fun z -> U;;", [Decl ([DLetRec (Ident
-  "f", [Param (BName (Ident "x"), EIdentifier (Ident "A")); Param (BUnderscore,
-  EIdentifier (Ident "B"))], EUniverse, ELambda ([BName (Ident "z")],
-  EUniverse))])])
+  ("t11", "let rec f (x : A) (_ : B) : Type 0 = fun z -> Type 0;;", [Decl
+  ([DLetRec (Ident "f", [Param (BName (Ident "x"), EIdentifier (Ident "A"));
+  Param (BUnderscore, EIdentifier (Ident "B"))], EUniverse 0, ELambda ([BName
+  (Ident "z")], EUniverse 0))])])
   ])
 
 let test_eq_parser_file (name, input, expected) =
   name >:: fun _ -> (assert_equal (parse_file (from_string input)) expected)
 
 let test_parser_file = "parser_file" >::: (List.map test_eq_parser_file [
-  ("t1", "U", [Exp EUniverse]);
-  ("t2", "U;;U", [Exp EUniverse; Exp EUniverse]);
-  ("t3", "let x : U = U let y : U = U", [Decl [DLet (Ident "x", [], EUniverse,
-  EUniverse)]; Decl [DLet (Ident "y", [], EUniverse, EUniverse)]]);
-  ("t4", "let x : U = U;; let y : U = U", [Decl [DLet (Ident "x", [], EUniverse,
-  EUniverse)]; Decl [DLet (Ident "y", [], EUniverse, EUniverse)]]);
-  ("t5", "#use \"f\" let x : U = U", [Comm (CommandString (Ident "use", "f"));
-  Decl [DLet (Ident "x", [], EUniverse, EUniverse)]]) 
+  ("t1", "Type", [Exp (EUnindexedUniverse)]);
+  ("t2", "Type 0;;Type 0", [Exp (EUniverse 0); Exp (EUniverse 0)]);
+  ("t3", "let x : Type = Type let y : Type = Type", [Decl [DLet (Ident "x", [],
+  EUnindexedUniverse, EUnindexedUniverse)]; Decl [DLet (Ident "y", [],
+  EUnindexedUniverse, EUnindexedUniverse)]]);
+  ("t4", "let x : Type 0 = Type 0;; let y : Type 0 = Type 0", [Decl [DLet (Ident
+  "x", [], EUniverse 0, EUniverse 0)]; Decl [DLet (Ident "y", [], EUniverse 0,
+  EUniverse 0)]]);
+  ("t5", "#use \"f\" let x : Type 0 = Type 0", [Comm (CommandString (Ident
+  "use", "f")); Decl [DLet (Ident "x", [], EUniverse 0, EUniverse 0)]]) 
   ])
 
 let test_eq_desugar_expression (name, env, input, expected) =
@@ -71,17 +73,17 @@ let test_desugar_expression = "desugar_expression" >::: (
   List.map test_eq_desugar_expression [
     ("t1", mk_env (["x"; "Nat"], []), EArrow (EIdentifier (Ident "Nat"), EMatch
     (EIdentifier (Ident "x"), [CCase (PPair (PUnderscore, PIdentifier (Ident
-    "y")), EUniverse)])), Pi (Underscore, Index 1, Application (Function
-    [(PatternPair (PatternUnderscore, PatternBinder "y"), Universe)], Index
-    0)));
+    "y")), EUnindexedUniverse)])), Pi (Underscore, Index 1, Application
+    (Function [(PatternPair (PatternUnderscore, PatternBinder "y"), Universe
+    0)], Index 0)));
     ("t2", mk_env ([], []), EDeclaration ([DSimpleType (Ident "Bool", [Constr
     (Ident "false", EIdentifier (Ident "Bool")); Constr (Ident "true",
     EIdentifier (Ident "Bool"))]); DLetRec (Ident "x", [], EUnitType, EUnit)],
-    EUnit), LocalDeclaration ([Type ("Bool", [], Universe, [("false",
+    EUnit), LocalDeclaration ([Type ("Bool", [], Universe 0, [("false",
     Constructor "Bool"); ("true", Constructor "Bool")]); LetRec ("x", UnitType,
     Unit)], Unit));
-    ("t3", mk_env ([], []), ETimes (EUniverse, EUniverse), Sigma (Underscore,
-    Universe, Universe));
+    ("t3", mk_env ([], []), ETimes (EUniverse 0, EUniverse 0), Sigma
+    (Underscore, Universe 0, Universe 0));
     ("t4", mk_env ([], []), ELambda ([BName (Ident "x"); BName (Ident "y")],
     EUnit), Lambda (Name "x", Lambda (Name "y", Unit)))
   ])
@@ -91,17 +93,17 @@ let test_eq_desugar_declarations (name, env, input, expected) =
 
 let test_desugar_declarations = "desugar_declarations" >::: (
   List.map test_eq_desugar_declarations [
-    ("t1", mk_env ([], ["Nat", "U"; "zero", "Nat"]), DType (Ident "Vec", [Param
-    (BName (Ident "A"), EUniverse)], EArrow (EIdentifier (Ident "Nat"),
-    EUniverse), [Constr (Ident "nil", EApplication (EApplication (EIdentifier
-    (Ident "Vec"), EIdentifier (Ident "A")), EIdentifier (Ident "zero"))) ]),
-    Type ("Vec", [(Name "A", Universe)], Pi (Underscore, Constructor "Nat",
-    Universe), [ ("nil", Application (Application (Constructor "Vec", Index 0),
-    Constructor "zero"))]));
+    ("t1", mk_env ([], ["Nat", "Type"; "zero", "Nat"]), DType (Ident "Vec",
+    [Param (BName (Ident "A"), EUnindexedUniverse)], EArrow (EIdentifier (Ident
+    "Nat"), EUniverse 0), [Constr (Ident "nil", EApplication (EApplication
+    (EIdentifier (Ident "Vec"), EIdentifier (Ident "A")), EIdentifier (Ident
+    "zero"))) ]), Type ("Vec", [(Name "A", Universe 0)], Pi (Underscore,
+    Constructor "Nat", Universe 0), [ ("nil", Application (Application
+    (Constructor "Vec", Index 0), Constructor "zero"))]));
     ("t2", mk_env (["A"], []), DLet (Ident "f", [Param (BName (Ident "x"),
-    EUniverse); Param (BName (Ident "y"), EUnitType); Param (BUnderscore,
-    EIdentifier (Ident "A"))], EUniverse, EUnitType), Let ("f", Pi (Name "x",
-    Universe, Pi (Name "y", UnitType, Pi (Underscore, Index 2, Universe))),
+    EUniverse 0); Param (BName (Ident "y"), EUnitType); Param (BUnderscore,
+    EIdentifier (Ident "A"))], EUniverse 0, EUnitType), Let ("f", Pi (Name "x",
+    Universe 0, Pi (Name "y", UnitType, Pi (Underscore, Index 2, Universe 0))),
     Lambda (Name "x", Lambda (Name "y", Lambda (Underscore, UnitType)))))
   ])
 
@@ -111,17 +113,18 @@ let test_eq_resugar_expression (name, env, input, expected) =
 let test_resugar_expression = "resugar_expression" >::: (
   List.map test_eq_resugar_expression [
     ("t1", mk_env (["x"; "Nat"], []), Pi (Underscore, Index 1, Application
-    (Function [(PatternPair (PatternUnderscore, PatternBinder "y"), Universe)],
-    Index 0)), EArrow (EIdentifier (Ident "Nat"), EMatch (EIdentifier (Ident
-    "x"), [CCase (PPair (PUnderscore, PIdentifier (Ident "y")), EUniverse)])));
-    ("t2", mk_env ([], []), LocalDeclaration ([Type ("Bool", [], Universe,
+    (Function [(PatternPair (PatternUnderscore, PatternBinder "y"), Universe
+    0)], Index 0)), EArrow (EIdentifier (Ident "Nat"), EMatch (EIdentifier
+    (Ident "x"), [CCase (PPair (PUnderscore, PIdentifier (Ident "y")),
+    EUnindexedUniverse)])));
+    ("t2", mk_env ([], []), LocalDeclaration ([Type ("Bool", [], Universe 0,
     [("false", Constructor "Bool"); ("true", Constructor "Bool")]); LetRec ("x",
     UnitType, Unit) ], Unit), EDeclaration ([DSimpleType (Ident "Bool", [Constr
     (Ident "false", EIdentifier (Ident "Bool")); Constr (Ident "true",
     EIdentifier (Ident "Bool"))]); DLetRec (Ident "x", [], EUnitType, EUnit)],
     EUnit));
-    ("t3", mk_env ([], []), Sigma (Underscore, Universe, Universe), ETimes
-    (EUniverse, EUniverse));
+    ("t3", mk_env ([], []), Sigma (Underscore, Universe 1, Universe 2), ETimes
+    (EUniverse 1, EUniverse 2));
     ("t4", mk_env ([], []), Lambda (Name "x", Lambda (Name "y", Unit)), ELambda
     ([BName (Ident "x"); BName (Ident "y")], EUnit))
   ])
@@ -131,12 +134,13 @@ let test_eq_resugar_declarations (name, env, input, expected) =
 
 let test_resugar_declarations = "resugar_declarations" >::: (
   List.map test_eq_resugar_declarations [
-    ("t1", mk_env ([], []), Type ("Vec", [(Name "A", Universe)], Pi (Underscore,
-    Constructor "Nat", Universe), [("nil", Application (Application (Constructor
-    "Vec", Index 0), Constructor "zero")) ]), DType (Ident "Vec", [Param (BName
-    (Ident "A"), EUniverse)], EArrow (EIdentifier (Ident "Nat"), EUniverse),
-    [Constr (Ident "nil", EApplication (EApplication (EIdentifier (Ident "Vec"),
-    EIdentifier (Ident "A")), EIdentifier (Ident "zero"))) ]));
+    ("t1", mk_env ([], []), Type ("Vec", [(Name "A", Universe 0)], Pi
+    (Underscore, Constructor "Nat", Universe 0), [("nil", Application
+    (Application (Constructor "Vec", Index 0), Constructor "zero")) ]), DType
+    (Ident "Vec", [Param (BName (Ident "A"), EUnindexedUniverse)], EArrow
+    (EIdentifier (Ident "Nat"), EUnindexedUniverse), [Constr (Ident "nil",
+    EApplication (EApplication (EIdentifier (Ident "Vec"), EIdentifier (Ident
+    "A")), EIdentifier (Ident "zero"))) ]));
     ("t2", mk_env (["D"; "C"; "B"; "A"], []), LetRec ("f", Pi (Underscore, Index
     3, Pi (Name "x", Index 2, Pi (Name "y", Index 2, Pi (Underscore, Index 2,
     UnitType)))), Lambda (Underscore, Lambda (Name "x", Lambda (Name "y", Lambda
