@@ -44,8 +44,8 @@ and pr_value4 fmt = function
   | v -> pr_value5 fmt v
 and pr_value5 fmt = function
   | VConstruct (c, []) -> fprintf fmt "%s" c
-  | VUniverse 0 -> fprintf fmt "U"
-  | VUniverse i -> fprintf fmt "U %i" i
+  | VUniverse 0 -> fprintf fmt "Type"
+  | VUniverse i -> fprintf fmt "Type %i" i
   | VUnitType -> fprintf fmt "Unit"
   | VUnit -> fprintf fmt "()"
   | VNeutral n -> fprintf fmt "[%a]" pr_neutral n

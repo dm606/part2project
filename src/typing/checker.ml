@@ -72,7 +72,7 @@ let add_to_context lets env context =
     | (Type (x, ps, e, cs))::xs ->
         let context = Context.remove_constructors_of_type context x in
         let context =
-          Context.add_lazy_constructor context x "U"
+          Context.add_lazy_constructor context x "Type"
             (lazy (Eval.eval (get_env env rest_ds xs) (get_full_type ps e))) in
         let context =
           List.fold_left (fun context (c, e) -> Context.add_lazy_constructor
@@ -458,7 +458,7 @@ and check_declarations i env context =
         tr x (check_type_family_type decl_env decl_context x typefam_type) 
         >>= (function
         | VUniverse j as type_universe ->
-            let universe_name = "U " ^ (string_of_int j) in
+            let universe_name = "Type " ^ (string_of_int j) in
             let (constructor_i, constructor_env, constructor_context) =
               add_parameters i decl_env (Context.add_constructor decl_context x universe_name eval_typefam_type) ps in
             let check_ctor_type (c, e) =

@@ -97,7 +97,7 @@ let add_binder (names, cs) = function
 
 let add_constructors type_name constructors m = 
   let m = List.fold_left inc m constructors in
-  inc m (type_name, "U")
+  inc m (type_name, "Type")
 
 (* adds all of the bound variables to env in reverse order *)
 let rec add_all_declaration_binders (names, cs) =
@@ -273,7 +273,7 @@ and desugar_declarations env =
       let names, cs = add_all_let_recs env xs in
       let names, cs =
         (rest_names @ names, add_all_constructor_names rest_cs cs) in
-      (names, inc cs (x, "U")) in
+      (names, inc cs (x, "Type")) in
 
     function
     | [] -> []
@@ -413,7 +413,7 @@ and resugar_declarations env =
       let names, cs = add_local_let_recs env xs in
       let names, cs =
         (rest_names @ names, add_all_constructor_names rest_cs cs) in
-      (names, inc cs (x, "U")) in
+      (names, inc cs (x, "Type")) in
 
     function
     | [] -> []
@@ -536,8 +536,8 @@ and pr_exp4 fmt = function
       fprintf fmt "@[<hov2>%a@ %a@]" pr_exp4 e1 pr_exp5 e2
   | e -> pr_exp5 fmt e
 and pr_exp5 fmt = function
-  | EUniverse i -> fprintf fmt "U %i" i
-  | EUnindexedUniverse -> fprintf fmt "U"
+  | EUniverse i -> fprintf fmt "Type %i" i
+  | EUnindexedUniverse -> fprintf fmt "Type"
   | EUnit -> fprintf fmt "()"
   | EUnitType -> fprintf fmt "Unit"
   | EIdentifier (Ident i) -> fprintf fmt "%s" i

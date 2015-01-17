@@ -1,14 +1,14 @@
 (* the equality type *)
-type Eq (A : U) (a : A) : A -> U = refl : Eq A a a
+type Eq (A : Type) (a : A) : A -> Type = refl : Eq A a a
 
 (* if a = b, then f a = f b *)
-let cong (A : U) (B : U) (f : A -> B) (a : A) (b : A) :
+let cong (A : Type) (B : Type) (f : A -> B) (a : A) (b : A) :
   Eq A a b -> Eq B (f a) (f b) =
   function refl .A .a -> refl B (f a)
 
-type Monoid : U 1 = monoid :
+type Monoid : Type 1 = monoid :
   (* the type *)
-  (A : U) 
+  (A : Type) 
   (* the monoid operation *)
   -> (f : A -> A -> A)
   (* the identity element *)
@@ -47,16 +47,16 @@ let zero_identity (a : Nat) :
 let Nat_monoid : Monoid = monoid Nat add zero add_associativity zero_identity
 
 
-type List (A : U) : U =
+type List (A : Type) : Type =
   | nil : List A
   | cons : A -> List A -> List A
 
-let rec append (A : U) : List A -> List A -> List A = function
+let rec append (A : Type) : List A -> List A -> List A = function
   | nil .A -> (fun y -> y)
   | cons .A a tl -> (fun y -> cons A a (append A tl y))
 
 (* proof that append is associative *)
-let rec append_associativity (A : U) : (a : List A) -> (b : List A)
+let rec append_associativity (A : Type) : (a : List A) -> (b : List A)
   -> (c : List A) 
   -> Eq (List A) (append A a (append A b c)) (append A (append A a b) c) =
   function
@@ -65,18 +65,18 @@ let rec append_associativity (A : U) : (a : List A) -> (b : List A)
       cong (List A) (List A) (cons A a) (append A tl (append A b c))
         (append A (append A tl b) c) (append_associativity A tl b c))
 
-let rec append_nil (A : U) :
+let rec append_nil (A : Type) :
   (l : List A) -> Eq (List A) l (append A l (nil A)) =
   function
   | nil .A -> refl (List A) (nil A)
   | cons .A a tl ->
       cong (List A) (List A) (cons A a) tl (append A tl (nil A)) (append_nil A tl)
 
-let nil_identity (A : U) (l : List A) :
+let nil_identity (A : Type) (l : List A) :
   (Eq (List A) l (append A (nil A) l)) * (Eq (List A) l (append A l (nil A))) =
   (refl (List A) l, append_nil A l)
 
-let List_monoid (A : U) : Monoid =
+let List_monoid (A : Type) : Monoid =
   monoid (List A) (append A) (nil A) (append_associativity A) (nil_identity A)
 
 
