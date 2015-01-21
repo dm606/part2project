@@ -1,0 +1,5 @@
+type Nat = zero : Nat | succ : Nat -> Nat;;
+
+let rec f : Nat -> Nat = function
+  | zero -> zero
+  | succ x -> f zero
