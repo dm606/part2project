@@ -13,95 +13,14 @@ let (>>=) m f = match m with
   | None -> None
   | Some a -> f a
 
-let rec occurs v i = match v with
-  | VPair (v1, v2) -> occurs v1 i || occurs v2 i
-  | VLambda _ -> false
-  | VArrow (a, b) -> occurs a i || occurs b i
-  | VPi (_, v, _, _) -> occurs v i
-  | VTimes (a, b) -> occurs a i || occurs b i
-  | VSigma (_, v, _, _) -> occurs v i
-  | VFunction _ -> false
-  | VUniverse _ -> false
-  | VUnitType -> false
-  | VUnit -> false
-  | VConstruct (_, l) -> List.exists (fun v -> occurs v i) l
-  | VNeutral n -> neutral_occurs n i
-and neutral_occurs n i = match n with
-  | VVar j when i = j -> true
-  | VVar j -> false
-  | VFunctionApplication (_, _, n) -> occurs n i
-  | VApplication (n, v) -> neutral_occurs n i || occurs v i
-  | VProj1 n -> neutral_occurs n i
-  | VProj2 n -> neutral_occurs n i
-
 let rec add_unify subst i = function
   | VNeutral (VVar j) when j > i ->
       add_unify subst j (VNeutral (VVar i))
   | VNeutral (VVar j) when i = j -> Some subst
   | v ->
     if Context.subst_mem i subst
-    then mgu subst (Context.subst_find i subst) v
+    then Context.mgu subst (Context.subst_find i subst) v
     else Some (Context.subst_add i v subst)
-
-(* unification *)
-and mgu subst v1 v2 = match v1, v2 with
-  | VNeutral (VVar i), VNeutral (VVar j) when i = j ->
-      Some subst
-  (* variables unify than anything, unless they are already in the
-   * substitution *)
-  | VNeutral (VVar i), v ->
-      if occurs v i then None (* occurs check *)
-      else add_unify subst i v
-   | v, VNeutral (VVar i) ->
-      if occurs v i then None (* occurs check *)
-      else add_unify subst i v
-  (* atoms unify than themselves *)
-  | VUniverse i, VUniverse j when i = j -> Some subst
-  | VUnitType, VUnitType -> Some subst
-  | VUnit, VUnit -> Some subst
-  (* terms unify if they have the same structure and all subterms
-   * are unify *)
-  | VLambda (Underscore, e, env), VLambda (Underscore, e', env') ->
-      if e = e' && env = env' then Some subst else None
-  | VLambda (Name _, e, env), VLambda (Name _, e', env') ->
-      if e = e' && env = env' then Some subst else None
-  | VArrow (a, b), VArrow (a', b') ->
-      mgu subst a a' >>= fun subst ->
-      mgu subst b b'
-  | VPi (_, v, e, env), VPi (_, v', e', env') ->
-      mgu subst v v' >>= fun u ->
-      if e = e' && env = env' then Some u else None
-  | VTimes (a, b), VTimes (a', b') ->
-      mgu subst a a' >>= fun subst ->
-      mgu subst b b'
-  | VSigma (_, v, e, env), VSigma (_, v', e', env') ->
-      mgu subst v v' >>= fun u ->
-      if e = e' && env = env' then Some u else None
-  | VFunction _, VFunction _ -> if v1 = v2 then Some subst else None
-  | VConstruct (c,  l), VConstruct (c', l') ->
-      if c = c'
-      then List.fold_left2
-        (fun r v v2 -> r >>= fun u -> mgu u v v2) (Some subst) l l'
-      else None
-  | VNeutral (VFunctionApplication (l, env, n))
-  , VNeutral (VFunctionApplication (l', env', n')) ->
-      if l = l' && env = env'
-      then mgu subst n n'
-      else None
-  | VNeutral (VApplication (n, v)), VNeutral (VApplication (n', v')) ->
-      mgu subst (VNeutral n) (VNeutral n')
-      >>= fun u ->
-      mgu u v v'
-  | VNeutral (VProj1 n), VNeutral (VProj1 n') ->
-      mgu subst (VNeutral n) (VNeutral n')
-  | VNeutral (VProj2 n), VNeutral (VProj2 n') ->
-      mgu subst (VNeutral n) (VNeutral n')
-  (* if none of the above cases match, v1 cannot be unified with v2 *)
-  | _ -> None
-
-let unify v1 v2 = match mgu Context.subst_empty v1 v2 with
-  | None -> false
-  | Some _ -> true
 
 let rec pi_to_list i =
   function
@@ -177,7 +96,7 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
 
       let rec try_constructor_type constructor_type =
         let (i, ts, constructed) = pi_to_list i constructor_type in
-        match mgu subst typ constructed with
+        match Context.mgu subst typ constructed with
         | None -> None
         | Some subst -> (
             match add i context env subst [] (l, ts) with
@@ -260,7 +179,7 @@ let rec split i context typ value blocker =
           (* the constructors which could possibly be used to create a value of
            * type typ *)
           let valid_ctors =
-            List.filter (fun (c, v) -> unify (get_constructed_type i v) typ)
+            List.filter (fun (c, v) -> Context.unify (get_constructed_type i v) typ)
               ctors in
           List.map (fun (c, v) ->
             let (i, l) = construct i v in

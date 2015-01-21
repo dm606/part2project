@@ -366,7 +366,7 @@ and check_type i env context exp typ =
     | F _ -> try_subtype ())
 
   | _ -> try_subtype ()
-and check_declarations i env context =
+and check_declarations i env context l =
   (* checks that a Π type ends with Ui for some i, and returns i
    * checks for syntactic equality; does not use readback *) 
   let rec get_universe = function
@@ -467,7 +467,7 @@ and check_declarations i env context =
               get_new_context ((x, t)::rest_bs) result_cs xs in
             tr x (check_type i decl_env2 decl_context2 e2 t)
             >>= fun _ -> 
-            check_decls ((x, t)::result_bs) result_cs (d::rest_ds) rest_bs xs
+            check_decls ((x, t)::result_bs) result_cs (d::rest_ds) ((x, t)::rest_bs) xs
         | _ ->
             tr x (F (sprintf
                 "The expression given as the type of \"%s\" is not a type" x
@@ -499,7 +499,11 @@ and check_declarations i env context =
                 result_cs constructor_types in
             check_decls result_bs result_cs rest_ds rest_bs xs
         | _ -> assert false) in
-  check_decls [] [] [] []
+
+  match Termination.check_termination env l with
+  | Some x ->
+      tr x (F (sprintf "The declaration of %s might not terminate." x, lazy ""))
+  | None -> check_decls [] [] [] [] l
 
 let infer_type = infer_type 0
 let check_type = check_type 0

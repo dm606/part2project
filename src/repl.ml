@@ -149,6 +149,8 @@ and parse f lexbuf = (
       fprintf stderr "\"%s\" is not bound to anything\n" s
   | Eval.Cannot_evaluate s -> fprintf stderr "Can't evaluate expression: %s\n" s
   | Declaration_type result -> print_typing_result result
+  | Termination.Cannot_check_termination (x, message) ->
+      fprintf stderr "Cannot check if %s terminates. %s\n" x message
   | Failure s -> fprintf stderr "%s\n" s
   | Unknown_command s -> fprintf stderr "Unknown command: \"%s\"\n" s);
   end_parse lexbuf

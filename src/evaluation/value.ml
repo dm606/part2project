@@ -127,3 +127,5 @@ and lift a = function
   | VConstruct (c, l) -> VConstruct (c, List.map (lift a) l)
   | VNeutral n -> VNeutral (lift_neutral a n)
   | VLambda _ | VPi _ | VSigma _ | VFunction _ -> raise (Failure "lift")
+
+

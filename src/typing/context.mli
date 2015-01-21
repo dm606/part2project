@@ -26,3 +26,7 @@ val subst_apply : t -> subst -> t
 val subst_value : subst -> value -> value
 val subst_env : subst -> value Environment.t -> value Environment.t
 val subst_to_list : subst -> (int * value) list
+
+val mgu : subst -> value -> value -> subst option
+val unify : value -> value -> bool 
+
