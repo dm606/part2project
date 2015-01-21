@@ -17,6 +17,11 @@ let rec is_even : Nat -> Bool = function
   | succ zero -> false
   | succ (succ x) -> is_even x
 
+let rec ack (m : Nat) (n : Nat) : Nat = match m, n with
+    | zero, n -> succ n
+    | succ m, zero -> ack m (succ zero)
+    | succ m, succ n -> ack m (ack (succ m) n)
+
 let maj : Bool * Bool * Bool -> Bool = function
   | true, true, true -> true
   | true, false, z -> z
