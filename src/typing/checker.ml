@@ -467,7 +467,8 @@ and check_declarations i env context l =
               get_new_context ((x, t)::rest_bs) result_cs xs in
             tr x (check_type i decl_env2 decl_context2 e2 t)
             >>= fun _ -> 
-            check_decls ((x, t)::result_bs) result_cs (d::rest_ds) ((x, t)::rest_bs) xs
+            check_decls ((x, t)::result_bs) result_cs (d::rest_ds)
+              ((x, t)::rest_bs) xs
         | _ ->
             tr x (F (sprintf
                 "The expression given as the type of \"%s\" is not a type" x

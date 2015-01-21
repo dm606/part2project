@@ -179,7 +179,8 @@ let rec split i context typ value blocker =
           (* the constructors which could possibly be used to create a value of
            * type typ *)
           let valid_ctors =
-            List.filter (fun (c, v) -> Context.unify (get_constructed_type i v) typ)
+            List.filter
+              (fun (c, v) -> Context.unify (get_constructed_type i v) typ)
               ctors in
           List.map (fun (c, v) ->
             let (i, l) = construct i v in
