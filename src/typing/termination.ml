@@ -286,8 +286,8 @@ and get_call_matrices' x i args env decl_var min_var max_var e =
         decl_var min_var max_var e
   | VFunction (c, fun_env) ->
       map_append (fun (p, e) ->
-        let (i, env, v) = add_pattern i env p in
-        get_call_matrices' x i (v::args) env decl_var min_var max_var e
+        let (i, fun_env, v) = add_pattern i fun_env p in
+        get_call_matrices' x i (v::args) fun_env decl_var min_var max_var e
       ) c
   | v ->
       let calls = List.filter (fun (j, _) -> j >= min_var && j <= max_var)
