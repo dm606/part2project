@@ -83,7 +83,20 @@ let test_check = "check" >::: (List.map test_check_success [
   ("lambda", Environment.empty, Context.empty, Lambda (Name "x", Index 0),
   VArrow (VUnitType, VUnitType));
   ("pair2", Environment.empty, Context.empty, Pair (UnitType, Unit), VSigma
-  ("A", VUniverse 0, Index 0, Environment.empty))
+  ("A", VUniverse 0, Index 0, Environment.empty));
+  ("pattern_match_caseless", Environment.empty, Context.add_constructor
+  Context.empty "Null" "Type" (VUniverse 0), Function [], VArrow (VConstruct ("Null",
+  []), VUnit));
+
+  ("pattern_match_nat", Environment.empty, Context.add_constructor
+  (Context.add_constructor (Context.add_constructor Context.empty "Nat" "Type"
+  (VUniverse 0)) "zero" "Nat" (VConstruct ("Nat", []))) "succ" "Nat" (VArrow
+  (VConstruct ("Nat", []), VConstruct ("Nat", []))), Function
+  [PatternApplication ("zero", []), Unit; PatternApplication ("succ",
+  [PatternApplication ("succ", [PatternBinder "x"])]), Unit; PatternApplication
+  ("succ", [PatternApplication ("zero", [])]), Unit], VArrow (VConstruct ("Nat",
+  []), VUnitType))
+
 ]) @ (List.map test_check_fail [
   ("application", Environment.add Environment.empty (VLambda (Name "x", Index 0,
   Environment.empty)), Context.add_binder Context.empty "f" (VArrow ( VUnitType,
@@ -93,7 +106,10 @@ let test_check = "check" >::: (List.map test_check_success [
   ("projection", Environment.empty, Context.empty, Proj1 (Pair (Universe 0,
   Universe 0)), VUnitType);
   ("pi", Environment.empty, Context.empty, Pi (Name "A", Universe 0, Pi (Name
-  "a", Index 0, Index 0)), VUniverse 0)
+  "a", Index 0, Index 0)), VUniverse 0);
+  ("dont_cover", Environment.empty, Context.add_constructor
+  (Context.add_constructor Context.empty "Bool" "Type" (VUniverse 0)) "true"
+  "Bool" (VConstruct ("Bool", [])), Function [], VConstruct ("Bool", []))
 ])
 
 let test_infer_check =
