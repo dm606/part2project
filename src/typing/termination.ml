@@ -174,7 +174,8 @@ let rec find_non_terminating i graph = function
 
 let rec add_decls i env = function
   | [] -> env
-  | x::xs -> add_decls (i + 1) (Environment.add env (VNeutral (VVar ("", i)))) xs
+  | x::xs ->
+      add_decls (i + 1) (Environment.add env (VNeutral (VVar ("", i)))) xs
 
 let is_let_rec = function
   | LetRec _ -> true
@@ -188,7 +189,8 @@ let rec eval i env =
 and add_pattern i env = function
   | PatternUnderscore -> (i + 1, env, VNeutral (VVar ("", i)))
   | PatternBinder _ ->
-      (i + 1, Environment.add env (VNeutral (VVar ("", i))), VNeutral (VVar ("", i)))
+      (i + 1
+     , Environment.add env (VNeutral (VVar ("", i))), VNeutral (VVar ("", i)))
   | PatternInaccessible e -> (i, env, eval i env e)
   | PatternPair (p1, p2) ->
       let i, env, v1 = add_pattern i env p1 in
@@ -213,7 +215,8 @@ and extract_calls x i env args = function
   | VLambda (Name x, e, lambda_env) ->
       if contains_neutral_variable lambda_env
       then
-        let lambda_env' = Environment.add lambda_env (VNeutral (VVar ("", i))) in
+        let lambda_env' =
+          Environment.add lambda_env (VNeutral (VVar ("", i))) in
         extract_calls x (i + 1) lambda_env' args (eval (i + 1) lambda_env' e)
       else []
   | VArrow (a, b) -> extract_calls x i env args a @ extract_calls x i env args b
@@ -235,8 +238,8 @@ and extract_calls x i env args = function
   | VFunction (c, fun_env) ->
       if contains_neutral_variable fun_env
       then
-        map_append 
-          (extract_calls_case x (i + 1) fun_env args (VNeutral (VVar ("", i)))) c
+        map_append (extract_calls_case x
+          (i + 1) fun_env args (VNeutral (VVar ("", i)))) c
       else []
   | VUniverse _ | VUnit | VUnitType -> []
   | VConstruct (_, l) -> map_append (extract_calls x i env args) l

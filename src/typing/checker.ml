@@ -221,14 +221,18 @@ and check_subtype i a b =
   | VArrow (a1, b1), VArrow (a2, b2) ->
       are_equal a1 a2 && check_subtype i b1 b2
   | VPi (x1, a1, b1, pi_env1), VPi (x2, a2, b2, pi_env2) ->
-      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
-      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
+      let b1 =
+        Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
+      let b2 =
+        Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
       are_equal a1 a2 && check_subtype (i + 1) b1 b2
   | VTimes (a1, b1), VTimes (a2, b2) ->
       are_equal a1 a2 && check_subtype i b1 b2
   | VSigma (x1, a1, b1, pi_env1), VSigma (x2, a2, b2, pi_env2) ->
-      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
-      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
+      let b1 =
+        Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
+      let b2 =
+        Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
       are_equal a1 a2 && check_subtype (i + 1) b1 b2
   | _ -> are_equal a b
 
