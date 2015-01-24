@@ -512,6 +512,10 @@ and check_declarations i env context l =
   | Some x ->
       tr x (F (sprintf "The declaration of %s might not terminate." x, lazy ""))
   | None -> check_decls [] [] [] [] l
+  | exception (Termination.Cannot_check_termination (x, y)) -> 
+      tr x (F (sprintf "Cannot check if the declaration of %s terminates. %s"
+        x y, lazy ""))
+
 
 let infer_type = infer_type 0
 let check_type = check_type 0
