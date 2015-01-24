@@ -114,7 +114,7 @@ let rec infer_type i env context exp =
       infer_type i env context e1
       >>= (function
       | VUniverse j ->
-          let env' = Environment.add env (VNeutral (VVar i)) in
+          let env' = Environment.add env (VNeutral (VVar (x, i))) in
           let context' = Context.add_binder context x (Eval.eval env e1) in
           infer_type (i + 1) env' context' e2
           >>= (function
@@ -134,7 +134,7 @@ let rec infer_type i env context exp =
       infer_type i env context e1
       >>= (function
       | VUniverse j ->
-          let env' = Environment.add env (VNeutral (VVar i)) in
+          let env' = Environment.add env (VNeutral (VVar (x, i))) in
           let context' = Context.add_binder context x (Eval.eval env e1) in
           infer_type (i + 1) env' context' e2
           >>= (function
@@ -221,14 +221,14 @@ and check_subtype i a b =
   | VArrow (a1, b1), VArrow (a2, b2) ->
       are_equal a1 a2 && check_subtype i b1 b2
   | VPi (x1, a1, b1, pi_env1), VPi (x2, a2, b2, pi_env2) ->
-      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar i))) b1 in
-      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar i))) b2 in
+      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
+      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
       are_equal a1 a2 && check_subtype (i + 1) b1 b2
   | VTimes (a1, b1), VTimes (a2, b2) ->
       are_equal a1 a2 && check_subtype i b1 b2
   | VSigma (x1, a1, b1, pi_env1), VSigma (x2, a2, b2, pi_env2) ->
-      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar i))) b1 in
-      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar i))) b2 in
+      let b1 = Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
+      let b2 = Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
       are_equal a1 a2 && check_subtype (i + 1) b1 b2
   | _ -> are_equal a b
 
@@ -276,20 +276,20 @@ and check_type i env context exp typ =
       >>= fun _ ->
       SType typ)
   | Lambda (Underscore, e1), VPi (x, a, b, pi_env) -> tr (
-      let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
+      let pi_env' = Environment.add pi_env (VNeutral (VVar (x, i))) in
       check_type (i + 1) env context e1 (Eval.eval pi_env' b)
       >>= fun _ ->
       SType typ)
   | Lambda (Name x, e1), VArrow (a, b) -> tr (
-      let env' = Environment.add env (VNeutral (VVar i)) in
+      let env' = Environment.add env (VNeutral (VVar (x, i))) in
       let context' = Context.add_binder context x a in
       check_type (i + 1) env' context' e1 b
       >>= fun _ ->
       SType typ)
   | Lambda (Name x, e1), VPi (y, a, b, pi_env) -> tr (
-      let env' = Environment.add env (VNeutral (VVar i)) in
+      let env' = Environment.add env (VNeutral (VVar (x, i))) in
       let context' = Context.add_binder context x a in
-      let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
+      let pi_env' = Environment.add pi_env (VNeutral (VVar (y, i))) in
       check_type (i + 1) env' context' e1 (Eval.eval pi_env' b)
       >>= fun _ ->
       SType typ)
@@ -324,7 +324,10 @@ and check_type i env context exp typ =
           (* there is no pattern which matches v *)
           failure ("The patterns do not cover all cases.\n"
             ^ (sprintf "Here is an example of a value which is not matched: %a"
-            print_val v)))
+            print_val v))
+      | exception Patterns.Cannot_pattern_match ->
+          failure (sprintf "Cannot pattern match on values of type %a."
+            print_val a))
   | Function cases, VPi (x, a, b, pi_env) -> tr (
       let check_case patt exp =
         match Patterns.add_binders
@@ -422,7 +425,7 @@ and check_declarations i env context l =
       (fun (i, env, context) -> function
        | Underscore, _ -> (i, env, context)
        | Name x, e -> 
-           (i + 1, Environment.add env (VNeutral (VVar i))
+           (i + 1, Environment.add env (VNeutral (VVar (x, i)))
           , Context.add_binder context x (Eval.eval env e)))
       (i, env, context) in
   

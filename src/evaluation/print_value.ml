@@ -15,7 +15,8 @@ and pr_neutral4 fmt = function
 and pr_neutral5 fmt = function
   | VProj1 v -> fprintf fmt "%a.1" pr_neutral5 v
   | VProj2 v -> fprintf fmt "%a.2" pr_neutral5 v
-  | VVar i -> fprintf fmt "%i" i
+  | VVar ("", i) -> fprintf fmt "%i" i
+  | VVar (x, _) -> fprintf fmt "%s" x
   | v -> fprintf fmt "(%a)" pr_neutral v
 
 and pr_value fmt = function

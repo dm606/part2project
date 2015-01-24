@@ -16,7 +16,7 @@ type value =
   | VConstruct of string * value list
   | VNeutral of neutral
 and neutral =
-  | VVar of int
+  | VVar of string * int
   (* the value should contain a neutral variable *)
   | VFunctionApplication of (pattern * expression) list
                           * value Environment.t * value
@@ -47,8 +47,8 @@ let reify eval =
   reify
 
 let rec neutral_contains i = function
-  | VVar j when i = j -> true
-  | VVar i -> false
+  | VVar (_, j) when i = j -> true
+  | VVar _ -> false
   | VFunctionApplication (_, _, n) -> contains i n
   | VApplication (n, v) -> neutral_contains i n || contains i v
   | VProj1 n -> neutral_contains i n
@@ -68,8 +68,8 @@ and contains i = function
   | VNeutral n -> neutral_contains i n
 
 let rec neutral_substitute_neutral_variable i n = function
-  | VVar j when j = i -> n
-  | VVar j -> VVar j
+  | VVar (_, j) when j = i -> n
+  | VVar _ as v -> v
   | VFunctionApplication (l, env, n1) ->
       VFunctionApplication (l, env
                           , substitute_neutral_variable i (VNeutral n) n1)
@@ -103,7 +103,7 @@ and substitute_neutral_variable i v =
   | VUnit -> VUnit
   | VConstruct (c, l) ->
       VConstruct (c, List.map (substitute_neutral_variable i v) l)
-  | VNeutral (VVar j) when i = j -> v
+  | VNeutral (VVar (_, j)) when i = j -> v
   | VNeutral n ->
       if neutral_contains i n then
         match v with
@@ -112,7 +112,7 @@ and substitute_neutral_variable i v =
       else VNeutral n
 
 let rec lift_neutral a = function
-  | VVar i -> VVar (i + a)
+  | VVar (s, i) -> VVar (s, i + a)
   | VFunctionApplication _ -> raise (Failure "lift_neutral")
   | VApplication (n, v) -> VApplication (lift_neutral a n, lift a v)
   | VProj1 n -> VProj1 (lift_neutral a n)

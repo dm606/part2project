@@ -119,17 +119,17 @@ let rec occurs v i = match v with
   | VConstruct (_, l) -> List.exists (fun v -> occurs v i) l
   | VNeutral n -> neutral_occurs n i
 and neutral_occurs n i = match n with
-  | VVar j when i = j -> true
-  | VVar j -> false
+  | VVar (_, j) when i = j -> true
+  | VVar _ -> false
   | VFunctionApplication (_, _, n) -> occurs n i
   | VApplication (n, v) -> neutral_occurs n i || occurs v i
   | VProj1 n -> neutral_occurs n i
   | VProj2 n -> neutral_occurs n i
 
-let rec add_unify subst i = function
-  | VNeutral (VVar j) when j > i ->
-      add_unify subst j (VNeutral (VVar i))
-  | VNeutral (VVar j) when i = j -> Some subst
+let rec add_unify subst x i = function
+  | VNeutral (VVar (x1, j)) when j > i ->
+      add_unify subst x1 j (VNeutral (VVar (x, i)))
+  | VNeutral (VVar (_, j)) when i = j -> Some subst
   | v ->
     if subst_mem i subst
     then mgu subst (subst_find i subst) v
@@ -137,16 +137,16 @@ let rec add_unify subst i = function
 
 (* unification *)
 and mgu subst v1 v2 = match v1, v2 with
-  | VNeutral (VVar i), VNeutral (VVar j) when i = j ->
+  | VNeutral (VVar (x1, i)), VNeutral (VVar (x2, j)) when i = j ->
       Some subst
   (* variables unify than anything, unless they are already in the
    * substitution *)
-  | VNeutral (VVar i), v ->
+  | VNeutral (VVar (x1, i)), v ->
       if occurs v i then None (* occurs check *)
-      else add_unify subst i v
-   | v, VNeutral (VVar i) ->
+      else add_unify subst x1 i v
+   | v, VNeutral (VVar (x1, i)) ->
       if occurs v i then None (* occurs check *)
-      else add_unify subst i v
+      else add_unify subst x1 i v
   (* atoms unify than themselves *)
   | VUniverse i, VUniverse j when i = j -> Some subst
   | VUnitType, VUnitType -> Some subst

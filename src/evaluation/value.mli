@@ -21,7 +21,8 @@ type value =
   | VConstruct of string * value list
   | VNeutral of neutral
 and neutral =
-  | VVar of int
+  (* neutral variables are named for pretty-printing *)
+  | VVar of string * int
   (* application of a neutral value to a function defined by pattern matching *)
   | VFunctionApplication of (pattern * expression) list
                           * value Environment.t * value

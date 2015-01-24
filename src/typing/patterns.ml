@@ -13,10 +13,10 @@ let (>>=) m f = match m with
   | None -> None
   | Some a -> f a
 
-let rec add_unify subst i = function
-  | VNeutral (VVar j) when j > i ->
-      add_unify subst j (VNeutral (VVar i))
-  | VNeutral (VVar j) when i = j -> Some subst
+let rec add_unify subst x i = function
+  | VNeutral (VVar (x1, j)) when j > i ->
+      add_unify subst x1 j (VNeutral (VVar (x, i)))
+  | VNeutral (VVar (_, j)) when i = j -> Some subst
   | v ->
     if Context.subst_mem i subst
     then Context.mgu subst (Context.subst_find i subst) v
@@ -26,25 +26,25 @@ let rec pi_to_list i =
   function
   | VArrow (a, b) ->
       let (i, l, v) = pi_to_list i b in
-      (i, (-1, a)::l, v)
-  | VPi (_, a, b, env) ->
-      let j, env = i, Environment.add env (VNeutral (VVar i)) in
+      (i, ("", -1, a)::l, v)
+  | VPi (x, a, b, env) ->
+      let j, env = i, Environment.add env (VNeutral (VVar (x, i))) in
       let (i, l, v) = pi_to_list (i + 1) (Eval.eval env b) in
-      (i, (j, a)::l, v)
+      (i, (x, j, a)::l, v)
   | v -> (i, [], v)
 
 let rec add_binders checker i context env subst typ patt = match patt, typ with
   | PatternUnderscore, _ ->
-      Some (VNeutral (VVar i)
+      Some (VNeutral (VVar ("", i))
           , i + 1
           , context
           , env
           , subst)
   | PatternBinder x, _ ->
-      Some (VNeutral (VVar i)
+      Some (VNeutral (VVar (x, i))
           , i + 1
           , Context.add_binder context x typ
-          , Environment.add env (VNeutral (VVar i))
+          , Environment.add env (VNeutral (VVar (x, i)))
           , subst)
   | PatternPair (p1, p2), VTimes (a, b) ->
       add_binders checker i context env subst a p1
@@ -64,7 +64,7 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
       let rec add i context env subst values_matched = function
         | [], [] ->
             Some (values_matched, i, context, env, subst)
-        | p::ps, (j, t)::ts ->
+        | p::ps, (x, j, t)::ts ->
             let t = Context.subst_value subst t in
             (match p with 
              | PatternInaccessible e ->
@@ -74,7 +74,7 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
                    (* all values which are checked against the inaccessible
                     * pattern will have the form matched *)
                    let matched =
-                     Context.subst_value subst (VNeutral (VVar j)) in
+                     Context.subst_value subst (VNeutral (VVar (x, j))) in
                    (* check that the inaccessible pattern matches in all cases,
                     * i.e. the for of value to be matched is equal to the
                     * expression in the pattern *)
@@ -87,7 +87,7 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
               | _ -> add_binders checker i context env subst t p)
             >>= fun (v, i, context, env, subst) ->
             if j <> -1 then
-              match add_unify subst j v with
+              match add_unify subst x j v with
               | Some subst ->
                   add i context env subst (v::values_matched) (ps, ts)
               | None -> None
@@ -140,38 +140,38 @@ let rec check_match pattern value = match pattern, value with
   | PatternPair (p1, p2), VPair (v1, v2) ->
       check_match p1 v1 & check_match p2 v2
   | PatternPair _, VConstruct _ -> NoMatch
-  | PatternPair _, VNeutral (VVar i) -> Unknown i
+  | PatternPair _, VNeutral (VVar (_, i)) -> Unknown i
   | PatternApplication (pc, pl), VConstruct (vc, vl) when pc = vc ->
       List.fold_left2 (fun m p v -> m & check_match p v) Match pl vl
   | PatternApplication _, VConstruct _ ->
       NoMatch (* constructor names do not match *)
   | PatternApplication _, VPair _ -> NoMatch
-  | PatternApplication _, VNeutral (VVar i) -> Unknown i
+  | PatternApplication _, VNeutral (VVar (_, i)) -> Unknown i
   | _ -> assert false (* value can't have been created by a split *)
 
 (* split along blocker *)
 let rec split i context typ value blocker =
   let rec get_constructed_type i = function
     | VArrow (a, b) -> get_constructed_type i b
-    | VPi (_, _, b, env) ->
+    | VPi (x, _, b, env) ->
         get_constructed_type (i + 1)
-          (Eval.eval (Environment.add env (VNeutral (VVar i))) b)
+          (Eval.eval (Environment.add env (VNeutral (VVar (x, i)))) b)
     | VConstruct _ as t -> t
     | _ -> assert false in
 
   let rec construct i = function
     | VArrow (a, b) ->
         let (i, l) = construct (i + 1) b in
-        (i, (VNeutral (VVar i))::l)
-    | VPi (_, _, b, env) ->
+        (i, (VNeutral (VVar ("", i)))::l)
+    | VPi (x, _, b, env) ->
         let (i, l) = construct (i + 1)
-          (Eval.eval (Environment.add env (VNeutral (VVar i))) b) in
-        (i, (VNeutral (VVar i))::l)
+          (Eval.eval (Environment.add env (VNeutral (VVar (x, i)))) b) in
+        (i, (VNeutral (VVar (x, i)))::l)
     | VConstruct _ -> (i, [])
     | _ -> assert false in
 
   match value with 
-  | VNeutral (VVar j) when j = blocker -> (match typ with
+  | VNeutral (VVar (x, j)) when j = blocker -> (match typ with
       | VConstruct (type_name, _) ->
           (* return all valid constructors of type_name *)
           let ctors =
@@ -187,9 +187,9 @@ let rec split i context typ value blocker =
             (i, VConstruct (c, l))) valid_ctors
       | VSigma _ | VTimes _ ->
           (* return a pair of variables *)
-          [i + 2, VPair (VNeutral (VVar i), VNeutral (VVar (i + 1)))]
+          [i + 2, VPair (VNeutral (VVar ("", i)), VNeutral (VVar ("", i + 1)))]
       | _ -> raise Cannot_pattern_match)
-  | VNeutral (VVar j) -> [i, value]
+  | VNeutral (VVar (x, j)) -> [i, value]
   | VPair (v1, v2) -> (match typ with
       | VTimes (a, b) ->
           let l = split i context a v1 blocker in
@@ -232,7 +232,7 @@ let rec split i context typ value blocker =
 
 (* typ is caseless if spliting [i]:typ along i produces no values *)
 let caseless i context typ =
-  match split (i + 1) context typ (VNeutral (VVar i)) i with
+  match split (i + 1) context typ (VNeutral (VVar ("", i))) i with
   | [] -> None (* typ is caseless *)
   | (_, v)::_ -> Some v
 
@@ -273,4 +273,4 @@ let cover i context patterns typ =
   (* if the type has no valid constructors, then no patterns are need to form a
    * covering *)
   if patterns = [] then caseless i context typ 
-  else cover_rec (i + 1) context patterns typ (VNeutral (VVar i))
+  else cover_rec (i + 1) context patterns typ (VNeutral (VVar ("", i)))

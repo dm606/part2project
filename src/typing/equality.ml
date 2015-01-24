@@ -30,7 +30,7 @@ let rec readback i =
   let readback_env i =
     Environment.map_to_list (fun v -> (`N (readback i v))) (fun d -> `D d) in
   let rec readback_neutral i = function
-  | VVar i -> NVar i
+  | VVar (_, i) -> NVar i
   | VFunctionApplication (cases, env, v) ->
       NFunctionApplication (cases, readback_env i env, readback i v)
   | VApplication (v1, v2) ->
@@ -41,19 +41,19 @@ let rec readback i =
   function
   | VPair (v1, v2) -> NPair (readback i v1, readback i v2)
   | VLambda (Underscore, e, env) -> NLambda (i, readback (i + 1) (eval env e))
-  | VLambda (_, e, env) -> 
+  | VLambda (Name x, e, env) -> 
       NLambda (i, readback (i + 1)
-        (eval (Environment.add env (VNeutral (VVar i))) e))
+        (eval (Environment.add env (VNeutral (VVar (x, i)))) e))
   | VArrow (a, b) ->
       NPi (i, readback i a, readback (i + 1) b)
-  | VPi (_, v, e, env) -> 
+  | VPi (x, v, e, env) -> 
       NPi (i, readback i v, readback (i + 1)
-        (eval (Environment.add env (VNeutral (VVar i))) e))
+        (eval (Environment.add env (VNeutral (VVar (x, i)))) e))
   | VTimes (a, b) ->
       NSigma (i, readback i a, readback (i + 1) b)
-  | VSigma (_, v, e, env) ->
+  | VSigma (x, v, e, env) ->
       NSigma (i, readback i v, readback (i + 1)
-        (eval (Environment.add env (VNeutral (VVar i))) e))
+        (eval (Environment.add env (VNeutral (VVar (x, i)))) e))
   | VFunction (l, env) -> NFunction (l, readback_env i env)
   | VUniverse i -> NUniverse i
   | VUnitType -> NUnitType

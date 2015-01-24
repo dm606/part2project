@@ -174,7 +174,11 @@ let rec find_non_terminating i graph = function
 
 let rec add_decls i env = function
   | [] -> env
-  | x::xs -> add_decls (i + 1) (Environment.add env (VNeutral (VVar i))) xs
+  | x::xs -> add_decls (i + 1) (Environment.add env (VNeutral (VVar ("", i)))) xs
+
+let is_let_rec = function
+  | LetRec _ -> true
+  | _ -> false
 
 let rec eval i env =
   Eval.eval' (fun env l -> match check_termination' i env l with
@@ -182,9 +186,9 @@ let rec eval i env =
     | None -> ()) env
 
 and add_pattern i env = function
-  | PatternUnderscore -> (i + 1, env, VNeutral (VVar i))
+  | PatternUnderscore -> (i + 1, env, VNeutral (VVar ("", i)))
   | PatternBinder _ ->
-      (i + 1, Environment.add env (VNeutral (VVar i)), VNeutral (VVar i))
+      (i + 1, Environment.add env (VNeutral (VVar ("", i))), VNeutral (VVar ("", i)))
   | PatternInaccessible e -> (i, env, eval i env e)
   | PatternPair (p1, p2) ->
       let i, env, v1 = add_pattern i env p1 in
@@ -209,14 +213,14 @@ and extract_calls x i env args = function
   | VLambda (Name x, e, lambda_env) ->
       if contains_neutral_variable lambda_env
       then
-        let lambda_env' = Environment.add lambda_env (VNeutral (VVar i)) in
+        let lambda_env' = Environment.add lambda_env (VNeutral (VVar ("", i))) in
         extract_calls x (i + 1) lambda_env' args (eval (i + 1) lambda_env' e)
       else []
   | VArrow (a, b) -> extract_calls x i env args a @ extract_calls x i env args b
   | VPi (x, a, b, pi_env) ->
       if contains_neutral_variable pi_env
       then
-        let pi_env' = Environment.add pi_env (VNeutral (VVar i)) in
+        let pi_env' = Environment.add pi_env (VNeutral (VVar ("", i))) in
         extract_calls x i env args a
         @ extract_calls x (i + 1) pi_env' args (eval (i + 1) pi_env' b)
       else extract_calls x i env args a
@@ -224,7 +228,7 @@ and extract_calls x i env args = function
   | VSigma (x, a, b, sigma_env) ->
       if contains_neutral_variable sigma_env
       then
-        let sigma_env' = Environment.add sigma_env (VNeutral (VVar i)) in
+        let sigma_env' = Environment.add sigma_env (VNeutral (VVar ("", i))) in
         extract_calls x i env args a
         @ extract_calls x (i + 1) sigma_env' args (eval (i + 1) sigma_env' b)
       else extract_calls x i env args a 
@@ -232,13 +236,13 @@ and extract_calls x i env args = function
       if contains_neutral_variable fun_env
       then
         map_append 
-          (extract_calls_case x (i + 1) fun_env args (VNeutral (VVar i))) c
+          (extract_calls_case x (i + 1) fun_env args (VNeutral (VVar ("", i)))) c
       else []
   | VUniverse _ | VUnit | VUnitType -> []
   | VConstruct (_, l) -> map_append (extract_calls x i env args) l
   | VNeutral n -> extract_calls_neutral x i env args n
 and extract_calls_neutral x i env args = function
-  | VVar i -> [i, []]
+  | VVar (_, i) -> [i, []]
 (*  | VFunctionApplication (c, fun_env, v) ->
       if contains_neutral_variable fun_env
       then
@@ -264,10 +268,10 @@ and extract_calls_case x i env args v (p, e) =
       extract_calls x i env args (eval (i + 1) env e)
 and extract_calls_application x i env args n tl =
   match n with
-  | VVar i -> [i, get_matrix args tl]
+  | VVar (_, i) -> [i, get_matrix args tl]
   | VFunctionApplication (c, fun_env, v) ->
       map_append (fun (_, e) ->
-        let fun_env = Environment.add fun_env (VNeutral (VVar i)) in
+        let fun_env = Environment.add fun_env (VNeutral (VVar ("", i))) in
         extract_calls x (i + 1) fun_env args (eval (i + 1) fun_env e)) c @
         extract_calls x i env args v
   | VApplication (n, v) ->
@@ -278,10 +282,10 @@ and extract_calls_application x i env args n tl =
 and get_call_matrices' x i args env decl_var min_var max_var e =
   match eval i env e with
   | VLambda (Underscore, e, lambda_env) ->
-      get_call_matrices' x (i + 1) ((VNeutral (VVar i))::args) lambda_env
+      get_call_matrices' x (i + 1) ((VNeutral (VVar ("", i)))::args) lambda_env
         decl_var min_var max_var e
   | VLambda (Name _, e, lambda_env) ->
-      let v = VNeutral (VVar i) in
+      let v = VNeutral (VVar ("", i)) in
       get_call_matrices' x (i + 1) (v::args) (Environment.add lambda_env v)
         decl_var min_var max_var e
   | VFunction (c, fun_env) ->
@@ -307,7 +311,7 @@ and check_termination' i env l =
     | [] -> graph
     | (LetRec (x, a, b))::xs -> (
         try
-          let v = VNeutral (VVar i) in
+          let v = VNeutral (VVar ("", i)) in
           let env' = add_decls (i + 1) env xs in
           let env' = add_decls min_var env' (List.rev rest) in
           let env' = Environment.add env' v in
@@ -320,9 +324,10 @@ and check_termination' i env l =
             raise
               (Cannot_check_termination (x, "Maybe there is a type error.")))
     | _::tl -> get_graph i graph rest tl in
+  let l = List.filter is_let_rec l in 
   let graph = close (get_graph min_var [] [] l) in
   
-  find_non_terminating min_var graph l 
+  find_non_terminating min_var graph l
 
 let check_termination env l = try check_termination' 0 env l with
   | Doesnt_terminate x -> Some x

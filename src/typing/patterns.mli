@@ -1,6 +1,8 @@
 open Abstract
 open Value
 
+exception Cannot_pattern_match
+
 (** type checks a single pattern
  * add_binders checker i context env typ patt returns None, if the pattern does
  * not match typ, or Some (matched_value, i', context', env', subst), where
