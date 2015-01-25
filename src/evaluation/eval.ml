@@ -60,8 +60,11 @@ let rec eval' f env =
   | Function l -> VFunction (l, env)
   | LocalDeclaration (l, e) -> f env l; eval' f (add_declarations env l) e
   | Application (e1, e2) ->
+      if e1 = e2 then raise (Cannot_evaluate "self-application") else
+      let v1 = eval' f env e1 in
       let v2 = eval' f env e2 in
-      (match eval' f env e1 with
+      if v1 = v2 then raise (Cannot_evaluate "self-application") else
+      (match v1 with
        | VConstruct (c, l) -> VConstruct (c, v2::l)
        | VLambda (b, e, fun_env) -> apply b e fun_env v2
        | VFunction (l, fun_env) -> apply_function l fun_env v2
