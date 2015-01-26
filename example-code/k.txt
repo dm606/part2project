@@ -1,0 +1,7 @@
+type Id (A : Type) (a : A) : A -> Type = 
+  | refl : Id A a a
+
+(* a proof of axiom K (uniqueness of identity proofs) *)
+let axiomK (A : Type) (a : A) (b : A) : (p : Id A a b) -> (q : Id A a b) -> Id (Id A a b) p q =
+  function
+  | refl .A .a -> (function refl .A .a -> refl (Id A a a) (refl A a))
