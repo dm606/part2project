@@ -23,6 +23,7 @@ and neutral =
   | VApplication of neutral * value
   | VProj1 of neutral
   | VProj2 of neutral
+  | VMeta of meta_id
 
 let reify eval = 
   let rec reify = function
@@ -53,6 +54,7 @@ let rec neutral_contains i = function
   | VApplication (n, v) -> neutral_contains i n || contains i v
   | VProj1 n -> neutral_contains i n
   | VProj2 n -> neutral_contains i n
+  | VMeta _ -> false
 and contains i = function 
   | VPair (v1, v2) -> contains i v1 || contains i v2
   | VLambda _ -> false
@@ -78,6 +80,7 @@ let rec neutral_substitute_neutral_variable i n = function
                   , substitute_neutral_variable i (VNeutral n) v)
   | VProj1 n1 -> VProj1 (neutral_substitute_neutral_variable i n n1)
   | VProj2 n1 -> VProj2 (neutral_substitute_neutral_variable i n n1)
+  | VMeta _ as n -> n
 and substitute_neutral_variable i v =
   let subst_env env =
     Environment.map (substitute_neutral_variable i v) (fun x -> x) env in
@@ -117,6 +120,7 @@ let rec lift_neutral a = function
   | VApplication (n, v) -> VApplication (lift_neutral a n, lift a v)
   | VProj1 n -> VProj1 (lift_neutral a n)
   | VProj2 n -> VProj2 (lift_neutral a n)
+  | VMeta _ as n -> n
 and lift a = function
   | VPair (v1, v2) -> VPair (lift a v1, lift a v2)
   | VArrow (v1, v2) -> VArrow (lift a v1, lift a v2)

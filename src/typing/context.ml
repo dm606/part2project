@@ -38,9 +38,13 @@ let get_binder_type (m, l) i = match List.nth l i with
   | _, `T t -> Some (Lazy.force t)
   | exception (Failure _) -> None
 
-let compare_types t = function
-  | _, `V t2 -> are_values_equal t t2
-  | _, `T thunk -> are_values_equal t (Lazy.force thunk)
+(* TODO: are constraints needed here? *)
+let compare_types t =
+  let eq x y = always_satisfied (test_equality 0 no_constraints x y) in
+
+  function
+  | _, `V t2 -> eq t t2
+  | _, `T thunk -> eq t (Lazy.force thunk)
 
 let check_constructor_type (m, l) c t =
   M.mem c m && List.exists (compare_types t) (M.find c m)
@@ -125,6 +129,7 @@ and neutral_occurs n i = match n with
   | VApplication (n, v) -> neutral_occurs n i || occurs v i
   | VProj1 n -> neutral_occurs n i
   | VProj2 n -> neutral_occurs n i
+  | VMeta _ -> false
 
 let rec add_unify subst x i = function
   | VNeutral (VVar (x1, j)) when j > i ->

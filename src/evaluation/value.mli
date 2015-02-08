@@ -29,6 +29,7 @@ and neutral =
   | VApplication of neutral * value
   | VProj1 of neutral
   | VProj2 of neutral
+  | VMeta of meta_id
 
 val reify : (value Environment.t -> expression -> value) -> value -> expression
 val substitute_neutral_variable : int -> value -> value -> value

@@ -17,6 +17,7 @@ and pr_neutral5 fmt = function
   | VProj2 v -> fprintf fmt "%a.2" pr_neutral5 v
   | VVar ("", i) -> fprintf fmt "%i" i
   | VVar (x, _) -> fprintf fmt "%s" x
+  | VMeta i -> fprintf fmt "?%s" (Abstract.string_of_id i)
   | v -> fprintf fmt "(%a)" pr_neutral v
 
 and pr_value fmt = function

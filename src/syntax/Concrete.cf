@@ -43,6 +43,9 @@ EUnit. Exp5 ::= "()" ;
 EIdentifier. Exp5 ::= Ident ;
 EProj1. Exp5 ::= Exp5 ".1" ;
 EProj2. Exp5 ::= Exp5 ".2" ;
+EMeta. Exp5 ::= "?" ;
+-- Should not be in user input
+EMetaInternal. Exp5 ::= "?" Integer;
 coercions Exp 5 ;
 
 -- Binders

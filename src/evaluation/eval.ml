@@ -96,5 +96,6 @@ let rec eval' f env =
       | _ ->
         raise (Cannot_evaluate
           "Attempted to project an element out of a value which is not a pair"))
+  | Meta i -> VNeutral (VMeta i)
 
 let eval = eval' (fun _ _ -> ())

@@ -33,79 +33,82 @@ let rec pi_to_list i =
       (i, (x, j, a)::l, v)
   | v -> (i, [], v)
 
-let rec add_binders checker i context env subst typ patt = match patt, typ with
+let rec add_binders checker i constraints context env subst typ patt =
+  match patt, typ with
   | PatternUnderscore, _ ->
       Some (VNeutral (VVar ("", i))
           , i + 1
+          , constraints
           , context
           , env
           , subst)
   | PatternBinder x, _ ->
       Some (VNeutral (VVar (x, i))
           , i + 1
+          , constraints
           , Context.add_binder context x typ
           , Environment.add env (VNeutral (VVar (x, i)))
           , subst)
   | PatternPair (p1, p2), VTimes (a, b) ->
-      add_binders checker i context env subst a p1
-      >>= fun (v1, i, context, env, subst) ->
-      add_binders checker i context env subst b p2
-      >>= fun (v2, i, context, env, subst) ->
-      Some (VPair (v1, v2), i, context, env, subst)
+      add_binders checker i constraints context env subst a p1
+      >>= fun (v1, i, constraints, context, env, subst) ->
+      add_binders checker i constraints context env subst b p2
+      >>= fun (v2, i, constraints, context, env, subst) ->
+      Some (VPair (v1, v2), i, constraints, context, env, subst)
   | PatternPair (p1, p2), VSigma (x, a, b, sigma_env) ->
-      add_binders checker i context env subst a p1
-      >>= fun (v1, i, context, env, subst) ->
+      add_binders checker i constraints context env subst a p1
+      >>= fun (v1, i, constraints, context, env, subst) ->
       let sigma_env' = Environment.add sigma_env v1 in
-      add_binders checker (i + 1) context env subst (Eval.eval sigma_env' b) p2 
-      >>= fun (v2, i, context, env, subst) ->
-      Some (VPair (v1, v2), i, context, env, subst)
+      add_binders checker (i + 1) constraints context env subst (Eval.eval sigma_env' b) p2 
+      >>= fun (v2, i, constraints, context, env, subst) ->
+      Some (VPair (v1, v2), i, constraints, context, env, subst)
   | PatternPair _, _ -> None
   | PatternApplication (c, l), _ ->
-      let rec add i context env subst values_matched = function
+      let rec add i constraints context env subst values_matched = function
         | [], [] ->
-            Some (values_matched, i, context, env, subst)
+            Some (values_matched, i, constraints, context, env, subst)
         | p::ps, (x, j, t)::ts ->
             let t = Context.subst_value subst t in
             (match p with 
-             | PatternInaccessible e ->
-                 if checker i context env e t
-                 then
-                   let evaluated = (Eval.eval env e) in
-                   (* all values which are checked against the inaccessible
-                    * pattern will have the form matched *)
-                   let matched =
-                     Context.subst_value subst (VNeutral (VVar (x, j))) in
-                   (* check that the inaccessible pattern matches in all cases,
-                    * i.e. the for of value to be matched is equal to the
-                    * expression in the pattern *)
-                   let correct =
-                     j <> -1
-                     && Equality.are_values_equal evaluated matched in
-                   if correct then Some (evaluated, i, context, env, subst)
-                   else None
-                 else None
-              | _ -> add_binders checker i context env subst t p)
-            >>= fun (v, i, context, env, subst) ->
+             | PatternInaccessible e -> (
+                 match checker i constraints context env e t with
+                 | Some constraints ->
+                     let evaluated =
+                       Context.subst_value subst (Eval.eval env e) in
+                     (* all values which are checked against the inaccessible
+                      * pattern will have the form matched *)
+                     let matched =
+                       Context.subst_value subst (VNeutral (VVar (x, j))) in
+                     (* check that the inaccessible pattern matches in all cases,
+                      * i.e. the for of value to be matched is equal to the
+                      * expression in the pattern *)
+                     let constraints = Equality.test_equality i constraints evaluated matched in
+                     (* TODO: the constraints might never be satisfied due to
+                      * previous constraints *)
+                     if j <> -1 && not (Equality.never_satisfied constraints)
+                     then Some (evaluated, i, constraints, context, env, subst)
+                     else None
+                 | None -> None)
+              | _ -> add_binders checker i constraints context env subst t p)
+            >>= fun (v, i, constraints, context, env, subst) ->
             if j <> -1 then
               match add_unify subst x j v with
               | Some subst ->
-                  add i context env subst (v::values_matched) (ps, ts)
+                  add i constraints context env subst (v::values_matched) (ps, ts)
               | None -> None
-            else add i context env subst (v::values_matched) (ps, ts)
-        | _ -> raise Cannot_pattern_match in
+            else add i constraints context env subst (v::values_matched) (ps, ts)
+        | _ -> None in
 
       let rec try_constructor_type constructor_type =
         let (i, ts, constructed) = pi_to_list i constructor_type in
         match Context.mgu subst typ constructed with
         | None -> None
         | Some subst -> (
-            match add i context env subst [] (l, ts) with
+            match add i constraints context env subst [] (l, ts) with
             | None -> None
-            | Some (tl, i, context, env, subst) -> 
+            | Some (tl, i, constraints, context, env, subst) -> 
                 let value_matched = VConstruct (c, tl) in
-                Some (value_matched, i
-                    , context
-                    , env, subst)) in
+                Some (value_matched, i, constraints, context, env, subst)) in
 
       let possible_types = Context.get_constructor_types context c in
       List.fold_left (fun r t -> match r with
@@ -120,10 +123,11 @@ let rec add_binders checker i context env subst typ patt = match patt, typ with
        * handed in the PatternApplication case.  *)
       None
 
-let add_binders checker i context env typ patt =
-  add_binders checker i context env Context.subst_empty typ patt
-  >>= fun (v, i, context, env, subst) ->
-  Some (v, i, context, env, subst)
+let add_binders checker i constraints context env typ patt =
+  add_binders checker i constraints context env Context.subst_empty typ patt
+  >>= fun (v, i, constraints, context, env, subst) ->
+  Some (v, i, constraints, Context.subst_apply context subst
+      , Context.subst_env subst env, subst)
 
 type match_result = Match | Unknown of int | NoMatch
 

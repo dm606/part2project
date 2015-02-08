@@ -20,6 +20,9 @@ let env = ref Environment.empty
 (* typing context *)
 let context = ref Context.empty
 
+(* constraints on metavariables *)
+let constraints = ref Equality.no_constraints
+
 let prompt = ref ""
 let last_typing_result = ref None
 
@@ -90,9 +93,13 @@ let handle_are_equal () =
       | None -> ()
       | Some e2 ->
           let e2 = desugar_expression !declared e2 in
-          if Equality.are_equal !env e1 e2
-          then print_endline "Expressions are equal"
-          else print_endline "Expressions are not equal")
+          let result = Equality.test_expression_equality !env e1 e2 in
+          if Equality.always_satisfied result then print_endline "Expressions are equal"
+          else if Equality.never_satisfied result then print_endline "Expressions are not equal"
+          else
+            print_endline
+              "Expressions are equal iff constraints are satisfied:\n";
+            Equality.print_constraints result)
 
 let handle_infer_type () =
   print_string "Expression: ";
@@ -100,23 +107,26 @@ let handle_infer_type () =
   | None -> ()
   | Some exp ->
     let desugared = desugar_expression !declared exp in
-    let result = Checker.infer_type !env !context desugared in
+    let result = Checker.infer_type !constraints !env !context desugared in
     if Checker.succeeded result
     then Print_value.print_value (Checker.get_type result)
     else print_typing_result result
+
+let handle_constraints () = Equality.print_constraints !constraints
 
 let remove_types context = List.fold_left (fun c -> function 
   | Type (x, _, _, _) -> Context.remove_constructors_of_type c x
   | _ -> c) context
 
 let add_declarations_to_context context d =
-  let result = Checker.check_declarations !env context d in
+  let result = Checker.check_declarations !constraints !env context d in
   if Checker.succeeded result then
     let context = remove_types context d in
     let context = List.fold_right
                     (fun (s, v) c -> Context.add_binder c s v)
                     (Checker.get_binder_types result) context in
     let constructor_types = Checker.get_constructor_types result in
+    constraints := Checker.get_constraints result;
     (* the order of constructors does not matter -- use fold_left for
      * efficiency *)
     List.fold_left
@@ -140,13 +150,14 @@ and handle_command c =
   | CommandNone (Ident "areequal") -> handle_are_equal ()
   | CommandNone (Ident "infertype") -> handle_infer_type ()
   | CommandNone (Ident "trace") -> handle_trace ()
+  | CommandNone (Ident "constraints") -> handle_constraints ()
   | CommandNone (Ident s) -> raise (Unknown_command s)
 and parse f lexbuf = (
   try Lazy.force (handle_input (f lexbuf)) with
   | BNFC_Util.Parse_error (s, e) -> 
       fprintf stderr "%s: parse error \n" (format_position s e)
   | Abstract.Constructor_not_defined s ->
-      fprintf stderr "\"%s\" is not bound to anything\n" s
+      fprintf stderr "\"%s\" is not a constructor\n" s
   | Eval.Cannot_evaluate s -> fprintf stderr "Can't evaluate expression: %s\n" s
   | Declaration_type result -> print_typing_result result
   | Termination.Cannot_check_termination (x, message) ->
@@ -159,9 +170,10 @@ and handle_input l = lazy (
   let handle = function
     | Parser.Exp e ->
         let exp = desugar_expression !declared e in
-        let typing_result = Checker.infer_type !env !context exp in
+        let typing_result = Checker.infer_type !constraints !env !context exp in
         if Checker.succeeded typing_result then (
           let evaluated = Eval.eval !env exp in
+          constraints := Checker.get_constraints typing_result;
           Print_value.print_value evaluated)
         else print_typing_result typing_result
     | Parser.Decl d ->

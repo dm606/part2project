@@ -258,6 +258,7 @@ and extract_calls_neutral x i env args = function
       @ extract_calls_application x i env args n [v]
   | VProj1 n -> extract_calls_neutral x i env args n
   | VProj2 n -> extract_calls_neutral x i env args n
+  | VMeta _ -> []
 and extract_calls_case x i env args v (p, e) =
   let i, env, v2 = add_pattern i env p in
   match Context.mgu Context.subst_empty v v2 with
@@ -281,6 +282,7 @@ and extract_calls_application x i env args n tl =
       extract_calls x i env args v
       @ extract_calls_application x i env args n (v::tl)
   | VProj1 _ | VProj2 _ -> raise (Cannot_check_termination (x, ""))
+  | VMeta _ -> []
 
 and get_call_matrices' x i args env decl_var min_var max_var e =
   match eval i env e with
