@@ -2,7 +2,7 @@
 type Eq (A : Type) (a : A) : A -> Type = refl : Eq A a a
 
 (* if a = b, then f a = f b *)
-let cong (A : Type) (B : Type) (f : A -> B) (a : A) (b : A) :
+let subst (A : Type) (B : Type) (f : A -> B) (a : A) (b : A) :
   Eq A a b -> Eq B (f a) (f b) =
   function refl .A .a -> refl B (f a)
 
@@ -32,12 +32,12 @@ let rec add_associativity : (a : Nat) -> (b : Nat) -> (c : Nat)
   function
   | zero -> (fun b c -> refl Nat (add b c))
   | succ a -> (fun b c ->
-      cong Nat Nat succ (add a (add b c))
+      subst Nat Nat succ (add a (add b c))
         (add (add a b) c) (add_associativity a b c))
 
 let rec add_zero : (n : Nat) -> Eq Nat n (add n zero) = function
   | zero -> refl Nat zero
-  | succ n -> cong Nat Nat succ n (add n zero) (add_zero n)
+  | succ n -> subst Nat Nat succ n (add n zero) (add_zero n)
 
 (* proof that a + zero = a = zero + a for all a *)
 let zero_identity (a : Nat) :
@@ -62,7 +62,7 @@ let rec append_associativity (A : Type) : (a : List A) -> (b : List A)
   function
   | nil .A -> (fun b c -> refl (List A) (append A b c))
   | cons .A a tl -> (fun b c ->
-      cong (List A) (List A) (cons A a) (append A tl (append A b c))
+      subst (List A) (List A) (cons A a) (append A tl (append A b c))
         (append A (append A tl b) c) (append_associativity A tl b c))
 
 let rec append_nil (A : Type) :
@@ -70,7 +70,7 @@ let rec append_nil (A : Type) :
   function
   | nil .A -> refl (List A) (nil A)
   | cons .A a tl ->
-      cong (List A) (List A) (cons A a) tl (append A tl (nil A)) (append_nil A tl)
+      subst (List A) (List A) (cons A a) tl (append A tl (nil A)) (append_nil A tl)
 
 let nil_identity (A : Type) (l : List A) :
   (Eq (List A) l (append A (nil A) l)) * (Eq (List A) l (append A l (nil A))) =
