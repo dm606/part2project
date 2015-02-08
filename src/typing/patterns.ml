@@ -154,7 +154,7 @@ let rec check_match pattern value = match pattern, value with
   | _ -> assert false (* value can't have been created by a split *)
 
 (* split along blocker *)
-let rec split i context typ value blocker =
+let rec split i context subst typ value blocker =
   let rec get_constructed_type i = function
     | VArrow (a, b) -> get_constructed_type i b
     | VPi (x, _, b, env) ->
@@ -178,34 +178,38 @@ let rec split i context typ value blocker =
   | VNeutral (VVar (x, j)) when j = blocker -> (match typ with
       | VConstruct (type_name, _) ->
           (* return all valid constructors of type_name *)
-          let ctors =
-            Context.get_constructors_of_type context type_name in
+          let ctors = List.map
+            (fun (c, v) ->
+              (c, v, Context.mgu subst (get_constructed_type i v) typ))
+            (Context.get_constructors_of_type context type_name) in
           (* the constructors which could possibly be used to create a value of
            * type typ *)
           let valid_ctors =
-            List.filter
-              (fun (c, v) -> Context.unify (get_constructed_type i v) typ)
-              ctors in
-          List.map (fun (c, v) ->
-            let (i, l) = construct i v in
-            (i, VConstruct (c, l))) valid_ctors
+            List.filter (fun (c, v, subst) -> subst <> None) ctors in
+          List.map (fun (c, v, subst) ->
+            match subst with
+            | None -> assert false (* should have been removed by filter *)
+            | Some subst ->
+               let (i, l) = construct i v in
+               (i, VConstruct (c, l), subst)) valid_ctors
       | VSigma _ | VTimes _ ->
           (* return a pair of variables *)
-          [i + 2, VPair (VNeutral (VVar ("", i)), VNeutral (VVar ("", i + 1)))]
+          [i + 2, VPair (VNeutral (VVar ("", i)), VNeutral (VVar ("", i + 1)))
+           , subst]
       | _ -> raise Cannot_pattern_match)
-  | VNeutral (VVar (x, j)) -> [i, value]
+  | VNeutral (VVar (x, j)) -> [i, value, subst]
   | VPair (v1, v2) -> (match typ with
       | VTimes (a, b) ->
-          let l = split i context a v1 blocker in
-          concat_map (fun (i, v1) -> 
-            let l2 = split i context b v2 blocker in
-            List.map (fun (i, v2) -> i, VPair (v1, v2)) l2) l
+          let l = split i context subst a v1 blocker in
+          concat_map (fun (i, v1, subst) -> 
+            let l2 = split i context subst b v2 blocker in
+            List.map (fun (i, v2, subst) -> i, VPair (v1, v2), subst) l2) l
       | VSigma (_, a, b, env) ->
-          let l = split i context a v1 blocker in
-          concat_map (fun (i, v1) -> 
+          let l = split i context subst a v1 blocker in
+          concat_map (fun (i, v1, subst) -> 
             let env' = Environment.add env v1 in
-            let l2 = split i context (Eval.eval env' b) v2 blocker in
-            List.map (fun (i, v2) -> i, VPair (v1, v2)) l2) l
+            let l2 = split i context subst (Eval.eval env' b) v2 blocker in
+            List.map (fun (i, v2, subst) -> i, VPair (v1, v2), subst) l2) l
       | _ ->
           (* value could only have been produced by a split; a split will only
            * produce a pair if typ is of the form VSigma _ or VTimes _ *)
@@ -215,30 +219,34 @@ let rec split i context typ value blocker =
           let _, ctor_type =
             List.find (fun (d, _) -> d = c)
               (Context.get_constructors_of_type context type_name) in
-          let aux i v typ = match typ with
+          let aux i subst v typ = match typ with
             | VArrow (a, b) ->
-                let l = split i context a v blocker in
-                List.map (fun (i, v) -> (i, v, b)) l
+                let l = split i context subst a v blocker in
+                List.map (fun (i, v, subst) -> (i, v, b, subst)) l
             | VPi (_, a, b, env) ->
-                let l = split i context a v blocker in
-                List.map (fun (i, v) ->
+                let l = split i context subst a v blocker in
+                List.map (fun (i, v, subst) ->
                   let env' = Environment.add env v in
-                  (i, v, Eval.eval env' b)) l
+                  (i, v, Eval.eval env' b, subst)) l
             | _ -> assert false in
-          let aux2 v (i, l, typ) =
-            let split_results = aux i v typ in
-            List.map (fun (i, v, typ) -> (i, v::l, typ)) split_results in
-          List.map (fun (i, l, _) -> (i, VConstruct (c, l)))
+          let aux2 v (i, l, typ, subst) =
+            let split_results = aux i subst v typ in
+            List.map (fun (i, v, typ, subst) -> (i, v::l, typ, subst)) split_results in
+          List.map (fun (i, l, _, subst) -> (i, VConstruct (c, l), subst))
             (List.fold_right (fun v l -> concat_map (aux2 v) l) 
-              l [i, [], ctor_type])
+              l [i, [], ctor_type, subst])
       | _ -> assert false)
   | _ -> assert false
+
+let split i context typ value blocker =
+  List.map (fun (i, v, subst) -> (i, v, Context.subst_value subst typ))
+    (split i context Context.subst_empty typ value blocker)
 
 (* typ is caseless if spliting [i]:typ along i produces no values *)
 let caseless i context typ =
   match split (i + 1) context typ (VNeutral (VVar ("", i))) i with
   | [] -> None (* typ is caseless *)
-  | (_, v)::_ -> Some v
+  | (_, v, _)::_ -> Some v
 
 (* checks that patterns covers all values of the form value (patterns must not
  * be []) *)
@@ -265,7 +273,7 @@ let rec cover_rec i context patterns typ value =
       | p::tl ->
           let split_result = split i context typ value !blocker in
           List.fold_left
-            (fun r (i, v) -> match r with
+            (fun r (i, v, typ) -> match r with
                | None -> cover_rec i context unknowns typ v
                | Some v -> r)
             None
