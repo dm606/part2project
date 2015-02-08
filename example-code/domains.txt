@@ -1,0 +1,85 @@
+type Eq (A : Type) (a : A) : A -> Type = refl : Eq ? a a
+
+type Nat = zero : Nat | succ : Nat -> Nat
+
+let Poset (D : Type) (R : D -> D -> Type) : Type =
+  (* reflexivity *)
+  ((d : D) -> R d d)
+  (* transitivity *)
+  * ((d : D) -> (d' : D) -> (d'' : D) -> R d d' -> R d' d'' -> R d d'')
+  (* antisymmetry  *)
+  * ((d : D) -> (d' : D) -> R d d' -> R d' d -> Eq ? d d')
+
+let reflexivity (D : Type) (R : D -> D -> Type)
+  : Poset ? R -> (d : D) -> R d d = function
+  | (r, _, _) -> r
+let transitivity (D : Type) (R : D -> D -> Type)
+  : Poset ? R -> (d : D) -> (d' : D) -> (d'' : D)
+    -> R d d' -> R d' d'' -> R d d'' = function
+  | (_, t, _) -> t
+let antisymmetry (D : Type) (R : D -> D -> Type)
+  : Poset ? R -> (d : D) -> (d' : D) -> R d d' -> R d' d -> Eq ? d d' =
+  function
+  | (_, _, a) -> a
+
+let Pre_fixed_point (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
+  : Type = 
+  (* d is a pre-fixed-point of f *)
+  R (f d) d
+  (* (D, R) is a poset *)
+  * Poset D R
+
+let Least_pre_fixed_point (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
+  : Type = 
+  (* d is the least *)
+  ((x : D) -> Pre_fixed_point ? R f x -> R d x)
+  (* d is a pre-fixed point *)
+  * Pre_fixed_point D R f d
+
+let lfp1 (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
+  : Least_pre_fixed_point ? R f d -> R (f d) d = function
+  | (_, lfp1, _) -> lfp1
+
+let lfp2 (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
+  (lfp : Least_pre_fixed_point ? R f d) (d' : D) (p : R (f d') d') : R d d' =
+  match lfp with
+  | (least, _, poset) -> least d' (p, poset) 
+
+let Monotone (D : Type) (R : D -> D -> Type) (f : D -> D) : Type =
+  (x : D) -> (y : D) -> R x y -> R (f x) (f y)
+
+(* if (D, R) is a poset, f : D -> D is monotone and fix : D is the least
+ * pre-fixed-point of f, then d is a fixed point of f *)
+let is_fixed_point (D : Type) (R : D -> D -> Type) (f : D -> D) (fix : D) 
+  (monotone : Monotone ? R f) (lfp : Least_pre_fixed_point ? R f fix)
+  : Eq ? fix (f fix) = match lfp with
+  | (least, pfp, poset) -> (
+      let anti : (d : D) -> (d' : D) -> R d d' -> R d' d -> Eq ? d d' =
+        antisymmetry ? R poset in
+      let lfp1 : R (f fix) fix = lfp1 ? R f fix lfp in
+      let lfp2 : (d' : D) -> R (f d') d' -> R fix d' =
+        lfp2 ? R f fix lfp in
+      anti fix (f fix) (lfp2 (f fix) (monotone (f fix) fix lfp1)) lfp1)
+
+(* countable, increasing chains *)
+let Chain (D : Type) (R : D -> D -> Type) (c : Nat -> D) (lub : D) : Type =
+  (* increasing *)
+  ((n : Nat) -> R (c n) (c (succ n)))
+  (* lub is an upper bound *)
+  * ((n : Nat) -> R (c n) lub)
+  (* lub is the least upper bound *)
+  * ((d : D) -> ((n : Nat) -> R (c n) lub) -> R lub d)
+
+
+
+
+
+type Less_than_or_equal_nat : Nat -> Nat -> Type =
+  | lzero : (x : Nat) -> Less_than_or_equal_nat zero x
+  | lsucc : (x : Nat) -> (y : Nat) -> Less_than_or_equal_nat x y
+      -> Less_than_or_equal_nat (succ x) (succ y)
+
+let rec refl_nat : (x : Nat) -> Less_than_or_equal_nat x x = function
+  | zero -> lzero ?
+  | succ x -> lsucc ? ? (refl_nat x)
+
