@@ -50,6 +50,10 @@ let rec append :
         (fun m -> function cons .A .n a z ->
           (fun y -> cons A (add n m) a (append A n m z y)))
 
+let rec nth (A : Type) (n : Nat) (i : Fin n) (l : Vec A n) : A = match i, l with
+  | fzero m, cons .A .m a tl -> a
+  | fsucc m i, cons .A .m a tl -> nth A m i tl
+
 let Not : Type -> Type = fun A -> A -> Null
 
 type Or (A : Type) (B : Type) : Type =
