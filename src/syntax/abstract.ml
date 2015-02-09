@@ -614,11 +614,11 @@ and pr_decls fmt = function
   | x::xs -> fprintf fmt "@[<hov>%a@ and %a@]" pr_decl x pr_decls xs
 
 and pr_param fmt = function
-  | Param (b, e) -> fprintf fmt "@[<hov>@ (%a : %a)@]" pr_binder b pr_exp e
+  | Param (b, e) -> fprintf fmt "@ (%a : %a)" pr_binder b pr_exp e
 and pr_params fmt = function
   | [] -> ()
   | [x] -> pr_param fmt x
-  | x::xs -> fprintf fmt "@[<hov>%a%a@]" pr_param x pr_params xs
+  | x::xs -> fprintf fmt "%a%a" pr_param x pr_params xs
 
 and pr_constructor fmt = function
   | Constr (Ident i, e) -> fprintf fmt "@[<hov>| %s@ : %a@]" i pr_exp2 e
