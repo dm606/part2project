@@ -32,4 +32,4 @@ val add_binders :
     covered.
    
     The implementation is based on the algorithm given by Norell *)
-val cover : int -> Context.t -> pattern list -> value -> value option
+val cover : int -> Equality.constraints -> Context.t -> pattern list -> value -> value option

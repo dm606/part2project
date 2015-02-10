@@ -182,7 +182,8 @@ let is_let_rec = function
   | _ -> false
 
 let rec eval i env =
-  Eval.eval' (fun env l -> match check_termination' i env l with
+  (* shouldn't need to check assignments of metavariables here *)
+  Eval.eval' (fun _ -> None) (fun env l -> match check_termination' i env l with
     | Some x -> raise (Doesnt_terminate x)
     | None -> ()) env
 

@@ -22,14 +22,15 @@ let rec add_unify subst x i = function
     then Context.mgu subst (Context.subst_find i subst) v
     else Some (Context.subst_add i v subst)
 
-let rec pi_to_list i =
+let rec pi_to_list constraints i =
   function
   | VArrow (a, b) ->
-      let (i, l, v) = pi_to_list i b in
+      let (i, l, v) = pi_to_list constraints i b in
       (i, ("", -1, a)::l, v)
   | VPi (x, a, b, env) ->
       let j, env = i, Environment.add env (VNeutral (VVar (x, i))) in
-      let (i, l, v) = pi_to_list (i + 1) (Eval.eval env b) in
+      let (i, l, v) = pi_to_list constraints (i + 1)
+        (Eval.eval (Equality.get_metavariable_assignment constraints) env b) in
       (i, (x, j, a)::l, v)
   | v -> (i, [], v)
 
@@ -59,7 +60,8 @@ let rec add_binders checker i constraints context env subst typ patt =
       add_binders checker i constraints context env subst a p1
       >>= fun (v1, i, constraints, context, env, subst) ->
       let sigma_env' = Environment.add sigma_env v1 in
-      add_binders checker (i + 1) constraints context env subst (Eval.eval sigma_env' b) p2 
+      add_binders checker (i + 1) constraints context env subst
+        (Eval.eval (Equality.get_metavariable_assignment constraints) sigma_env' b) p2 
       >>= fun (v2, i, constraints, context, env, subst) ->
       Some (VPair (v1, v2), i, constraints, context, env, subst)
   | PatternPair _, _ -> None
@@ -74,7 +76,7 @@ let rec add_binders checker i constraints context env subst typ patt =
                  match checker i constraints context env e t with
                  | Some constraints ->
                      let evaluated =
-                       Context.subst_value subst (Eval.eval env e) in
+                       Context.subst_value subst (Eval.eval (Equality.get_metavariable_assignment constraints) env e) in
                      (* all values which are checked against the inaccessible
                       * pattern will have the form matched *)
                      let matched =
@@ -100,7 +102,7 @@ let rec add_binders checker i constraints context env subst typ patt =
         | _ -> None in
 
       let rec try_constructor_type constructor_type =
-        let (i, ts, constructed) = pi_to_list i constructor_type in
+        let (i, ts, constructed) = pi_to_list constraints i constructor_type in
         match Context.mgu subst typ constructed with
         | None -> None
         | Some subst -> (
@@ -154,12 +156,12 @@ let rec check_match pattern value = match pattern, value with
   | _ -> assert false (* value can't have been created by a split *)
 
 (* split along blocker *)
-let rec split i context subst typ value blocker =
+let rec split i constraints context subst typ value blocker =
   let rec get_constructed_type i = function
     | VArrow (a, b) -> get_constructed_type i b
     | VPi (x, _, b, env) ->
         get_constructed_type (i + 1)
-          (Eval.eval (Environment.add env (VNeutral (VVar (x, i)))) b)
+          (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b)
     | VConstruct _ as t -> t
     | _ -> assert false in
 
@@ -169,7 +171,7 @@ let rec split i context subst typ value blocker =
         (i, (VNeutral (VVar ("", i)))::l)
     | VPi (x, _, b, env) ->
         let (i, l) = construct (i + 1)
-          (Eval.eval (Environment.add env (VNeutral (VVar (x, i)))) b) in
+          (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b) in
         (i, (VNeutral (VVar (x, i)))::l)
     | VConstruct _ -> (i, [])
     | _ -> assert false in
@@ -200,15 +202,15 @@ let rec split i context subst typ value blocker =
   | VNeutral (VVar (x, j)) -> [i, value, subst]
   | VPair (v1, v2) -> (match typ with
       | VTimes (a, b) ->
-          let l = split i context subst a v1 blocker in
+          let l = split i constraints context subst a v1 blocker in
           concat_map (fun (i, v1, subst) -> 
-            let l2 = split i context subst b v2 blocker in
+            let l2 = split i constraints context subst b v2 blocker in
             List.map (fun (i, v2, subst) -> i, VPair (v1, v2), subst) l2) l
       | VSigma (_, a, b, env) ->
-          let l = split i context subst a v1 blocker in
+          let l = split i constraints context subst a v1 blocker in
           concat_map (fun (i, v1, subst) -> 
             let env' = Environment.add env v1 in
-            let l2 = split i context subst (Eval.eval env' b) v2 blocker in
+            let l2 = split i constraints context subst (Eval.eval (Equality.get_metavariable_assignment constraints) env' b) v2 blocker in
             List.map (fun (i, v2, subst) -> i, VPair (v1, v2), subst) l2) l
       | _ ->
           (* value could only have been produced by a split; a split will only
@@ -221,13 +223,13 @@ let rec split i context subst typ value blocker =
               (Context.get_constructors_of_type context type_name) in
           let aux i subst v typ = match typ with
             | VArrow (a, b) ->
-                let l = split i context subst a v blocker in
+                let l = split i constraints context subst a v blocker in
                 List.map (fun (i, v, subst) -> (i, v, b, subst)) l
             | VPi (_, a, b, env) ->
-                let l = split i context subst a v blocker in
+                let l = split i constraints context subst a v blocker in
                 List.map (fun (i, v, subst) ->
                   let env' = Environment.add env v in
-                  (i, v, Eval.eval env' b, subst)) l
+                  (i, v, Eval.eval (Equality.get_metavariable_assignment constraints) env' b, subst)) l
             | _ -> assert false in
           let aux2 v (i, l, typ, subst) =
             let split_results = aux i subst v typ in
@@ -238,19 +240,19 @@ let rec split i context subst typ value blocker =
       | _ -> assert false)
   | _ -> assert false
 
-let split i context typ value blocker =
+let split i constraints context typ value blocker =
   List.map (fun (i, v, subst) -> (i, v, Context.subst_value subst typ))
-    (split i context Context.subst_empty typ value blocker)
+    (split i constraints context Context.subst_empty typ value blocker)
 
 (* typ is caseless if spliting [i]:typ along i produces no values *)
-let caseless i context typ =
-  match split (i + 1) context typ (VNeutral (VVar ("", i))) i with
+let caseless i constraints context typ =
+  match split (i + 1) constraints context typ (VNeutral (VVar ("", i))) i with
   | [] -> None (* typ is caseless *)
   | (_, v, _)::_ -> Some v
 
 (* checks that patterns covers all values of the form value (patterns must not
  * be []) *)
-let rec cover_rec i context patterns typ value =
+let rec cover_rec i constraints context patterns typ value =
   let result = ref None in
   let blocker = ref 0 in
   let rec find_matches = function
@@ -271,18 +273,18 @@ let rec cover_rec i context patterns typ value =
       (* there may or may not be a match -- split *)
       match unknowns with
       | p::tl ->
-          let split_result = split i context typ value !blocker in
+          let split_result = split i constraints context typ value !blocker in
           List.fold_left
             (fun r (i, v, typ) -> match r with
-               | None -> cover_rec i context unknowns typ v
+               | None -> cover_rec i constraints context unknowns typ v
                | Some v -> r)
             None
             split_result
       (* find_matches must return a list containing at least one element *)
       | _ -> assert false)
 
-let cover i context patterns typ =
+let cover i constraints context patterns typ =
   (* if the type has no valid constructors, then no patterns are need to form a
    * covering *)
-  if patterns = [] then caseless i context typ 
-  else cover_rec (i + 1) context patterns typ (VNeutral (VVar ("", i)))
+  if patterns = [] then caseless i constraints context typ 
+  else cover_rec (i + 1) constraints context patterns typ (VNeutral (VVar ("", i)))

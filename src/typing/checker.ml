@@ -65,26 +65,26 @@ let get_env env rest_ds xs =
 
 (* adds declarations to the given context; lets are added iff the argument
  * lets is true *)
-let add_to_context lets env context =
+let add_to_context lets metavars env context =
   let rec add context rest_ds = function
     | [] -> context
     | (Let (x, e1, e2))::xs ->
         if lets
         then add (Context.add_lazy_binder context x
-          (lazy (Eval.eval (get_env env rest_ds xs) e1))) rest_ds xs
+          (lazy (Eval.eval metavars (get_env env rest_ds xs) e1))) rest_ds xs
         else add context rest_ds xs
     | (LetRec (x, e1, e2) as d)::xs ->
         add (Context.add_lazy_binder context x
-          (lazy (Eval.eval (get_env env rest_ds xs) e1))) (d::rest_ds) xs
+          (lazy (Eval.eval metavars (get_env env rest_ds xs) e1))) (d::rest_ds) xs
     | (Type (x, ps, e, cs))::xs ->
         let context = Context.remove_constructors_of_type context x in
         let context =
           Context.add_lazy_constructor context x "Type"
-            (lazy (Eval.eval (get_env env rest_ds xs) (get_full_type ps e))) in
+            (lazy (Eval.eval metavars (get_env env rest_ds xs) (get_full_type ps e))) in
         let context =
           List.fold_left (fun context (c, e) -> Context.add_lazy_constructor
               context c x
-              (lazy (Eval.eval (get_env env rest_ds xs) (get_full_type ps e))))
+              (lazy (Eval.eval metavars (get_env env rest_ds xs) (get_full_type ps e))))
             context cs in
         add context rest_ds xs in
     add context []
@@ -122,7 +122,7 @@ let rec infer_type i constraints env context exp =
       >>= (function
       | VUniverse j, constraints ->
           let env' = Environment.add env (VNeutral (VVar (x, i))) in
-          let context' = Context.add_binder context x (Eval.eval env e1) in
+          let context' = Context.add_binder context x (Eval.eval (Equality.get_metavariable_assignment constraints) env e1) in
           infer_type (i + 1) constraints env' context' e2
           >>= (function
           | VUniverse k, constraints -> SType (VUniverse (max j k), constraints)
@@ -142,7 +142,7 @@ let rec infer_type i constraints env context exp =
       >>= (function
       | VUniverse j, constraints ->
           let env' = Environment.add env (VNeutral (VVar (x, i))) in
-          let context' = Context.add_binder context x (Eval.eval env e1) in
+          let context' = Context.add_binder context x (Eval.eval (Equality.get_metavariable_assignment constraints) env e1) in
           infer_type (i + 1) constraints env' context' e2
           >>= (function
           | VUniverse k, constraints -> SType (VUniverse (max j k), constraints)
@@ -158,8 +158,8 @@ let rec infer_type i constraints env context exp =
         | VPi (x, a, b, pi_env), constraints -> 
             check_type i constraints env context e2 a
             >>= fun (_, constraints) ->
-            let pi_env' = Environment.add pi_env (Eval.eval env e2) in
-            SType (Eval.eval pi_env' b, constraints)
+            let pi_env' = Environment.add pi_env (Eval.eval (Equality.get_metavariable_assignment constraints) env e2) in
+            SType (Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b, constraints)
         | _ ->
             failure (
               sprintf "%a is not a function; it cannot be applied." print e1))
@@ -183,8 +183,8 @@ let rec infer_type i constraints env context exp =
             SType (b, constraints)
         | VSigma (x, a, b, sigma_env), constraints ->
             let sigma_env' =
-              Environment.add sigma_env (Eval.eval env (Proj1 e)) in
-            SType (Eval.eval sigma_env' b, constraints)
+              Environment.add sigma_env (Eval.eval (Equality.get_metavariable_assignment constraints) env (Proj1 e)) in
+            SType (Eval.eval (Equality.get_metavariable_assignment constraints) sigma_env' b, constraints)
         | _ -> failure (sprintf "%a is not a pair" print e))
   | Meta id -> 
       if Equality.has_metavariable constraints id
@@ -197,7 +197,7 @@ let rec infer_type i constraints env context exp =
       check_declarations i constraints env context d
       >> fun constraints ->
       let env' = Environment.add_declarations env d in
-      let context' = add_all_to_context env context d in
+      let context' = add_all_to_context (Equality.get_metavariable_assignment constraints) env context d in
       tr (infer_type i constraints env' context' e))
 
   (* not needed in type system -- included for constructors given as part of
@@ -240,17 +240,17 @@ and check_subtype i constraints a b =
       Some constraints >>= check_equal a1 a2 >>= check i b1 b2
   | VPi (x1, a1, b1, pi_env1), VPi (x2, a2, b2, pi_env2) ->
       let b1 =
-        Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
+        Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
       let b2 =
-        Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
+        Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
       Some constraints >>= check_equal a1 a2 >>= check (i + 1) b1 b2 
   | VTimes (a1, b1), VTimes (a2, b2) ->
       Some constraints >>= check_equal a1 a2 >>= check i b1 b2
   | VSigma (x1, a1, b1, pi_env1), VSigma (x2, a2, b2, pi_env2) ->
       let b1 =
-        Eval.eval (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
+        Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add pi_env1 (VNeutral (VVar (x1, i)))) b1 in
       let b2 =
-        Eval.eval (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
+        Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add pi_env2 (VNeutral (VVar (x2, i)))) b2 in
       Some constraints >>= check_equal a1 a2 >>= check (i + 1) b1 b2
   | _ -> check_equal a b constraints
 
@@ -289,8 +289,8 @@ and check_type i constraints env context exp typ =
   | Pair (e1, e2), VSigma (x, a, b, sigma_env) -> tr (
       check_type i constraints env context e1 a
       >>= fun (_, constraints) ->
-      let sigma_env' = Environment.add sigma_env (Eval.eval env e1) in
-      check_type i constraints env context e2 (Eval.eval sigma_env' b)
+      let sigma_env' = Environment.add sigma_env (Eval.eval (Equality.get_metavariable_assignment constraints) env e1) in
+      check_type i constraints env context e2 (Eval.eval (Equality.get_metavariable_assignment constraints) sigma_env' b)
       >>= fun (_, constraints) ->
       SType (typ, constraints))
   | Lambda (Underscore, e1), VArrow (a, b) -> tr (
@@ -299,7 +299,7 @@ and check_type i constraints env context exp typ =
       SType (typ, constraints))
   | Lambda (Underscore, e1), VPi (x, a, b, pi_env) -> tr (
       let pi_env' = Environment.add pi_env (VNeutral (VVar (x, i))) in
-      check_type (i + 1) constraints env context e1 (Eval.eval pi_env' b)
+      check_type (i + 1) constraints env context e1 (Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b)
       >>= fun (_, constraints) ->
       SType (typ, constraints))
   | Lambda (Name x, e1), VArrow (a, b) -> tr (
@@ -312,19 +312,21 @@ and check_type i constraints env context exp typ =
       let env' = Environment.add env (VNeutral (VVar (x, i))) in
       let context' = Context.add_binder context x a in
       let pi_env' = Environment.add pi_env (VNeutral (VVar (y, i))) in
-      check_type (i + 1) constraints env' context' e1 (Eval.eval pi_env' b)
+      check_type (i + 1) constraints env' context' e1 (Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b)
       >>= fun (_, constraints) ->
       SType (typ, constraints))
-  | Constructor c, _ -> 
-      if check_constructor_type context c typ
-      then SType (typ, constraints)
-      else
-        tr (failure (sprintf "\"%s\" does not have type %a." c print_val typ))
+  | Constructor c, _ -> ( 
+      match check_constructor_type context constraints c typ with
+      | Some constraints when not (Equality.never_satisfied constraints) ->
+          SType (typ, constraints)
+      | _ ->
+          tr (failure (sprintf "\"%s\" does not have type %a."
+            c print_val typ)))
   | LocalDeclaration (d, e), _ -> tr (
       check_declarations i constraints env context d
       >> fun constraints ->
       let env' = Environment.add_declarations env d in
-      let context' = add_all_to_context env context d in
+      let context' = add_all_to_context (Equality.get_metavariable_assignment constraints) env context d in
       check_type i constraints env' context' e typ)
   | Function cases, VArrow (a, b) -> tr (
       let check_case constraints patt exp =
@@ -345,7 +347,7 @@ and check_type i constraints env context exp typ =
           check_case constraints p e)
         (SType (a, constraints)) cases
       >>= fun (_, constraints) ->
-      match Patterns.cover i context (List.map (fun (p, _) -> p) cases) a with
+      match Patterns.cover i constraints context (List.map (fun (p, _) -> p) cases) a with
       | None -> SType (typ, constraints) (* the patterns cover all cases *)
       | Some v ->
           (* there is no pattern which matches v *)
@@ -369,14 +371,14 @@ and check_type i constraints env context exp typ =
         | Some (matched_value, new_i, constraints, new_context, new_env, subst) ->
             let pi_env' =
               Environment.add pi_env matched_value in
-            let typ = Context.subst_value subst (Eval.eval pi_env' b) in
+            let typ = Context.subst_value subst (Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b) in
             check_type new_i constraints new_env new_context exp typ in
       List.fold_left (fun r (p, e) -> r
           >>= fun (_, constraints) ->
           check_case constraints p e)
         (SType (a, constraints)) cases
       >>= fun (_, constraints) ->
-      match Patterns.cover i context (List.map (fun (p, _) -> p) cases) a with
+      match Patterns.cover i constraints context (List.map (fun (p, _) -> p) cases) a with
       | None -> SType (typ, constraints) (* the patterns cover all cases *)
       | Some v ->
           (* there is no pattern which matches v *)
@@ -469,7 +471,7 @@ and check_declarations i constraints env context l =
        | Underscore, _ -> (i, constraints, env, context)
        | Name x, e -> 
            (i + 1, constraints, Environment.add env (VNeutral (VVar (x, i)))
-          , Context.add_binder context x (Eval.eval env e)))
+          , Context.add_binder context x (Eval.eval (Equality.get_metavariable_assignment constraints) env e)))
       (i, constraints, env, context) in
   
   let get_new_context rest_bs rest_cs xs =
@@ -479,7 +481,7 @@ and check_declarations i constraints env context l =
          context rest_cs in
     (* assume that everything in xs has the correct type, without actually
      * checking them *)
-    let context = add_to_context env context xs in
+    let context = add_to_context (Equality.get_metavariable_assignment constraints) env context xs in
     List.fold_right (fun (s, v) c -> Context.add_binder c s v)
       rest_bs context in
 
@@ -491,7 +493,7 @@ and check_declarations i constraints env context l =
         tr x (infer_type i constraints decl_env decl_context e1)
         >>= (function 
         | VUniverse j, constraints -> 
-            let t = Eval.eval decl_env e1 in
+            let t = Eval.eval (Equality.get_metavariable_assignment constraints) decl_env e1 in
             tr x (check_type i constraints decl_env decl_context e2 t)
             >>= fun (_, constraints) -> 
             check_decls constraints ((x, t)::result_bs) result_cs rest_ds rest_bs xs
@@ -508,7 +510,7 @@ and check_declarations i constraints env context l =
         tr x (infer_type i constraints decl_env decl_context e1)
         >>= (function
         | VUniverse j, constraints ->
-            let t = Eval.eval decl_env e1 in
+            let t = Eval.eval (Equality.get_metavariable_assignment constraints) decl_env e1 in
             let decl_context2 =
               get_new_context ((x, t)::rest_bs) result_cs xs in
             tr x (check_type i constraints decl_env2 decl_context2 e2 t)
@@ -526,7 +528,7 @@ and check_declarations i constraints env context l =
         tr x (check_type_family_type constraints decl_env decl_context x typefam_type) 
         >>= (function
         | (VUniverse j as type_universe), constraints ->
-            let eval_typefam_type = Eval.eval decl_env typefam_type in
+            let eval_typefam_type = Eval.eval (Equality.get_metavariable_assignment constraints) decl_env typefam_type in
             let universe_name = "Type " ^ (string_of_int j) in
             let (constructor_i, constraints, constructor_env, constructor_context) =
               add_parameters i constraints decl_env (Context.add_constructor
@@ -542,7 +544,7 @@ and check_declarations i constraints env context l =
               (x, universe_name, eval_typefam_type) :: result_cs in
             let result_cs =
               List.fold_left (fun l (c, e) ->
-                  (c, x, Eval.eval decl_env (get_full_type ps e))::l)
+                  (c, x, Eval.eval (Equality.get_metavariable_assignment constraints) decl_env (get_full_type ps e))::l)
                 result_cs constructor_types in
             check_decls constraints result_bs result_cs rest_ds rest_bs xs
         | _ -> assert false) in

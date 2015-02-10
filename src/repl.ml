@@ -172,7 +172,9 @@ and handle_input l = lazy (
         let exp = desugar_expression !declared e in
         let typing_result = Checker.infer_type !constraints !env !context exp in
         if Checker.succeeded typing_result then (
-          let evaluated = Eval.eval !env exp in
+          let evaluated =
+            Eval.eval (Equality.get_metavariable_assignment !constraints)
+            !env exp in
           constraints := Checker.get_constraints typing_result;
           Print_value.print_value evaluated)
         else print_typing_result typing_result

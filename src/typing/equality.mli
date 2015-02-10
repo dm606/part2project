@@ -52,6 +52,11 @@ val has_metavariable : constraints -> meta_id -> bool
     [Not_found] if [c] does not have a type. *)
 val get_metavariable : constraints -> meta_id -> value
 
+(** [get_metavariable_assignment constraints id] returns None if metavariable
+    [id] has not been assigned in [constraints], or [Some value] if the
+    metavariable has been assigned to [value] in constraints *)
+val get_metavariable_assignment : constraints -> meta_id -> value option
+
 (** [test_value_equality i c x y] returns constraints, where [x] and [y] are equal
     if the constraints in [constraints] are satisfied. There must be no neutral
     variables in [x] or [y] with a value greater than or equal to [i]. The constraints

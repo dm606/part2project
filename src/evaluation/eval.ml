@@ -39,30 +39,31 @@ let rec pattern_match env cases value = match cases with
       if m then (new_env, e) else pattern_match env cs value
 
 (* evaluates an expression to a value *)
-let rec eval' f env = 
+let rec eval' metavars f env = 
   let apply b e fun_env v = match b with
-  | Underscore -> eval' f fun_env e
-  | Name _ -> eval' f (add fun_env v) e in
+  | Underscore -> eval' metavars f fun_env e
+  | Name _ -> eval' metavars f (add fun_env v) e in
 
   let apply_function cases fun_env v =
     try 
       let (new_env, e) = pattern_match fun_env cases v in
-      eval' f new_env e with
+      eval' metavars f new_env e with
     | Match_neutral -> VNeutral (VFunctionApplication (cases, fun_env, v)) in
 
   function
-  | Pair (e1, e2) -> VPair (eval' f env e1, eval' f env e2)
+  | Pair (e1, e2) -> VPair (eval' metavars f env e1, eval' metavars f env e2)
   | Lambda (b, e) -> VLambda (b, e, env)
-  | Pi (Underscore, e1, e2) -> VArrow (eval' f env e1, eval' f env e2)
-  | Pi (Name b, e1, e2) -> VPi (b, eval' f env e1, e2, env)
-  | Sigma (Underscore, e1, e2) -> VTimes (eval' f env e1, eval' f env e2)
-  | Sigma (Name b, e1, e2) -> VSigma (b, eval' f env e1, e2, env)
+  | Pi (Underscore, e1, e2) -> VArrow (eval' metavars f env e1, eval' metavars f env e2)
+  | Pi (Name b, e1, e2) -> VPi (b, eval' metavars f env e1, e2, env)
+  | Sigma (Underscore, e1, e2) ->
+      VTimes (eval' metavars f env e1, eval' metavars f env e2)
+  | Sigma (Name b, e1, e2) -> VSigma (b, eval' metavars f env e1, e2, env)
   | Function l -> VFunction (l, env)
-  | LocalDeclaration (l, e) -> f env l; eval' f (add_declarations env l) e
+  | LocalDeclaration (l, e) -> f env l; eval' metavars f (add_declarations env l) e
   | Application (e1, e2) ->
       if e1 = e2 then raise (Cannot_evaluate "self-application") else
-      let v1 = eval' f env e1 in
-      let v2 = eval' f env e2 in
+      let v1 = eval' metavars f env e1 in
+      let v2 = eval' metavars f env e2 in
       if v1 = v2 then raise (Cannot_evaluate "self-application") else
       (match v1 with
        | VConstruct (c, l) -> VConstruct (c, v2::l)
@@ -75,7 +76,7 @@ let rec eval' f env =
   | UnitType -> VUnitType
   | Unit -> VUnit
   | Index i -> 
-      (try get env (eval' f) i with
+      (try get env (eval' metavars f) i with
        | Invalid_argument _ ->
            raise (Cannot_evaluate "Attempted to use a negative de Bruijn index")
        | Failure _ ->
@@ -83,19 +84,22 @@ let rec eval' f env =
                     "Attempted to use a de Bruijn index which was too large"))
   | Constructor c -> VConstruct (c, [])
   | Proj1 e -> (
-      match eval' f env e with
+      match eval' metavars f env e with
       | VPair (v1, v2) -> v1
       | VNeutral v -> VNeutral (VProj1 v)
       | _ ->
         raise (Cannot_evaluate
           "Attempted to project an element out of a value which is not a pair"))
   | Proj2 e -> (
-      match eval' f env e with
+      match eval' metavars f env e with
       | VPair (v1, v2) -> v2
       | VNeutral v -> VNeutral (VProj2 v)
       | _ ->
         raise (Cannot_evaluate
           "Attempted to project an element out of a value which is not a pair"))
-  | Meta i -> VNeutral (VMeta i)
+  | Meta i -> (
+      match metavars i with
+      | None -> VNeutral (VMeta i)
+      | Some v -> v)
 
-let eval = eval' (fun _ _ -> ())
+let eval metavars = eval' metavars (fun _ _ -> ())

@@ -38,16 +38,21 @@ let get_binder_type (m, l) i = match List.nth l i with
   | _, `T t -> Some (Lazy.force t)
   | exception (Failure _) -> None
 
-(* TODO: are constraints needed here? *)
-let compare_types t =
-  let eq x y = always_satisfied (test_equality 0 no_constraints x y) in
+let compare_types constraints t =
+  let eq x y = test_equality 0 constraints x y in
 
   function
   | _, `V t2 -> eq t t2
   | _, `T thunk -> eq t (Lazy.force thunk)
 
-let check_constructor_type (m, l) c t =
-  M.mem c m && List.exists (compare_types t) (M.find c m)
+let check_constructor_type (m, l) constraints c t =
+  if M.mem c m then
+    List.fold_left
+      (fun r c -> match r with
+        | None -> Some (compare_types constraints t c)
+        | r -> r)
+      None (M.find c m) 
+  else None
 
 let get_constructor_types (m, l) c =
   if M.mem c m then List.map (fun (x, v) -> 
