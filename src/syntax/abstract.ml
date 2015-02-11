@@ -533,7 +533,6 @@ and resugar_pattern env pattern =
 (* exp printing functions -- should be modified if Concrete.cf is modified *)
 let rec pr_exp fmt = function
   | EPair (e1, e2) -> fprintf fmt "@[<hov>%a,@ %a@]" pr_exp3 e1 pr_exp e2
-  | EDeclaration (l, e) -> fprintf fmt "@[<hov>%a in@ %a@]" pr_decls l pr_exp e
   | e -> pr_exp1 fmt e
 and pr_exp1 fmt = function
   | ELambda (l, e) ->
@@ -546,6 +545,7 @@ and pr_exp2 fmt = function
   | EArrow (e1, e2) -> fprintf fmt "@[<hov>%a@ -> %a@]" pr_exp3 e1 pr_exp2 e2
   | EPi (b, e1, e2) ->
       fprintf fmt "@[<hov>(%a : %a)@ -> %a@]" pr_binder b pr_exp e1 pr_exp2 e2
+  | EDeclaration (l, e) -> fprintf fmt "@[<hov>%a in@ %a@]" pr_decls l pr_exp2 e
   | e -> pr_exp3 fmt e
 and pr_exp3 fmt = function
   | ESigma (b, e1, e2) ->

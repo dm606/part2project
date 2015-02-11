@@ -26,13 +26,13 @@ CommandString. Command ::= "#" Ident String ;
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
 EPair. Exp ::= Exp3 "," Exp ;
-EDeclaration. Exp ::= [Decl] "in" Exp ;
 ELambda. Exp1 ::= "fun" [Binder] "->" Exp1 ;
 EFunction. Exp1 ::= "function" [Case] ;
 EMatch. Exp1 ::= "match" Exp "with" [Case] ;
 EArrow. Exp2 ::= Exp3 "->" Exp2 ;
 -- Using [Binder] instead of Binder in EPi and ESigma requires a GLR parser
 EPi. Exp2 ::= "(" Binder ":" Exp ")" "->" Exp2 ;
+EDeclaration. Exp2 ::= [Decl] "in" Exp2 ;
 ESigma. Exp3 ::= "(" Binder ":" Exp ")" "*" Exp3 ;
 ETimes. Exp3 ::= Exp4 "*" Exp3 ;
 EApplication. Exp4 ::= Exp4 Exp5 ;
