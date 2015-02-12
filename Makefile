@@ -1,4 +1,4 @@
-.PHONY: all clean debug test
+.PHONY: all prof debug test clean
 DEFAULT: all
 
 OCAMLBUILD_FLAGS = -use-ocamlfind $(shell find src -type d -printf "-I %p ")
