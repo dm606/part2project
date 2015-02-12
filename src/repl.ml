@@ -158,6 +158,7 @@ and parse f lexbuf = (
       fprintf stderr "%s: parse error \n" (format_position s e)
   | Abstract.Constructor_not_defined s ->
       fprintf stderr "\"%s\" is not a constructor\n" s
+  | Abstract.Invalid_expression s -> fprintf stderr "%s" s
   | Eval.Cannot_evaluate s -> fprintf stderr "Can't evaluate expression: %s\n" s
   | Declaration_type result -> print_typing_result result
   | Termination.Cannot_check_termination (x, message) ->
