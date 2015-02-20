@@ -211,7 +211,7 @@ let () =
     Sys.catch_break true;
 
     for i = 1 to Array.length Sys.argv - 1 do
-      use_file Sys.argv.(1)
+      use_file Sys.argv.(i)
     done;
 
     repl stdin_lexbuf)
