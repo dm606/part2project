@@ -9,6 +9,13 @@ exception Constructor_not_defined of string
 (** the type of the identifiers used to refer to metavariables *)
 type meta_id
 
+(** crates a metavariable which can be used for an implicit argument *)
+val create_implicit_metavariable : unit -> meta_id
+
+(** [is_implicit id] returns true iff [id] refers to a metavariable which
+    used for an implicit argument *)
+val is_implicit : meta_id -> bool
+
 (** converts the id to a string *)
 val string_of_id : meta_id -> string
 
@@ -45,11 +52,14 @@ val mk_env : string list * (string * string) list -> envt
 type expression =
   | Pair of expression * expression
   | Lambda of binder * expression
+  | LambdaImplicit of binder * expression
   | Pi of binder * expression * expression
+  | PiImplicit of string * expression * expression
   | Sigma of binder * expression * expression
   | Function of (pattern * expression) list
   | LocalDeclaration of declaration list * expression
   | Application of expression * expression
+  | ApplicationImplicit of expression * expression
   | Universe of int
   | UnitType
   | Unit
@@ -75,8 +85,11 @@ and declaration =
   (* Names only used for pretty-printing, except for constructor names *)
   | Let of string * expression * expression
   | LetRec of string * expression * expression
-  | Type of string * (binder * expression) list
+  | Type of string * parameter list
           * expression * (string * expression) list
+and parameter =
+  | Parameter of string * expression
+  | ParameterImplicit of string * expression
 
 (** determines if an expression references a constructor *)
 val does_not_mention : string -> expression -> bool

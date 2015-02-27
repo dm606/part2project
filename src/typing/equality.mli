@@ -8,7 +8,9 @@ val empty_envt : normal_envt
 type normal =
   | NPair of normal * normal
   | NLambda of string * int * normal
+  | NLambdaImplicit of string * int * normal
   | NPi of string * int * normal * normal
+  | NPiImplicit of string * int * normal * normal
   | NSigma of string * int * normal * normal
   | NFunction of (pattern * expression) list * normal_envt
   | NUniverse of int
@@ -21,13 +23,21 @@ and normal_neutral =
   | NFunctionApplication of (pattern * expression) list
                           * normal_envt
                           * normal
+  | NFunctionApplicationImplicit of (pattern * expression) list
+                                   * normal_envt
+                                   * normal
   | NApplication of normal_neutral * normal
+  | NApplicationImplicit of normal_neutral * normal
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral
   | NMeta of meta_id
 
 (** the type of a unification problem *)
 type constraints
+
+(** a reference to the type checker *)
+val checker : ((int * Context.t * value Environment.t) -> constraints ->
+  expression -> value -> constraints option) ref
 
 (** a collection of constraints which are always satisfied *)
 val no_constraints : constraints
@@ -42,7 +52,7 @@ val never_satisfied : constraints -> bool
 
 (** [add_metavariable c id typ] adds a metavariable with id [id] and type [typ] to
     [c]. If [c] already has a type for the metavariable, it is overwritten *)
-val add_metavariable : constraints -> meta_id -> value -> constraints
+val add_metavariable : constraints -> (int * Context.t * value Environment.t) -> meta_id -> value -> constraints
 
 (** [has_metavariable c id] returns true iff [c] has a type for the metavariable
     [id] *)
@@ -69,5 +79,13 @@ val test_expression_equality :
       value Environment.t -> Abstract.expression -> Abstract.expression ->
         constraints 
 
-(** prints the constraints to stdout *)
-val print_constraints : constraints -> unit
+val add_typing_context : constraints -> meta_id -> (int * Context.t * value Environment.t) -> constraints
+
+(** removes all occurences of implcit metavariables from the constraints *)
+val remove_implicit_metavariables : constraints -> constraints 
+
+(** prints the constraints to the formatter *)
+val print_constraints : Format.formatter -> constraints -> unit
+
+(** converts the constraints to a string for printing *)
+val string_of_constraints : constraints -> string

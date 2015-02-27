@@ -15,7 +15,9 @@ and normal =
   | NPair of normal * normal
   (* strings are names of binders; they are used for pretty-printing only *)
   | NLambda of string * int * normal
+  | NLambdaImplicit of string * int * normal
   | NPi of string * int * normal * normal
+  | NPiImplicit of string * int * normal * normal
   | NSigma of string * int * normal * normal
   | NFunction of (pattern * expression) list 
                * normal_envt
@@ -29,10 +31,38 @@ and normal_neutral =
   | NFunctionApplication of (pattern * expression) list
                           * normal_envt
                           * normal
+  | NFunctionApplicationImplicit of (pattern * expression) list
+                                  * normal_envt
+                                  * normal
   | NApplication of normal_neutral * normal
+  | NApplicationImplicit of normal_neutral * normal
   | NProj1 of normal_neutral
   | NProj2 of normal_neutral
   | NMeta of meta_id
+
+let rec no_metavariables_pred_neutral p = function
+  | NVar _ -> true
+  | NFunctionApplication (_, _, n) -> no_metavariables_pred p n
+  | NFunctionApplicationImplicit (_, _, n) -> no_metavariables_pred p n
+  | NApplication (x, y) -> no_metavariables_pred_neutral p x && no_metavariables_pred p y
+  | NApplicationImplicit (x, y) -> no_metavariables_pred_neutral p x && no_metavariables_pred p y
+  | NProj1 x -> no_metavariables_pred_neutral p x
+  | NProj2 x -> no_metavariables_pred_neutral p x
+  | NMeta id -> not (p id) 
+and no_metavariables_pred p = function
+  | NPair (x, y) -> no_metavariables_pred p x && no_metavariables_pred p y
+  | NLambda (_, _, n) -> no_metavariables_pred p n
+  | NLambdaImplicit (_, _, n) -> no_metavariables_pred p n
+  | NPi (_, _, x, y) -> no_metavariables_pred p x && no_metavariables_pred p y
+  | NPiImplicit (_, _, x, y) -> no_metavariables_pred p x && no_metavariables_pred p y
+  | NSigma (_, _, x, y) -> no_metavariables_pred p x && no_metavariables_pred p y
+  | NFunction _ -> true
+  | NUniverse _ | NUnitType | NUnit -> true
+  | NConstruct (_, l) -> List.for_all (no_metavariables_pred p) l
+  | NNeutral n -> no_metavariables_pred_neutral p n
+
+let no_metavariables = no_metavariables_pred (fun _ -> true) 
+let no_metavariables_neutral = no_metavariables_pred_neutral (fun _ -> true) 
 
 let get_index p =
   let rec aux i = function
@@ -44,8 +74,11 @@ let rec expression_of_normal env = function
   | NPair (x, y) ->
       Pair (expression_of_normal env x, expression_of_normal env y)
   | NLambda (s, i, x) -> Lambda (Name s, expression_of_normal (i::env) x)
+  | NLambdaImplicit (s, i, x) -> LambdaImplicit (Name s, expression_of_normal (i::env) x)
   | NPi (s, i, x, y) ->
       Pi (Name s, expression_of_normal env x, expression_of_normal (i::env) y)
+  | NPiImplicit (s, i, x, y) ->
+      PiImplicit (s, expression_of_normal env x, expression_of_normal (i::env) y)
   | NSigma (s, i, x, y) ->
       Sigma (Name s, expression_of_normal env x
         , expression_of_normal (i::env) y)
@@ -67,19 +100,26 @@ and expression_of_normal_neutral env = function
           (* TODO: Can this case actually happen ?? *)
           assert false)
   | NFunctionApplication _ -> raise Constraint_function
+  | NFunctionApplicationImplicit _ -> raise Constraint_function
   | NApplication (x, y) ->
       Application (expression_of_normal_neutral env x, expression_of_normal env y)
+  | NApplicationImplicit (x, y) ->
+      ApplicationImplicit (expression_of_normal_neutral env x, expression_of_normal env y)
   | NProj1 x -> Proj1 (expression_of_normal_neutral env x)
   | NProj2 x -> Proj2 (expression_of_normal_neutral env x)
   | NMeta id -> Meta id 
-
 
 let rec value_of_normal = function
   | NPair (x, y) -> VPair (value_of_normal x, value_of_normal y)
   | NLambda (s, i, x) ->
       VLambda (Name s, expression_of_normal [i] x, Environment.empty)
+  | NLambdaImplicit (s, i, x) ->
+      VLambdaImplicit (Name s, expression_of_normal [i] x, Environment.empty)
   | NPi (s, i, x, y) ->
       VPi (s, value_of_normal x, expression_of_normal [i] y
+        , Environment.empty)
+  | NPiImplicit (s, i, x, y) ->
+      VPiImplicit (s, value_of_normal x, expression_of_normal [i] y
         , Environment.empty)
   | NSigma (s, i, x, y) ->
       VSigma (s, value_of_normal x, expression_of_normal [i] y
@@ -93,29 +133,83 @@ let rec value_of_normal = function
 and value_of_normal_neutral = function
   | NVar (s, i) -> VVar (s, i)
   | NFunctionApplication _ -> raise Constraint_function
+  | NFunctionApplicationImplicit _ -> raise Constraint_function
   | NApplication (x, y) ->
       VApplication (value_of_normal_neutral x, value_of_normal y)
+  | NApplicationImplicit (x, y) ->
+      VApplicationImplicit (value_of_normal_neutral x, value_of_normal y)
   | NProj1 n -> VProj1 (value_of_normal_neutral n)
   | NProj2 n -> VProj1 (value_of_normal_neutral n)
   | NMeta i -> VMeta i
 
+let rec expression_of_normal2 env =
+  let add i = Environment.add env (VNeutral (VVar ("", i))) in
+  function
+  | NPair (x, y) ->
+      Pair (expression_of_normal2 env x, expression_of_normal2 env y)
+  | NLambda (s, i, x) -> Lambda (Name s, expression_of_normal2 (add i) x)
+  | NLambdaImplicit (s, i, x) -> LambdaImplicit (Name s, expression_of_normal2 (add i) x)
+  | NPi (s, i, x, y) ->
+      Pi (Name s, expression_of_normal2 env x, expression_of_normal2 (add i) y)
+  | NPiImplicit (s, i, x, y) ->
+      PiImplicit (s, expression_of_normal2 env x, expression_of_normal2 (add i) y)
+  | NSigma (s, i, x, y) ->
+      Sigma (Name s, expression_of_normal2 env x
+        , expression_of_normal2 (add i) y)
+  | NFunction _ -> raise Constraint_function
+  | NUniverse i -> Universe i
+  | NUnitType -> UnitType 
+  | NUnit -> Unit
+  | NConstruct (c, l) ->
+      List.fold_right (fun n c -> Application (c, expression_of_normal2 env n))
+        l (Constructor c)
+  | NNeutral n -> expression_of_normal_neutral2 env n
+and expression_of_normal_neutral2 env = function
+  | NVar (s, i) -> (
+      match Environment.find (function VNeutral (VVar (_, j)) -> i = j | _ -> false) env with
+      | Some i -> Index i
+      | None -> raise (Failure "expression_of_normal_neutral2"))
+  | NFunctionApplication _ -> raise Constraint_function
+  | NFunctionApplicationImplicit _ -> raise Constraint_function
+  | NApplication (x, y) ->
+      Application (expression_of_normal_neutral2 env x, expression_of_normal2 env y)
+  | NApplicationImplicit (x, y) ->
+      ApplicationImplicit (expression_of_normal_neutral2 env x, expression_of_normal2 env y)
+  | NProj1 x -> Proj1 (expression_of_normal_neutral2 env x)
+  | NProj2 x -> Proj2 (expression_of_normal_neutral2 env x)
+  | NMeta id -> Meta id 
+
 type state = Active | Failed
 
 type constraints =
+  (* typing contexts *)
+  ((int * Context.t * value Environment.t) list) MM.t
   (* types of metavariables *)
-  value MM.t
+  * value MM.t
   (* assignments of metavariables to normals *)
   * normal MM.t
   (* equations *)
   * (state * normal * normal) list
-let no_constraints = (MM.empty, MM.empty, [])
-let always_satisfied (_, _, c) = c = []
-let never_satisfied (_, _, c) = List.exists (fun (s, _, _) -> s = Failed) c
-let has_metavariable (m, _, _) id = MM.mem id m
-let get_metavariable (m, _, _) id = MM.find id m
-let add_metavariable (m, a, c) id typ = (MM.add id typ m, a, c)
-let get_metavariable_assignment (_, a, _) id =
+let checker = ref (fun _ _ _ _ -> assert false)
+let no_constraints = ( MM.empty, MM.empty, MM.empty, [])
+let always_satisfied (_, _, _, c) = c = []
+let never_satisfied (_, _, _, c) = List.exists (fun (s, _, _) -> s = Failed) c
+let has_metavariable (_, m, _, _) id = MM.mem id m
+let get_metavariable (_, m, _, _) id = MM.find id m
+let add_metavariable (con, m, a, c) context id typ = ( MM.add id [context] con, MM.add id typ m, a, c)
+let get_metavariable_assignment (_, _, a, _) id =
   if MM.mem id a then Some (value_of_normal (MM.find id a)) else None
+let add_typing_context ((con, m, a, c):constraints) (id:meta_id) context =
+  if MM.mem id con then ((MM.add id (context::(MM.find id con)) con, m, a, c) :
+    constraints)
+  else ( MM.add id [] con, m, a, c)
+
+let remove_implicit_metavariables ( cont, types, assigments, equations) =
+  let cont = MM.filter (fun id _ -> not (is_implicit id)) cont in
+  let types = MM.filter (fun id _ -> not (is_implicit id)) types in
+  let assigments = MM.filter (fun id _ -> not (is_implicit id)) assigments in
+  let equations = List.filter (fun (s, x, y) -> no_metavariables_pred is_implicit x && no_metavariables_pred is_implicit y) equations in
+  ( cont, types, assigments, equations) 
 
 let rec readback constraints i = 
   let readback = readback constraints in
@@ -126,8 +220,12 @@ let rec readback constraints i =
   | VVar (name, i) -> NVar (name, i)
   | VFunctionApplication (cases, env, v) ->
       NFunctionApplication (cases, readback_env i env, readback i v)
+  | VFunctionApplicationImplicit (cases, env, v) ->
+      NFunctionApplicationImplicit (cases, readback_env i env, readback i v)
   | VApplication (v1, v2) ->
       NApplication (readback_neutral i v1, readback i v2)
+  | VApplicationImplicit (v1, v2) ->
+      NApplicationImplicit (readback_neutral i v1, readback i v2)
   | VProj1 v -> NProj1 (readback_neutral i v)
   | VProj2 v -> NProj2 (readback_neutral i v) 
   | VMeta i -> NMeta i in 
@@ -138,10 +236,17 @@ let rec readback constraints i =
   | VLambda (Name x, e, env) -> 
       NLambda (x, i, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar (x, i)))) e))
+  | VLambdaImplicit (Underscore, e, env) -> NLambdaImplicit ("_", i, readback (i + 1) (eval env e))
+  | VLambdaImplicit (Name x, e, env) -> 
+      NLambdaImplicit (x, i, readback (i + 1)
+        (eval (Environment.add env (VNeutral (VVar (x, i)))) e))
   | VArrow (a, b) ->
       NPi ("_", i, readback i a, readback (i + 1) b)
   | VPi (x, v, e, env) -> 
       NPi (x, i, readback i v, readback (i + 1)
+        (eval (Environment.add env (VNeutral (VVar (x, i)))) e))
+  | VPiImplicit (x, v, e, env) -> 
+      NPiImplicit (x, i, readback i v, readback (i + 1)
         (eval (Environment.add env (VNeutral (VVar (x, i)))) e))
   | VTimes (a, b) ->
       NSigma ("_", i, readback i a, readback (i + 1) b)
@@ -155,13 +260,14 @@ let rec readback constraints i =
   | VConstruct (c, vs) -> NConstruct (c, List.map (readback i) vs)
   | VNeutral n -> NNeutral (readback_neutral i n)
 
-
-(* this function does some evaluation, so that the results are returned in
+(* these functions do some evaluation, so that the results are returned in
  * normal form *)
 let rec subst_var id n = function
   | NPair (x, y) -> NPair (subst_var id n x, subst_var id n y)
   | NLambda (s, i, x) -> NLambda (s, i, subst_var id n x)
+  | NLambdaImplicit (s, i, x) -> NLambdaImplicit (s, i, subst_var id n x)
   | NPi (s, i, x, y) -> NPi (s, i, subst_var id n x, subst_var id n y)
+  | NPiImplicit (s, i, x, y) -> NPiImplicit (s, i, subst_var id n x, subst_var id n y)
   | NSigma (s, i, x, y) -> NSigma (s, i, subst_var id n x, subst_var id n y)
   | NFunction _ -> raise Constraint_function
   | NUniverse _ | NUnitType | NUnit as n -> n
@@ -171,6 +277,7 @@ and subst_var_neutral id n = function
   | NVar (_, id2) when id = id2 -> n
   | NVar _ as x -> NNeutral x
   | NFunctionApplication _ -> raise Constraint_function
+  | NFunctionApplicationImplicit _ -> raise Constraint_function
   | NApplication (x, y) -> (
       let x = subst_var_neutral id n x in
       let y = subst_var id n y in
@@ -178,6 +285,16 @@ and subst_var_neutral id n = function
       | NConstruct (c, l) -> NConstruct (c, y::l)
       | NLambda (b, i, x) -> subst_var i y x
       | NNeutral x -> NNeutral (NApplication (x, y))
+      | _ ->
+          (* should only happen if the normals do not type check *)
+          assert false)
+  | NApplicationImplicit (x, y) -> (
+      let x = subst_var_neutral id n x in
+      let y = subst_var id n y in
+      match x with
+      | NConstruct (c, l) -> NConstruct (c, y::l)
+      | NLambda (b, i, x) -> subst_var i y x
+      | NNeutral x -> NNeutral (NApplicationImplicit (x, y))
       | _ ->
           (* should only happen if the normals do not type check *)
           assert false)
@@ -197,13 +314,14 @@ and subst_var_neutral id n = function
           assert false)
   | NMeta _ as x -> NNeutral x
 
-
 (* this function does some evaluation, so that the results are returned in
  * normal form *)
 let rec subst id n = function
   | NPair (x, y) -> NPair (subst id n x, subst id n y)
   | NLambda (s, i, x) -> NLambda (s, i, subst id n x)
+  | NLambdaImplicit (s, i, x) -> NLambdaImplicit (s, i, subst id n x)
   | NPi (s, i, x, y) -> NPi (s, i, subst id n x, subst id n y)
+  | NPiImplicit (s, i, x, y) -> NPiImplicit (s, i, subst id n x, subst id n y)
   | NSigma (s, i, x, y) -> NSigma (s, i, subst id n x, subst id n y)
   | NFunction _ -> raise Constraint_function
   | NUniverse _ | NUnitType | NUnit as n -> n
@@ -212,6 +330,7 @@ let rec subst id n = function
 and subst_neutral id n = function
   | NVar _ as x -> NNeutral x
   | NFunctionApplication _ -> raise Constraint_function
+  | NFunctionApplicationImplicit _ -> raise Constraint_function
   | NApplication (x, y) -> (
       let x = subst_neutral id n x in
       let y = subst id n y in
@@ -221,6 +340,18 @@ and subst_neutral id n = function
       | NNeutral x -> NNeutral (NApplication (x, y))
       | _ ->
           (* should only happen if the normals do not type check *)
+          (* in particular, the case NLambdaImplicit should not occur *)
+          assert false)
+  | NApplicationImplicit (x, y) -> (
+      let x = subst_neutral id n x in
+      let y = subst id n y in
+      match x with
+      | NConstruct (c, l) -> NConstruct (c, y::l)
+      | NLambdaImplicit (b, i, x) -> subst_var i y x
+      | NNeutral x -> NNeutral (NApplicationImplicit (x, y))
+      | _ ->
+          (* should only happen if the normals do not type check *)
+          (* in particular, the case NLambdaImplicit should not occur *)
           assert false)
   | NProj1 x -> (
       match subst_neutral id n x with
@@ -245,28 +376,12 @@ let apply_subst_equation a eq =
   MM.fold (fun id n eq -> subst_equation id n eq) a eq 
 
 let add hd tl = if List.mem hd tl then tl else hd::tl
-let add_equation s x y (m, a, c) =
+let add_equation s x y ( con, m, a, c) =
   let eq =
     try apply_subst_equation a (s, x, y)
     with Constraint_function -> (Failed, x, y) in
-  (m, a, add eq c)
+  ( con, m, a, add eq c)
 
-let rec no_metavariables_neutral = function
-  | NVar _ -> true
-  | NFunctionApplication (_, _, n) -> no_metavariables n
-  | NApplication (x, y) -> no_metavariables_neutral x && no_metavariables y
-  | NProj1 x -> no_metavariables_neutral x
-  | NProj2 x -> no_metavariables_neutral x
-  | NMeta _ -> false
-and no_metavariables = function
-  | NPair (x, y) -> no_metavariables x && no_metavariables y
-  | NLambda (_, _, n) -> no_metavariables n
-  | NPi (_, _, x, y) -> no_metavariables x && no_metavariables y
-  | NSigma (_, _, x, y) -> no_metavariables x && no_metavariables y
-  | NFunction _ -> true
-  | NUniverse _ | NUnitType | NUnit -> true
-  | NConstruct (_, l) -> List.for_all no_metavariables l
-  | NNeutral n -> no_metavariables_neutral n
 
 let rec head_is_metavariable = function
   | NNeutral (NMeta _) -> true
@@ -365,12 +480,21 @@ let simplify x y =
         | NFunctionApplication (l, env, x) ->
             let b, x, y = aux x in
             (b, NFunctionApplication (l, env, x), y)
+        | NFunctionApplicationImplicit (l, env, x) ->
+            let b, x, y = aux x in
+            (b, NFunctionApplicationImplicit (l, env, x), y)
         | NApplication (x1, x2) -> 
             let b, x1, y = aux_neutral x1 in
             if b then (true, NApplication (x1, x2), y)
             else
               let b, x2, y = aux x2 in
               (b, NApplication (x1, x2), y)
+        | NApplicationImplicit (x1, x2) -> 
+            let b, x1, y = aux_neutral x1 in
+            if b then (true, NApplicationImplicit (x1, x2), y)
+            else
+              let b, x2, y = aux x2 in
+              (b, NApplicationImplicit (x1, x2), y)
         | NProj1 x ->
             let b, x, y = aux_neutral x in
             (b, NProj1 x, y)
@@ -381,6 +505,9 @@ let simplify x y =
       and aux = function
         (* eta-contraction *)
         | NLambda (_, i, NNeutral (NApplication (x1, NNeutral (NVar (_, j)))))
+          when i = j ->
+            (true, NNeutral x1, y)
+        | NLambdaImplicit (_, i, NNeutral (NApplicationImplicit (x1, NNeutral (NVar (_, j)))))
           when i = j ->
             (true, NNeutral x1, y)
         | NPair (NNeutral (NProj1 x1), NNeutral (NProj2 x2)) when x1 = x2 ->
@@ -398,12 +525,21 @@ let simplify x y =
         | NLambda (name, i, x) ->
             let b, x, y = aux x in
             (b, NLambda (name, i, x), y)
+        | NLambdaImplicit (name, i, x) ->
+            let b, x, y = aux x in
+            (b, NLambdaImplicit (name, i, x), y)
         | NPi (name, i, x1, x2) ->
             let b, x1, y = aux x1 in
             if b then (true, NPi (name, i, x1, x2), y)
             else
               let b, x2, y = aux x2 in
               (b, NPi (name, i, x1, x2), y)
+        | NPiImplicit (name, i, x1, x2) ->
+            let b, x1, y = aux x1 in
+            if b then (true, NPiImplicit (name, i, x1, x2), y)
+            else
+              let b, x2, y = aux x2 in
+              (b, NPiImplicit (name, i, x1, x2), y)
         | NSigma (name, i, x1, x2) ->
             let b, x1, y = aux x1 in
             if b then (true, NSigma (name, i, x1, x2), y)
@@ -428,19 +564,19 @@ let simplify x y =
 
 (* local simplification examines equations in isolation, until it finds one
  * which can be simplified *)
-let rec perform_local_simplification (m, a, c) = match c with
-  | [] -> (false, (m, a, []))
+let rec perform_local_simplification (( cont, m, a, c) : constraints) = match c with
+  | [] -> (false, ( cont, m, a, []))
   | (Active, x, y)::tl -> (
       match simplify x y with
       | false, _ ->
-          let b, (m, a, tl) = perform_local_simplification (m, a, tl) in
-          (b, (m, a, (Active, x, y)::tl))
+          let b, ( cont, m, a, tl) = perform_local_simplification ( cont, m, a, tl) in
+          (b, ( cont, m, a, (Active, x, y)::tl))
       | true, con ->
-          (true, (m, a, con ++ tl)))
+          (true, ( cont, m, a, con ++ tl)))
   | (Failed, x, y)::tl ->
       (* do not attempt to simplify equations which cannot be satisfied *)
-      let b, (m, a, tl) = perform_local_simplification (m, a, tl) in
-      (b, (m, a, (Failed, x, y)::tl))
+      let b, ( con, m, a, tl) = perform_local_simplification ( cont, m, a, tl) in
+      (b, ( con, m, a, (Failed, x, y)::tl))
 
 let flatten = 
   let rec aux l = function
@@ -458,7 +594,9 @@ let get_free_rigid_variables =
   let rec aux ignore l = function
     | NPair (n1, n2) -> aux ignore (aux ignore l n1) n2
     | NLambda (_, i, n) -> aux (i::ignore) l n 
+    | NLambdaImplicit (_, i, n) -> aux (i::ignore) l n 
     | NPi (_, i, x, y) -> aux (i::ignore) (aux ignore l x) y
+    | NPiImplicit (_, i, x, y) -> aux (i::ignore) (aux ignore l x) y
     | NSigma (_, i, x, y) -> aux (i::ignore) (aux ignore l x) y
     | NFunction _ -> raise Constraint_function
     | NUniverse _ | NUnit | NUnitType -> l
@@ -467,7 +605,15 @@ let get_free_rigid_variables =
   and aux_neutral ignore l = function
     | NVar (_, i) -> if List.mem i ignore then l else i::l
     | NFunctionApplication _ -> raise Constraint_function
+    | NFunctionApplicationImplicit _ -> raise Constraint_function
     | NApplication _ as n -> (
+        let n, tl = flatten (NNeutral n) in
+        match n with
+        | NNeutral (NMeta _) -> 
+            (* variables are flexible if they are applied to a metavariable *)
+            l 
+        | _ -> List.fold_left (aux ignore) (aux ignore l n) tl)
+    | NApplicationImplicit _ as n -> (
         let n, tl = flatten (NNeutral n) in
         match n with
         | NNeutral (NMeta _) -> 
@@ -483,7 +629,9 @@ let get_free_rigid_variables =
 let rec occurs_check id = function
   | NPair (x, y) -> occurs_check id x || occurs_check id y
   | NLambda (_, _, x) -> occurs_check id x
+  | NLambdaImplicit (_, _, x) -> occurs_check id x
   | NPi (_, _, x, y) -> occurs_check id x || occurs_check id y
+  | NPiImplicit (_, _, x, y) -> occurs_check id x || occurs_check id y
   | NSigma (_, _, x, y) -> occurs_check id x || occurs_check id y
   | NFunction _ -> raise Constraint_function
   | NUniverse _ | NUnitType | NUnit -> false
@@ -492,25 +640,47 @@ let rec occurs_check id = function
 and occurs_check_neutral id = function
   | NVar _ -> false
   | NFunctionApplication _ -> raise Constraint_function
+  | NFunctionApplicationImplicit _ -> raise Constraint_function
   | NApplication (x, y) ->
+     (* rigid occurrences in y are not strong *)
+     occurs_check_neutral id x 
+  | NApplicationImplicit (x, y) ->
      (* rigid occurrences in y are not strong *)
      occurs_check_neutral id x 
   | NProj1 n -> occurs_check_neutral id n 
   | NProj2 n -> occurs_check_neutral id n
   | NMeta id2 -> id = id2
 
-let assign (m, a, c) id n = 
-  let a = MM.map (fun x -> subst id n x) a in
-  let c = List.map (subst_equation id n) c in
-  assert (not (MM.mem id a)); (* the metavariable must not be assigned twice *)
-  (m, MM.add id n a, c)
+let check_assign ((con, m, a, c) : constraints) id n =
+  if MM.mem id m then
+    let cons = if MM.mem id con then MM.find id con else [] in
+    let typ = MM.find id m in
+    List.fold_left (fun prev (i, context, env) -> match prev with
+      | None -> None
+      | Some constraints ->
+          try
+            let exp = expression_of_normal2 env n in
+            !checker (i, context, env) constraints exp typ
+          with Failure _ -> None) (Some (con, m, a, c)) cons
+  else Some ((con, m, a, c): constraints)
+
+let assign ( con, m, a, c) id n = 
+  match check_assign (con, m, a, c) id n with
+  | None ->
+      (* n does not have the correct type *)
+      ((con, m, a, (Failed, NNeutral (NMeta id), n)::c) : constraints)
+  | Some (con, m, a, c) ->
+    let a = MM.map (fun x -> subst id n x) a in
+    let c = List.map (subst_equation id n) c in
+    assert (not (MM.mem id a)); (* the metavariable must not be assigned twice *)
+    ( con, m, MM.add id n a, c)
 
 let rec no_duplicates = function
   | [] -> true
   | hd::tl -> (not (List.mem hd tl)) && no_duplicates tl
 
-let rec solve_metavariable (m, a, c) =
-  let solve (m, a, c) x y = match get_metavariable_application x with
+let rec solve_metavariable ( con, m, a, c) =
+  let solve ( con, m, a, c) x y = match get_metavariable_application x with
     | None -> None
     | Some (id, l) ->
         (* the equation can only be solved at this point if all of the
@@ -529,34 +699,34 @@ let rec solve_metavariable (m, a, c) =
               (* if there is a strong rigid occurence of the metavariable on the
                * right hand side, then the equation has no (finite) solutions *)
               if occurs_check id y then
-                Some (m, a, [Failed, x, y] ++ c)
+                Some ( con, m, a, [Failed, x, y] ++ c)
               else
                 let rec add_lambdas = function
                   | [] -> y
                   | (NNeutral (NVar (s, i)))::tl ->
                       NLambda (s, i, add_lambdas tl)
                   | _ -> assert false in
-                Some (assign (m, a, c) id (add_lambdas l))
-            else Some (m, a, [Failed, x, y] ++ c)
+                Some (assign ( con, m, a, c) id (add_lambdas l))
+            else Some ( con, m, a, [Failed, x, y] ++ c)
           else None
         else None in
 
   match c with
-  | [] -> (false, (m, a, []))
+  | [] -> (false, ( con, m, a, []))
   | (Active, x, y)::tl -> (
-    match solve (m, a, tl) x y with
+    match solve ( con, m, a, tl) x y with
     | None ->
-        let b, (m, a, tl) = solve_metavariable (m, a, tl) in
-        (b, (m, a, (Active, x, y)::tl))
-    | Some (m, a, c) -> (true, (m, a, c))
+        let b, ( con, m, a, tl) = solve_metavariable ( con, m, a, tl) in
+        (b, ( con, m, a, (Active, x, y)::tl))
+    | Some ( con, m, a, c) -> (true, ( con, m, a, c))
     | exception Constraint_function ->
-        let b, (m, a, tl) = solve_metavariable (m, a, tl) in
-        (b, (m, a, (Active, x, y)::tl)))
+        let b, ( con, m, a, tl) = solve_metavariable ( con, m, a, tl) in
+        (b, ( con, m, a, (Active, x, y)::tl)))
 
   | (Failed, x, y)::tl ->
       (* do not attempt to simplify equations which cannot be satisfied *)
-      let b, (m, a, tl) = solve_metavariable (m, a, tl) in
-      (b, (m, a, (Failed, x, y)::tl))
+      let b, ( con, m, a, tl) = solve_metavariable ( con, m, a, tl) in
+      (b, ( con, m, a, (Failed, x, y)::tl))
 
 (* refine the constraints by one step *)
 let refine constraints = 
@@ -608,7 +778,7 @@ let rec test_normal_equality c x y =
       (* if x or y has a metavariable, then they maay be equal if constraints
        * are satisfied *)
       c >>= add_equation Active x y
-  | _ -> c >>= add_equation Failed x y
+  | _ -> c
 and test_neutral_equality c x y =
   let test x y c = test_neutral_equality c x y in
   let test_normal x y c = test_normal_equality c x y in
@@ -640,7 +810,11 @@ let rec pr_neutral fmt = function
 and pr_neutral4 fmt = function
   | NApplication (n, v) ->
       fprintf fmt "@[<hov2>%a@ %a@]" pr_neutral4 n pr_normal5 v
+  | NApplicationImplicit (n, v) ->
+      fprintf fmt "@[<hov2>%a@ {%a}@]" pr_neutral4 n pr_normal v
   | NFunctionApplication (_, _, n) ->
+      fprintf fmt "@[<hov2>%s@ %a@]" "<function>" pr_normal5 n
+  | NFunctionApplicationImplicit (_, _, n) ->
       fprintf fmt "@[<hov2>%s@ %a@]" "<function>" pr_normal5 n
   | v -> pr_neutral5 fmt v
 and pr_neutral5 fmt = function
@@ -657,11 +831,15 @@ and pr_normal fmt = function
 and pr_normal1 fmt = function
   | NLambda ("", i, x) -> fprintf fmt "@[<hov2>fun %i@ -> %a@]" i pr_normal1 x
   | NLambda (b, _, x) -> fprintf fmt "@[<hov2>fun %s@ -> %a@]" b pr_normal1 x
+  | NLambdaImplicit ("", i, x) -> fprintf fmt "@[<hov2>fun {%i}@ -> %a@]" i pr_normal1 x
+  | NLambdaImplicit (b, _, x) -> fprintf fmt "@[<hov2>fun {%s}@ -> %a@]" b pr_normal1 x
   | NFunction (_, _) -> fprintf fmt "<function>"
   | v -> pr_normal2 fmt v
 and pr_normal2 fmt = function
   | NPi ("", i, a, b) -> fprintf fmt "@[<hov2>(%i : %a)@ -> %a@]" i pr_normal3 a pr_normal2 b
   | NPi (name, _, a, b) -> fprintf fmt "@[<hov2>(%s : %a)@ -> %a@]" name pr_normal3 a pr_normal2 b
+  | NPiImplicit ("", i, a, b) -> fprintf fmt "@[<hov2>{%i : %a}@ -> %a@]" i pr_normal3 a pr_normal2 b
+  | NPiImplicit (name, _, a, b) -> fprintf fmt "@[<hov2>{%s : %a}@ -> %a@]" name pr_normal3 a pr_normal2 b
   | v -> pr_normal3 fmt v
 and pr_normal3 fmt = function
   | NSigma ("", i, a, b) -> fprintf fmt "@[<hov2>(%i : %a)@ * %a@]" i pr_normal4 a pr_normal3 b
@@ -693,12 +871,15 @@ let string_of_normal v =
   pp_print_flush str_formatter ();
   Buffer.contents stdbuf
 
-let print_constraints (m, a, c) =
-  MM.iter (fun id typ -> Printf.printf "?%s : %s\n" (string_of_id id)
-    (Print_value.string_of_value typ)) m;
-  MM.iter (fun id typ -> Printf.printf "?%s := %s\n" (string_of_id id)
-    (string_of_normal typ)) a;
-  List.iter (function
-    | (Active, x, y) -> Printf.printf "%s = %s\n" (string_of_normal x) (string_of_normal y)
-    | (Failed, x, y) -> Printf.printf "Failed: %s = %s\n" (string_of_normal x) (string_of_normal y)) c
+let string_of_constraints (_, m, a, c) =
+  let s = MM.fold (fun id typ s -> sprintf "%s?%s : %s\n" s (string_of_id id)
+    (Print_value.string_of_value typ)) m "" in
+  let s = MM.fold (fun id typ s -> sprintf "%s?%s := %s\n" s (string_of_id id)
+    (string_of_normal typ)) a s in
+  List.fold_left (fun s -> function
+    | (Active, x, y) -> sprintf "%s%s = %s\n" s (string_of_normal x) (string_of_normal y)
+    | (Failed, x, y) -> sprintf "%sFailed: %s = %s\n" s (string_of_normal x) (string_of_normal y))
+    s c 
 
+let print_constraints fmt constraints =
+  Format.fprintf fmt "%s" (string_of_constraints constraints)

@@ -53,13 +53,17 @@ let rec eval' metavars f env =
   function
   | Pair (e1, e2) -> VPair (eval' metavars f env e1, eval' metavars f env e2)
   | Lambda (b, e) -> VLambda (b, e, env)
+  | LambdaImplicit (b, e) -> VLambdaImplicit (b, e, env)
   | Pi (Underscore, e1, e2) -> VArrow (eval' metavars f env e1, eval' metavars f env e2)
   | Pi (Name b, e1, e2) -> VPi (b, eval' metavars f env e1, e2, env)
+  | PiImplicit (x, e1, e2) -> VPiImplicit (x, eval' metavars f env e1, e2, env)
   | Sigma (Underscore, e1, e2) ->
       VTimes (eval' metavars f env e1, eval' metavars f env e2)
   | Sigma (Name b, e1, e2) -> VSigma (b, eval' metavars f env e1, e2, env)
   | Function l -> VFunction (l, env)
   | LocalDeclaration (l, e) -> f env l; eval' metavars f (add_declarations env l) e
+  (* it is assumed that the type checker has inserted metavariables in the
+   * correct places for implicit argument *)
   | Application (e1, e2) ->
       if e1 = e2 then raise (Cannot_evaluate "self-application") else
       let v1 = eval' metavars f env e1 in
@@ -68,8 +72,23 @@ let rec eval' metavars f env =
       (match v1 with
        | VConstruct (c, l) -> VConstruct (c, v2::l)
        | VLambda (b, e, fun_env) -> apply b e fun_env v2
+       | VLambdaImplicit (b, e, fun_env) ->
+           let fun_env = Environment.add fun_env (VNeutral (VMeta ((Abstract.create_implicit_metavariable ())))) in
+           eval' metavars f fun_env (Application (e, e2))
        | VFunction (l, fun_env) -> apply_function l fun_env v2
        | VNeutral v -> VNeutral (VApplication (v, v2))
+       | _ -> raise (Cannot_evaluate
+                "Attempted to apply a value which is not a function"))
+  | ApplicationImplicit (e1, e2) ->
+      if e1 = e2 then raise (Cannot_evaluate "self-application") else
+      let v1 = eval' metavars f env e1 in
+      let v2 = eval' metavars f env e2 in
+      if v1 = v2 then raise (Cannot_evaluate "self-application") else
+      (match v1 with
+       | VConstruct (c, l) -> VConstruct (c, v2::l)
+       | VLambdaImplicit (b, e, fun_env) -> apply b e fun_env v2
+       | VFunction (l, fun_env) -> apply_function l fun_env v2
+       | VNeutral v -> VNeutral (VApplicationImplicit (v, v2))
        | _ -> raise (Cannot_evaluate
                 "Attempted to apply a value which is not a function"))
   | Universe i -> VUniverse i

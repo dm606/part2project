@@ -26,16 +26,18 @@ CommandString. Command ::= "#" Ident String ;
 -- Expressions
 -- EArrow, ETimes, EMatch, and lists in ELambda are syntactic sugar
 EPair. Exp ::= Exp3 "," Exp ;
-ELambda. Exp1 ::= "fun" [Binder] "->" Exp1 ;
+ELambda. Exp1 ::= "fun" [LambdaBinder] "->" Exp1 ;
 EFunction. Exp1 ::= "function" [Case] ;
 EMatch. Exp1 ::= "match" Exp "with" [Case] ;
 EArrow. Exp2 ::= Exp3 "->" Exp2 ;
 -- Using [Binder] instead of Binder in EPi and ESigma requires a GLR parser
 EPi. Exp2 ::= "(" Binder ":" Exp ")" "->" Exp2 ;
+EPiImplicit. Exp2 ::= "{" Ident ":" Exp "}" "->" Exp2 ;
 EDeclaration. Exp2 ::= [Decl] "in" Exp2 ;
 ESigma. Exp3 ::= "(" Binder ":" Exp ")" "*" Exp3 ;
 ETimes. Exp3 ::= Exp4 "*" Exp3 ;
 EApplication. Exp4 ::= Exp4 Exp5 ;
+EApplicationImplicit. Exp4 ::= Exp4 "{" Exp "}" ;
 EUniverse. Exp5 ::= "Type" Integer ;
 EUnindexedUniverse. Exp5 ::= "Type" ;
 EUnitType. Exp5 ::= "Unit" ;
@@ -46,12 +48,15 @@ EProj2. Exp5 ::= Exp5 ".2" ;
 EMeta. Exp5 ::= "?" ;
 -- Should not be in user input
 EMetaInternal. Exp5 ::= "?" Integer;
+EMetaInternalImplicit. Exp5 ::= "?I" Integer;
 coercions Exp 5 ;
 
 -- Binders
 BName. Binder ::= Ident ;
 BUnderscore. Binder ::= "_" ;
-separator nonempty Binder "" ;
+LBinder. LambdaBinder ::= Binder ;
+LImplicit. LambdaBinder ::= "{" Binder "}" ;
+separator nonempty LambdaBinder "" ;
 
 -- Cases
 CCase. Case ::= Pattern "->" Exp2 ;
@@ -77,7 +82,8 @@ DSimpleType. Decl ::= "type" Ident "=" [Constructor] ;
 separator nonempty Decl "and" ;
 
 -- Parameters
-Param. Parameter ::= "(" Binder ":" Exp ")" ;
+Param. Parameter ::= "(" Ident ":" Exp ")" ;
+ParamImplicit. Parameter ::= "{" Ident ":" Exp "}" ;
 separator Parameter "" ;
 
 -- Constructors

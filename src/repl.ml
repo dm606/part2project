@@ -21,7 +21,7 @@ let env = ref Environment.empty
 let context = ref Context.empty
 
 (* constraints on metavariables *)
-let constraints = ref Equality.no_constraints
+let constraints = ref Equality.no_constraints 
 
 let prompt = ref ""
 let last_typing_result = ref None
@@ -99,7 +99,7 @@ let handle_are_equal () =
           else
             print_endline
               "Expressions are equal iff constraints are satisfied:\n";
-            Equality.print_constraints result)
+            Equality.print_constraints Format.std_formatter result)
 
 let handle_infer_type () =
   print_string "Expression: ";
@@ -112,27 +112,30 @@ let handle_infer_type () =
     then Print_value.print_value (Checker.get_type result)
     else print_typing_result result
 
-let handle_constraints () = Equality.print_constraints !constraints
+let handle_constraints () = Equality.print_constraints Format.std_formatter !constraints
 
 let remove_types context = List.fold_left (fun c -> function 
   | Type (x, _, _, _) -> Context.remove_constructors_of_type c x
   | _ -> c) context
 
-let add_declarations_to_context context d =
+let check_declarations context d =
   let result = Checker.check_declarations !constraints !env context d in
-  if Checker.succeeded result then
-    let context = remove_types context d in
-    let context = List.fold_right
-                    (fun (s, v) c -> Context.add_binder c s v)
-                    (Checker.get_binder_types result) context in
-    let constructor_types = Checker.get_constructor_types result in
-    constraints := Checker.get_constraints result;
-    (* the order of constructors does not matter -- use fold_left for
-     * efficiency *)
-    List.fold_left
-      (fun c (s, type_name, v) -> Context.add_constructor c s type_name v)
-      context constructor_types
+  if Checker.succeeded result then result
   else raise (Declaration_type result)
+
+let add_declarations_to_context context result =
+  let d = Checker.get_declarations result in
+  let context = remove_types context d in
+  let context = List.fold_right
+                  (fun (s, v) c -> Context.add_binder c s v)
+                  (Checker.get_binder_types result) context in
+  let constructor_types = Checker.get_constructor_types result in
+  constraints := Checker.get_constraints result;
+  (* the order of constructors does not matter -- use fold_left for
+   * efficiency *)
+  List.fold_left
+    (fun c (s, type_name, v) -> Context.add_constructor c s type_name v)
+    context constructor_types
 
 let rec use_file filename =
   let file = open_in filename in
@@ -158,7 +161,7 @@ and parse f lexbuf = (
       fprintf stderr "%s: parse error \n" (format_position s e)
   | Abstract.Constructor_not_defined s ->
       fprintf stderr "\"%s\" is not a constructor\n" s
-  | Abstract.Invalid_expression s -> fprintf stderr "%s" s
+  | Abstract.Invalid_expression s -> fprintf stderr "%s\n" s
   | Eval.Cannot_evaluate s -> fprintf stderr "Can't evaluate expression: %s\n" s
   | Declaration_type result -> print_typing_result result
   | Termination.Cannot_check_termination (x, message) ->
@@ -173,16 +176,18 @@ and handle_input l = lazy (
         let exp = desugar_expression !declared e in
         let typing_result = Checker.infer_type !constraints !env !context exp in
         if Checker.succeeded typing_result then (
+          constraints := Checker.get_constraints typing_result;
           let evaluated =
             Eval.eval (Equality.get_metavariable_assignment !constraints)
-            !env exp in
-          constraints := Checker.get_constraints typing_result;
+              !env (Checker.get_expression typing_result) in
           Print_value.print_value evaluated)
         else print_typing_result typing_result
     | Parser.Decl d ->
         let new_declared = add_all_declaration_binders !declared d in
         let decl = desugar_declarations !declared d in
-        let new_context = add_declarations_to_context !context decl in
+        let result = check_declarations !context decl in
+        let decl = Checker.get_declarations result in
+        let new_context = add_declarations_to_context !context result in
         let new_env = Environment.add_declarations !env decl in
         print_endline (print_declarations !declared decl);
         declared := new_declared;

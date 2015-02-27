@@ -1,5 +1,4 @@
 open Abstract
-open Equality
 open Value
 
 module M = Map.Make(String)
@@ -38,21 +37,61 @@ let get_binder_type (m, l) i = match List.nth l i with
   | _, `T t -> Some (Lazy.force t)
   | exception (Failure _) -> None
 
-let compare_types constraints t =
-  let eq x y = test_equality 0 constraints x y in
-
+let rec refresh_neutral = function
+  | VProj1 n1 -> VProj1 (refresh_neutral n1)
+  | VProj2 n1 -> VProj2 (refresh_neutral n1)
+  | VMeta id when Abstract.is_implicit id -> VMeta (Abstract.create_implicit_metavariable ())
+  | VMeta _ as n -> n
+  | _ -> raise (Failure "refresh")
+and refresh =
   function
-  | _, `V t2 -> eq t t2
-  | _, `T thunk -> eq t (Lazy.force thunk)
-
-let check_constructor_type (m, l) constraints c t =
-  if M.mem c m then
-    List.fold_left
-      (fun r c -> match r with
-        | None -> Some (compare_types constraints t c)
-        | r -> r)
-      None (M.find c m) 
-  else None
+  | VPair (v1, v2) ->
+      VPair (refresh v1, refresh v2)
+  | VLambda _ as l -> l
+  | VLambdaImplicit _ as l -> l
+  | VArrow (a, b) ->
+      VArrow (refresh a, refresh b)
+  | VPi (b, v1, e, env) ->
+      VPi (b, refresh v1, refresh_exp e, env)
+  | VPiImplicit (b, v1, e, env) ->
+      VPiImplicit (b, refresh v1, refresh_exp e, env)
+  | VTimes (a, b) ->
+      VTimes (refresh a, refresh b)
+  | VSigma (b, v1, e, env) ->
+      VSigma (b, refresh v1, refresh_exp e, env)
+  | VFunction _ -> raise (Failure "refresh") 
+  | VUniverse i -> VUniverse i
+  | VUnitType -> VUnitType
+  | VUnit -> VUnit
+  | VConstruct (c, l) ->
+      VConstruct (c, List.map refresh l)
+  | VNeutral n -> VNeutral (refresh_neutral n)
+and refresh_exp = function
+  | Pair (e1, e2) ->
+      Pair (refresh_exp e1, refresh_exp e2)
+  | Lambda (b, e) ->
+      Lambda (b, refresh_exp e)
+  | LambdaImplicit (b, e) ->
+      LambdaImplicit (b, refresh_exp e)
+  | Pi (b, e1, e2) ->
+      Pi (b, refresh_exp e1, refresh_exp e2)
+  | PiImplicit (b, e1, e2) ->
+      PiImplicit (b, refresh_exp e1, refresh_exp e2)
+  | Sigma (b, e1, e2) ->
+      Sigma (b, refresh_exp e1, refresh_exp e2)
+  | Function l -> Function (List.map (fun (p, e) -> (p, refresh_exp e)) l)
+  | LocalDeclaration (d, e) -> raise (Failure "refresh_exp") 
+  | Application (e1, e2) -> Application (refresh_exp e1, refresh_exp e2)
+  | ApplicationImplicit (e1, e2) -> ApplicationImplicit (refresh_exp e1, refresh_exp e2)
+  | Universe i -> Universe i
+  | UnitType -> UnitType
+  | Unit -> Unit
+  | Index i -> Index i
+  | Constructor c -> Constructor c
+  | Proj1 e -> Proj1 (refresh_exp e)
+  | Proj2 e -> Proj2 (refresh_exp e)
+  | Meta id when is_implicit id -> Meta (create_implicit_metavariable ())
+  | Meta id -> Meta id
 
 let get_constructor_types (m, l) c =
   if M.mem c m then List.map (fun (x, v) -> 
@@ -72,8 +111,8 @@ let get_constructors_of_type (m, l) t =
 let get_unique_constructor_type (m, l) c =
   if M.mem c m
   then match M.find c m with
-  | [_, `V t] -> Some t
-  | [_, `T t] -> Some (Lazy.force t)
+  | [_, `V t] -> Some (refresh t)
+  | [_, `T t] -> Some (refresh (Lazy.force t))
   | _ -> None
   else None
 
@@ -117,8 +156,10 @@ let (>>=) m f = match m with
 let rec occurs v i = match v with
   | VPair (v1, v2) -> occurs v1 i || occurs v2 i
   | VLambda _ -> false
+  | VLambdaImplicit _ -> false
   | VArrow (a, b) -> occurs a i || occurs b i
   | VPi (_, v, _, _) -> occurs v i
+  | VPiImplicit (_, v, _, _) -> occurs v i
   | VTimes (a, b) -> occurs a i || occurs b i
   | VSigma (_, v, _, _) -> occurs v i
   | VFunction _ -> false
@@ -131,7 +172,9 @@ and neutral_occurs n i = match n with
   | VVar (_, j) when i = j -> true
   | VVar _ -> false
   | VFunctionApplication (_, _, n) -> occurs n i
+  | VFunctionApplicationImplicit (_, _, n) -> occurs n i
   | VApplication (n, v) -> neutral_occurs n i || occurs v i
+  | VApplicationImplicit (n, v) -> neutral_occurs n i || occurs v i
   | VProj1 n -> neutral_occurs n i
   | VProj2 n -> neutral_occurs n i
   | VMeta _ -> false

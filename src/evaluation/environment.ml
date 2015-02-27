@@ -49,3 +49,11 @@ let map_to_list value decl = List.map (function
 let map value decl = List.map (function
   | Val v -> Val (value v)
   | Decl d -> Decl (decl d))
+
+let find p =
+  let rec aux index = function
+    | [] -> None
+    | (Val x)::xs when p x -> Some index
+    | (Val _)::xs -> aux (index + 1) xs
+    | (Decl d)::xs -> aux (index + (List.length d)) xs in
+  aux 0

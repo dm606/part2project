@@ -18,7 +18,7 @@ exception Cannot_pattern_match
       
 val add_binders :
   (int -> Equality.constraints -> Context.t -> value Environment.t -> expression
-    -> value -> Equality.constraints option)
+    -> value -> (expression * Equality.constraints) option)
   -> int -> Equality.constraints -> Context.t -> value Environment.t -> value
   -> pattern
   -> (value * int * Equality.constraints * Context.t * value Environment.t

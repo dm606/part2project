@@ -8,3 +8,4 @@ val map_to_list : ('a -> 'b) -> (Abstract.declaration list -> 'b) -> 'a t
                -> 'b list
 val map : ('a -> 'b) -> (Abstract.declaration list -> Abstract.declaration list)
        -> 'a t -> 'b t
+val find : ('a -> bool) -> 'a t -> int option

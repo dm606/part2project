@@ -32,8 +32,8 @@ let maj : Bool * Bool * Bool -> Bool = function
 let rec map : (A : Type) -> (B : Type) -> (A -> B) -> (n : Nat) -> Vec A n
            -> Vec B n =
   fun A B f -> (function
-    | zero -> (function nil .A -> nil B)
-    | succ n -> (function cons .A .n a tl -> cons B n (f a) (map A B f n tl)))
+    | zero -> (function nil -> nil)
+    | succ n -> (function cons n a tl -> cons n (f a) (map A B f n tl)))
 
 let rec add : Nat -> Nat -> Nat =
   fun x y ->
@@ -45,14 +45,14 @@ let rec append :
   (A : Type) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m -> Vec A (add n m) =
   fun A ->
     function
-    | zero -> (fun m -> function nil .A -> (fun l -> l))
+    | zero -> (fun m -> function nil -> (fun l -> l))
     | succ n ->
-        (fun m -> function cons .A .n a z ->
-          (fun y -> cons A (add n m) a (append A n m z y)))
+        (fun m -> function cons .n a z ->
+          (fun y -> cons (add n m) a (append A n m z y)))
 
 let rec nth (A : Type) (n : Nat) (i : Fin n) (l : Vec A n) : A = match i, l with
-  | fzero m, cons .A .m a tl -> a
-  | fsucc m i, cons .A .m a tl -> nth A m i tl
+  | fzero m, cons .m a tl -> a
+  | fsucc m i, cons .m a tl -> nth m i tl
 
 let Not : Type -> Type = fun A -> A -> Null
 
@@ -71,23 +71,23 @@ and let rec Fresh : (A : Type) -> (NotEqual : A -> A -> Type) -> (a : A)
                  -> (l : DistinctList A NotEqual) -> Type =
   fun A NotEqual a ->
     function
-    | dnil .A .NotEqual -> Unit
-    | dcons .A .NotEqual b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
+    | dnil -> Unit
+    | dcons b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
 
 let false_elim : (A : Type) -> Null -> A =
   fun _ -> function
 
 let proof : (A : Type) -> (B : Type) -> (Not A) * (Or A B) -> B =
   fun A B -> function
-  | a, inl .A .B x -> false_elim B (a x)
-  | a, inr .A .B x -> x
+  | a, inl x -> false_elim B (a x)
+  | a, inr x -> x
 
 let proof2 : (n : Nat) -> Not (Eq Nat n zero) -> (m : Nat) * Eq Nat n (succ m) =
   function
   | zero -> (
       let t : Type = (m : Nat) * Eq Nat zero (succ m) in
-      (fun p -> false_elim t (p (refl Nat zero))))
-  | succ x -> (fun p -> (x, refl Nat (succ x)))
+      (fun p -> false_elim t (p refl)))
+  | succ x -> (fun p -> (x, refl))
 
 let one : Nat = succ zero
 let two : Nat = succ one

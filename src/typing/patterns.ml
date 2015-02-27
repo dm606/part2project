@@ -32,6 +32,10 @@ let rec pi_to_list constraints i =
       let (i, l, v) = pi_to_list constraints (i + 1)
         (Eval.eval (Equality.get_metavariable_assignment constraints) env b) in
       (i, (x, j, a)::l, v)
+  | VPiImplicit (x, a, b, env) ->
+      let j, env = i, Environment.add env (VNeutral (VVar (x, i))) in
+      pi_to_list constraints (i + 1)
+        (Eval.eval (Equality.get_metavariable_assignment constraints) env b) 
   | v -> (i, [], v)
 
 let rec add_binders checker i constraints context env subst typ patt =
@@ -74,7 +78,7 @@ let rec add_binders checker i constraints context env subst typ patt =
             (match p with 
              | PatternInaccessible e -> (
                  match checker i constraints context env e t with
-                 | Some constraints ->
+                 | Some (e, constraints) ->
                      let evaluated =
                        Context.subst_value subst (Eval.eval (Equality.get_metavariable_assignment constraints) env e) in
                      (* all values which are checked against the inaccessible
@@ -162,6 +166,9 @@ let rec split i constraints context subst typ value blocker =
     | VPi (x, _, b, env) ->
         get_constructed_type (i + 1)
           (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b)
+    | VPiImplicit (x, _, b, env) ->
+        get_constructed_type (i + 1)
+          (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b)
     | VConstruct _ as t -> t
     | _ -> assert false in
 
@@ -173,6 +180,10 @@ let rec split i constraints context subst typ value blocker =
         let (i, l) = construct (i + 1)
           (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b) in
         (i, (VNeutral (VVar (x, i)))::l)
+    | VPiImplicit (x, _, b, env) ->
+        let (i, l) = construct (i + 1)
+          (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b) in
+        (i, l)
     | VConstruct _ -> (i, [])
     | _ -> assert false in
 
@@ -226,6 +237,11 @@ let rec split i constraints context subst typ value blocker =
                 let l = split i constraints context subst a v blocker in
                 List.map (fun (i, v, subst) -> (i, v, b, subst)) l
             | VPi (_, a, b, env) ->
+                let l = split i constraints context subst a v blocker in
+                List.map (fun (i, v, subst) ->
+                  let env' = Environment.add env v in
+                  (i, v, Eval.eval (Equality.get_metavariable_assignment constraints) env' b, subst)) l
+            | VPiImplicit (_, a, b, env) ->
                 let l = split i constraints context subst a v blocker in
                 List.map (fun (i, v, subst) ->
                   let env' = Environment.add env v in

@@ -134,8 +134,10 @@ let rec contains_neutral_variable env =
   let rec value = function
     | VPair (v1, v2) -> value v1 || value v2
     | VLambda (_, _, e) -> contains_neutral_variable e
+    | VLambdaImplicit (_, _, e) -> contains_neutral_variable e
     | VArrow (v1, v2) -> value v1 || value v2
     | VPi (_, a, _, e) -> value a || contains_neutral_variable e
+    | VPiImplicit (_, a, _, e) -> value a || contains_neutral_variable e
     | VTimes (v1, v2) -> value v1 || value v2
     | VSigma (_, a, _, e) -> value a || contains_neutral_variable e
     | VFunction (_, e) -> contains_neutral_variable e
@@ -220,8 +222,26 @@ and extract_calls x i env args = function
           Environment.add lambda_env (VNeutral (VVar ("", i))) in
         extract_calls x (i + 1) lambda_env' args (eval (i + 1) lambda_env' e)
       else []
+  | VLambdaImplicit (Underscore, e, lambda_env) ->
+      if contains_neutral_variable lambda_env 
+      then extract_calls x i lambda_env args (eval i lambda_env e)
+      else []
+  | VLambdaImplicit (Name x, e, lambda_env) ->
+      if contains_neutral_variable lambda_env
+      then
+        let lambda_env' =
+          Environment.add lambda_env (VNeutral (VVar ("", i))) in
+        extract_calls x (i + 1) lambda_env' args (eval (i + 1) lambda_env' e)
+      else []
   | VArrow (a, b) -> extract_calls x i env args a @ extract_calls x i env args b
   | VPi (x, a, b, pi_env) ->
+      if contains_neutral_variable pi_env
+      then
+        let pi_env' = Environment.add pi_env (VNeutral (VVar ("", i))) in
+        extract_calls x i env args a
+        @ extract_calls x (i + 1) pi_env' args (eval (i + 1) pi_env' b)
+      else extract_calls x i env args a
+  | VPiImplicit (x, a, b, pi_env) ->
       if contains_neutral_variable pi_env
       then
         let pi_env' = Environment.add pi_env (VNeutral (VVar ("", i))) in
@@ -254,7 +274,11 @@ and extract_calls_neutral x i env args = function
         @ map_append (extract_calls_case i fun_env args v) c
       else extract_calls i env args v*)
   | VFunctionApplication (c, fun_env, v) -> extract_calls x i env args v 
+  | VFunctionApplicationImplicit (c, fun_env, v) -> extract_calls x i env args v 
   | VApplication (n, v) ->
+      extract_calls x i env args v
+      @ extract_calls_application x i env args n [v]
+  | VApplicationImplicit (n, v) ->
       extract_calls x i env args v
       @ extract_calls_application x i env args n [v]
   | VProj1 n -> extract_calls_neutral x i env args n
@@ -279,7 +303,15 @@ and extract_calls_application x i env args n tl =
         let fun_env = Environment.add fun_env (VNeutral (VVar ("", i))) in
         extract_calls x (i + 1) fun_env args (eval (i + 1) fun_env e)) c @
         extract_calls x i env args v
+  | VFunctionApplicationImplicit (c, fun_env, v) ->
+      map_append (fun (_, e) ->
+        let fun_env = Environment.add fun_env (VNeutral (VVar ("", i))) in
+        extract_calls x (i + 1) fun_env args (eval (i + 1) fun_env e)) c @
+        extract_calls x i env args v
   | VApplication (n, v) ->
+      extract_calls x i env args v
+      @ extract_calls_application x i env args n (v::tl)
+  | VApplicationImplicit (n, v) ->
       extract_calls x i env args v
       @ extract_calls_application x i env args n (v::tl)
   | VProj1 _ | VProj2 _ -> raise (Cannot_check_termination (x, ""))
@@ -291,6 +323,13 @@ and get_call_matrices' x i args env decl_var min_var max_var e =
       get_call_matrices' x (i + 1) ((VNeutral (VVar ("", i)))::args) lambda_env
         decl_var min_var max_var e
   | VLambda (Name _, e, lambda_env) ->
+      let v = VNeutral (VVar ("", i)) in
+      get_call_matrices' x (i + 1) (v::args) (Environment.add lambda_env v)
+        decl_var min_var max_var e
+  | VLambdaImplicit (Underscore, e, lambda_env) ->
+      get_call_matrices' x (i + 1) ((VNeutral (VVar ("", i)))::args) lambda_env
+        decl_var min_var max_var e
+  | VLambdaImplicit (Name _, e, lambda_env) ->
       let v = VNeutral (VVar ("", i)) in
       get_call_matrices' x (i + 1) (v::args) (Environment.add lambda_env v)
         decl_var min_var max_var e

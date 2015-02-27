@@ -11,8 +11,6 @@ val add_constructor : t -> string -> string -> value -> t
 val add_lazy_constructor : t -> string -> string -> value Lazy.t -> t
 val remove_constructors_of_type : t -> string -> t
 val get_binder_type : t -> int -> value option
-val check_constructor_type : t -> Equality.constraints -> string -> value
-  -> Equality.constraints option
 val get_constructor_types : t -> string -> value list
 val get_unique_constructor_type : t -> string -> value option
 val get_constructors_of_type : t -> string -> (string * value) list
