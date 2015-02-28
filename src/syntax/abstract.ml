@@ -34,7 +34,6 @@ let inc m (ctor, type_name) =
 
 let mk_env (names, cs) = names, List.fold_left inc MS.empty cs
 
-
 (* The type of desugared expressions.
  * Expressions use de Bruijn indices, which are allocated as follows:
  * * One index is allocated in the body of a lambda abstraction, if the binder
@@ -92,6 +91,34 @@ and declaration =
 and parameter =
   | Parameter of string * expression
   | ParameterImplicit of string * expression
+
+let rec get_metavariables = function
+  | Pair (e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | Lambda (_, e) -> get_metavariables e
+  | LambdaImplicit (_, e) -> get_metavariables e
+  | Pi (_, e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | PiImplicit (_, e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | Sigma (_, e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | Function l -> List.concat (List.map (fun (_, e) -> get_metavariables e) l)
+  | LocalDeclaration (l, e) ->
+      List.concat (List.map get_metavariables_decl l) @ get_metavariables e
+  | Application (e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | ApplicationImplicit (e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | Universe _ | UnitType | Unit | Index _ | Constructor _ -> []
+  | Proj1 e -> get_metavariables e
+  | Proj2 e -> get_metavariables e
+  | Meta id when is_implicit id -> []
+  | Meta id -> [id]
+and get_metavariables_decl = function
+  | Let (_, e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | LetRec (_, e1, e2) -> (get_metavariables e1) @ (get_metavariables e2)
+  | Type (_, ps, e, cs) -> 
+      (List.concat (List.map get_metavariables_param ps))
+      @ (get_metavariables e)
+      @ (List.concat (List.map (fun (_, e) -> get_metavariables e) cs))
+and get_metavariables_param = function
+  | Parameter (_, e) -> get_metavariables e
+  | ParameterImplicit (_, e) -> get_metavariables e
 
 let remove_type cs x = MS.map (SS.remove x) cs
 

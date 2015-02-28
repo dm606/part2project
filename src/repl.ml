@@ -137,12 +137,20 @@ let add_declarations_to_context context result =
     (fun c (s, type_name, v) -> Context.add_constructor c s type_name v)
     context constructor_types
 
+let metavariables = ref []
+
+let print_constraints () =
+  if !metavariables <> [] then
+    Equality.print_constraints Format.std_formatter !constraints;
+    metavariables := []
+
 let rec use_file filename =
   let file = open_in filename in
   try
     let lexbuf = from_channel file in
     reset_position lexbuf filename;
     parse Parser.parse_file lexbuf;
+    print_constraints ();
     close_in file
   with
   | e -> close_in_noerr file; raise e
@@ -189,7 +197,10 @@ and handle_input l = lazy (
         let decl = Checker.get_declarations result in
         let new_context = add_declarations_to_context !context result in
         let new_env = Environment.add_declarations !env decl in
-        print_endline (print_declarations !declared decl);
+        let mvs = (List.concat (List.map get_metavariables_decl decl)) in
+        (if mvs <> [] then
+          print_endline (print_declarations !declared decl));
+        metavariables := !metavariables @ mvs;
         declared := new_declared;
         env := new_env;
         context := new_context
@@ -205,6 +216,7 @@ let rec repl lexbuf =
 
     prompt := "# ";
     parse Parser.parse_repl lexbuf;
+    print_constraints ();
     repl lexbuf
   with
   | End_of_file -> print_newline () 

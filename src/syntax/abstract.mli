@@ -91,6 +91,9 @@ and parameter =
   | Parameter of string * expression
   | ParameterImplicit of string * expression
 
+(** returns all of the metavariables mentioned in the declaration *)
+val get_metavariables_decl : declaration -> meta_id list
+
 (** determines if an expression references a constructor *)
 val does_not_mention : string -> expression -> bool
 

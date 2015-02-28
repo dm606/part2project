@@ -8,14 +8,14 @@ exception Unsolved_implicit_metavariable
 
 type typing_result =
   | SType of expression * value * Equality.constraints
-  | SDecl of declaration list * (string * value) list * (string * string * value) list
+  | SDecl of declaration list * declaration list * (string * value) list * (string * string * value) list
              * Equality.constraints
   | F of string * string Lazy.t
 
 (* these aren't quite the normal monad operations, but they are close *)
 let (>>) r f = match r with
   | F _ -> r
-  | SDecl (_, _, _, constraints) -> f constraints
+  | SDecl (_, _, _, _, constraints) -> f constraints
   | SType (_, _, constraints) -> f constraints
 
 let (>>=) r f = match r with
@@ -36,20 +36,20 @@ let get_expression = function
   | F _ | SDecl _ -> raise (Failure "get_expression")
 
 let get_binder_types = function
-  | SDecl (_, l, _, _) -> l
+  | SDecl (_, _, l, _, _) -> l
   | F _ | SType _ -> raise (Failure "get_binder_types")
 
 let get_constructor_types = function
-  | SDecl (_, _, l, _) -> l
+  | SDecl (_, _, _, l, _) -> l
   | F _ | SType _ -> raise (Failure "get_constructor_types")
 
 let get_declarations = function
-  | SDecl (d, _, _, _) -> d
+  | SDecl (d, _, _, _, _) -> d
   | F _ | SType _ -> raise (Failure "get_declarations")
 
 let get_constraints = function
   | SType (_, _, c) -> c
-  | SDecl (_, _, _, c) -> c
+  | SDecl (_, _, _, _, c) -> c
   | F _ -> raise (Failure "get_constraints")
 
 let print_error outchan = function
@@ -277,11 +277,13 @@ let rec infer_type i constraints env context exp =
   (* normally a type checking rule -- included for declarations given as part of
    * expressions in the REPL *)
   | LocalDeclaration (d, e) -> tr (
-      check_declarations i constraints env context d
-      >> fun constraints ->
-      let env' = Environment.add_declarations env d in
-      let context' = add_all_to_context (Equality.get_metavariable_assignment constraints) env context d in
-      tr (infer_type i constraints env' context' e))
+      match check_declarations i constraints env context d with
+      | F _ as f -> f
+      | SDecl (_, d, _, _, _) ->
+          let env' = Environment.add_declarations env d in
+          let context' = add_all_to_context (Equality.get_metavariable_assignment constraints) env context d in
+          infer_type i constraints env' context' e
+      | SType _ -> assert false)
 
   (* not needed in type system -- included for constructors given as part of
    * expressions in the REPL *)
@@ -636,8 +638,8 @@ and check_declarations i constraints env context l =
     List.fold_right (fun (s, v) c -> Context.add_binder c s v)
       rest_bs context in
 
-  let rec check_decls constraints result_ds result_bs result_cs rest_ds rest_bs = function
-    | [] -> SDecl (List.rev result_ds, result_bs, result_cs, constraints)
+  let rec check_decls constraints complete result_ds result_bs result_cs rest_ds rest_bs = function
+    | [] -> SDecl (List.rev complete, List.rev result_ds, result_bs, result_cs, constraints)
     | (Let (x, e1, e2))::xs ->
         let decl_env = get_env env rest_ds xs in
         let decl_context = get_new_context rest_bs result_cs xs in
@@ -647,7 +649,7 @@ and check_declarations i constraints env context l =
             let t = Eval.eval (Equality.get_metavariable_assignment constraints) decl_env e1 in
             tr x (check_type i constraints decl_env decl_context e2 t)
             >>= fun (e2, _, constraints) -> 
-            check_decls constraints (Let (x, e1, e2)::result_ds) ((x, t)::result_bs) result_cs rest_ds rest_bs xs
+            check_decls constraints (Let (x, e1, e2)::complete) (Let (x, e1, e2)::result_ds) ((x, t)::result_bs) result_cs rest_ds rest_bs xs
         | _ ->
             tr x (F (sprintf
                 "The expression given as the type of \"%s\" is not a type" x
@@ -666,13 +668,13 @@ and check_declarations i constraints env context l =
               get_new_context ((x, t)::rest_bs) result_cs xs in
             tr x (check_type i constraints decl_env2 decl_context2 e2 t)
             >>= fun (e2, _, constraints) -> 
-            check_decls constraints (LetRec (x, e1, e2)::result_ds) ((x, t)::result_bs) result_cs (d::rest_ds)
+            check_decls constraints (LetRec (x, e1, e2)::complete) (LetRec (x, e1, e2)::result_ds) ((x, t)::result_bs) result_cs (d::rest_ds)
               ((x, t)::rest_bs) xs
         | _ ->
             tr x (F (sprintf
                 "The expression given as the type of \"%s\" is not a type" x
               , lazy "")))
-    | (Type (x, ps, e, constructor_types))::xs ->
+    | (Type (x, ps, e, constructor_types) as type_decl)::xs ->
         let decl_env = get_env env rest_ds xs in
         let decl_context = get_new_context rest_bs result_cs xs in
         let typefam_type = get_full_type false ps e in
@@ -705,13 +707,13 @@ and check_declarations i constraints env context l =
                 List.fold_left (fun l (c, e) ->
                     (c, x, Eval.eval (Equality.get_metavariable_assignment constraints) decl_env (get_full_type true ps e))::l)
                   result_cs constructor_types in
-              check_decls constraints result_ds result_bs result_cs rest_ds rest_bs xs)
+              check_decls constraints (type_decl::complete) result_ds result_bs result_cs rest_ds rest_bs xs)
         | _ -> assert false) in
 
   match Termination.check_termination env l with
   | Some x ->
       tr x (F (sprintf "The declaration of %s might not terminate." x, lazy ""))
-  | None -> check_decls constraints [] [] [] [] [] l
+  | None -> check_decls constraints [] [] [] [] [] [] l
   | exception (Termination.Cannot_check_termination (x, y)) -> 
       tr x (F (sprintf "Cannot check if the declaration of %s terminates. %s"
         x y, lazy ""))
@@ -850,12 +852,12 @@ let check_type constraints env context exp typ =
 let check_declarations constraints env context decls =
   match check_declarations 0 constraints env context decls with
   | SType _ -> assert false
-  | SDecl (decls, types, constructors, constraints) -> (
+  | SDecl (d, decls, types, constructors, constraints) -> (
       try
         let decls = List.map (subst_implicit_metas_decl constraints) decls in
         let types = List.map (fun (x, v) -> (x, subst_implicit_metas_value constraints v)) types in
         let constructors = List.map (fun (x, y, v) -> (x, y, subst_implicit_metas_value constraints v)) constructors in
-        SDecl (decls, types, constructors, if !keep_constraints then constraints else Equality.remove_implicit_metavariables constraints)
+        SDecl (d, decls, types, constructors, if !keep_constraints then constraints else Equality.remove_implicit_metavariables constraints)
       with Unsolved_implicit_metavariable ->
         F (get_unsolved_metavariables_message constraints, lazy ""))
   | F _ as f -> f
