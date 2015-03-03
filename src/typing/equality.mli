@@ -39,6 +39,9 @@ type constraints
 val checker : ((int * Context.t * value Environment.t) -> constraints ->
   expression -> value -> constraints option) ref
 
+(** a reference to the case splitter *)
+val split : (int -> constraints -> Context.t -> value -> value -> int -> (int * value * value) list) ref
+ 
 (** a collection of constraints which are always satisfied *)
 val no_constraints : constraints
 

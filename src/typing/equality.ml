@@ -215,12 +215,12 @@ type constraints =
   (* equations *)
   * (state * normal * normal) list
 let checker = ref (fun _ _ _ _ -> assert false)
+let split = ref (fun _ _ _ _ _ -> assert false)
 let no_constraints = ( MM.empty, MM.empty, MM.empty, [])
 let always_satisfied (_, _, _, c) = c = []
 let never_satisfied (_, _, _, c) = List.exists (fun (s, _, _) -> s = Failed) c
 let has_metavariable (_, m, _, _) id = MM.mem id m
 let get_metavariable (_, m, _, _) id = MM.find id m
-let add_metavariable (con, m, a, c) context id typ = ( MM.add id [context] con, MM.add id typ m, a, c)
 let get_metavariable_assignment (_, _, a, _) id =
   if MM.mem id a then Some (value_of_normal (MM.find id a)) else None
 let add_typing_context ((con, m, a, c):constraints) (id:meta_id) context =
@@ -699,6 +699,36 @@ let assign ( con, m, a, c) id n =
     assert (not (MM.mem id a)); (* the metavariable must not be assigned twice *)
     ( con, m, MM.add id n a, c)
 
+let maybe_add ((con, m, a, c) : constraints) e =
+  if List.mem e c then false, (con, m, a, c)
+  else true, (con, m, a, (e::c))
+
+let case_split (id:meta_id) (typ:value) ((b:bool), constraints) (i, context, env) =
+  if b then b, constraints else
+  if typ = VUnitType then
+    maybe_add constraints (Active, NNeutral (NMeta id), NUnit)
+  else try
+    match !split (i + 1) constraints context typ (VNeutral (VVar ("", i))) i with
+    | [j, v, _] ->
+        let rec s j = if j >= i then
+          let id = if Abstract.is_implicit id
+            then Abstract.create_implicit_metavariable ()
+            else Abstract.create_metavariable () in
+          substitute_neutral_variable j (VNeutral (VMeta id)) (s (j - 1))
+        else v in
+        maybe_add constraints (Active, NNeutral (NMeta id), readback constraints i (s j))
+    | [] -> maybe_add constraints (Failed, NNeutral (NMeta id), NNeutral (NVar ("anything", 0)))
+    | _ -> false, constraints
+  with _ -> false, constraints
+
+let try_case_split (con, m, a, c) = 
+  MM.fold (fun id typ (b, (con, m, a, c)) ->
+    if b then true, (con, m, a, c)
+    else
+      if MM.mem id con then
+        List.fold_left (case_split id typ) (false, (con, m, a, c)) (MM.find id con)
+      else false, (con, m, a, c)) m (false, (con, m, a, c))
+
 let rec no_duplicates = function
   | [] -> true
   | hd::tl -> (not (List.mem hd tl)) && no_duplicates tl
@@ -750,11 +780,11 @@ let rec solve_metavariable ( con, m, a, c) =
   | (Failed, x, y)::tl ->
       (* do not attempt to simplify equations which cannot be satisfied *)
       let b, ( con, m, a, tl) = solve_metavariable ( con, m, a, tl) in
-      (b, ( con, m, a, (Failed, x, y)::tl))
+      (b, (con, m, a, (Failed, x, y)::tl))
 
 (* refine the constraints by one step *)
 let refine constraints = 
-  if never_satisfied constraints || always_satisfied constraints then
+  if never_satisfied constraints then
     (* if the constraints are known to be always or never satisfied, then they
      * are considered to be solved, so no refinement is performed *)
     (false, constraints)
@@ -763,6 +793,8 @@ let refine constraints =
     if b then (true, constraints) else
     let b, constraints = solve_metavariable constraints in
     if b then (true, constraints) else
+    let b, constraints = try_case_split constraints in
+    if b then (true, constraints) else
     (false, constraints)
 
 let add_equation s x y constraints =
@@ -770,6 +802,10 @@ let add_equation s x y constraints =
     let b, c = refine c in
     if b then aux c else c in
   aux (add_equation s x y constraints)
+
+let add_metavariable (con, m, a, c) context id typ =
+  let _, c = refine ( MM.add id [context] con, MM.add id typ m, a, c) in
+  c
 
 let (>>=) c f = f c
 
@@ -784,6 +820,8 @@ let rec test_normal_equality c x y =
       c >>= test x1 y1 >>= test x2 y2
   | NLambda (_, i, x), NLambda (_, j, y) when i = j -> c >>= test x y
   | NPi (_, i, x1, x2), NPi (_, j, y1, y2) when i = j ->
+      c >>= test x1 y1 >>= test x2 y2
+  | NPiImplicit (_, i, x1, x2), NPiImplicit (_, j, y1, y2) when i = j ->
       c >>= test x1 y1 >>= test x2 y2
   | NSigma (_, i, x1, x2), NSigma (_, j, y1, y2) when i = j ->
       c >>= test x1 y1 >>= test x2 y2
@@ -802,7 +840,7 @@ let rec test_normal_equality c x y =
       (* if x or y has a metavariable, then they maay be equal if constraints
        * are satisfied *)
       c >>= add_equation Active x y
-  | _ -> c >>= add_equation Failed x y 
+  | _ -> c
 and test_neutral_equality c x y =
   let test x y c = test_neutral_equality c x y in
   let test_normal x y c = test_normal_equality c x y in

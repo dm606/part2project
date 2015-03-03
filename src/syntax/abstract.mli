@@ -10,6 +10,9 @@ exception Constructor_not_defined of string
 (* TODO: Make abstract *)
 type meta_id = bool * int
 
+(** crates a metavariable *)
+val create_metavariable : unit -> meta_id
+
 (** crates a metavariable which can be used for an implicit argument *)
 val create_implicit_metavariable : unit -> meta_id
 

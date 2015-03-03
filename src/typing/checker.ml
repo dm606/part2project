@@ -159,6 +159,16 @@ let rec get_constructor_from_implicit_application = function
   | ApplicationImplicit (e1, _) -> get_constructor_from_implicit_application e1
   | _ -> assert false
 
+let rec is_implicit_index_application = function
+  | Index _ -> true
+  | ApplicationImplicit (e1, _) -> is_implicit_index_application e1
+  | _ -> false
+
+let rec get_index_from_implicit_application = function
+  | Index c -> c
+  | ApplicationImplicit (e1, _) -> get_index_from_implicit_application e1
+  | _ -> assert false
+
 let get_list_implicit_applications = 
   let rec aux acc = function
     | ApplicationImplicit (e1, e2) -> aux (e2::acc) e1
@@ -169,7 +179,7 @@ let form_implicit_application c =
   let rec aux acc = function
     | [] -> acc
     | e::tl -> aux (ApplicationImplicit (acc, e)) tl in
-  aux (Constructor c)
+  aux c
 
 
 let add_all_to_context = add_to_context true
@@ -463,7 +473,7 @@ and check_type i constraints env context exp typ =
           | None -> failure (sprintf "%a does not have type %a" print_exp exp print_val typ)
           | Some (l, constraints) ->
               match check_subtype i constraints target rest_t with
-              | Some constraints -> SType (form_implicit_application c l, typ, constraints)
+              | Some constraints -> SType (form_implicit_application (Constructor c) l, typ, constraints)
               | None -> failure (sprintf "%a does not have type %a" print_exp exp print_val typ))
 
 (*

@@ -22,6 +22,11 @@ let create_implicit_metavariable () =
   incr metavariable_implicit_id;
   (true, id)
 
+let create_metavariable () =
+  let id = !metavariable_id in
+  incr metavariable_id;
+  (false, id)
+
 let is_implicit (b, _) = b
 
 type envt = string list * SS.t MS.t

@@ -260,6 +260,8 @@ let split i constraints context typ value blocker =
   List.map (fun (i, v, subst) -> (i, v, Context.subst_value subst typ))
     (split i constraints context Context.subst_empty typ value blocker)
 
+let () = Equality.split := split
+
 (* typ is caseless if spliting [i]:typ along i produces no values *)
 let caseless i constraints context typ =
   match split (i + 1) constraints context typ (VNeutral (VVar ("", i))) i with
