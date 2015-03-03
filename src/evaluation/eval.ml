@@ -86,6 +86,7 @@ let rec eval' metavars f env =
       if v1 = v2 then raise (Cannot_evaluate "self-application") else
       (match v1 with
        | VConstruct (c, l) -> VConstruct (c, v2::l)
+       | VLambda (b, e, fun_env) -> apply b e fun_env v2
        | VLambdaImplicit (b, e, fun_env) -> apply b e fun_env v2
        | VFunction (l, fun_env) -> apply_function l fun_env v2
        | VNeutral v -> VNeutral (VApplicationImplicit (v, v2))

@@ -1,4 +1,8 @@
-type 'a t
+open Abstract
+
+type 'a elem = Val of 'a | Decl of declaration list
+
+type 'a t = 'a elem list
 
 val empty : 'a t
 val add : 'a t -> 'a -> 'a t

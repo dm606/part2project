@@ -1,6 +1,10 @@
 open Value
 
-type t
+type v = [`V of value | `T of value Lazy.t]
+
+(* map from constructor names to pairs containing a type name and constructor
+ * type, and a list of pairs of binder names and the associated types *)
+type t = (string * v) list Map.Make(String).t * (string * v) list
 
 val empty : t
 val get_constructor_names : t -> (string * string) list

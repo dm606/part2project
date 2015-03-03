@@ -115,6 +115,8 @@ let rec value_of_normal = function
       VLambda (Name s, expression_of_normal [i] x, Environment.empty)
   | NLambdaImplicit (s, i, x) ->
       VLambdaImplicit (Name s, expression_of_normal [i] x, Environment.empty)
+  | NPi ("_", i, x, y) ->
+      VArrow (value_of_normal x, value_of_normal y)
   | NPi (s, i, x, y) ->
       VPi (s, value_of_normal x, expression_of_normal [i] y
         , Environment.empty)
@@ -142,9 +144,31 @@ and value_of_normal_neutral = function
   | NProj2 n -> VProj1 (value_of_normal_neutral n)
   | NMeta i -> VMeta i
 
-let rec expression_of_normal2 env =
+let rec eq_structure n e = match n, e with
+  | NPair (n1, n2), VPair (e1, e2) -> eq_structure n1 e2 && eq_structure n2 e2
+  | NUniverse i, VUniverse j -> i = j
+  | NUnit, VUnit | NUnitType, VUnitType -> true
+  | NConstruct (c, tl), VConstruct (d, tl2) -> c = d
+      && List.length tl = List.length tl2 && List.for_all2 eq_structure tl tl2
+  | NNeutral n, VNeutral e -> eq_structure_neutral n e
+  | _ -> false
+and eq_structure_neutral n e = match n, e with
+  | NVar (_, i), VVar (_, j) -> i = j
+  | NApplication (n1, n2), VApplication (v1, v2) -> eq_structure (NNeutral n1) v2 && eq_structure n2 v2
+  | NApplicationImplicit (n1, n2), VApplicationImplicit (v1, v2) -> eq_structure (NNeutral n1) v2 && eq_structure n2 v2
+  | NProj1 n, VProj1 v -> eq_structure_neutral n v
+  | NProj2 n, VProj2 v -> eq_structure_neutral n v
+  | NMeta n, VMeta v -> n = v
+  | _ -> false
+
+let try_find env exp = Environment.find (fun n -> eq_structure exp n) env 
+
+let rec expression_of_normal2 env (exp : normal) =
   let add i = Environment.add env (VNeutral (VVar ("", i))) in
-  function
+  match try_find env exp with
+  | Some i -> Index i
+  | None ->
+  match exp with
   | NPair (x, y) ->
       Pair (expression_of_normal2 env x, expression_of_normal2 env y)
   | NLambda (s, i, x) -> Lambda (Name s, expression_of_normal2 (add i) x)
@@ -612,14 +636,14 @@ let get_free_rigid_variables =
         | NNeutral (NMeta _) -> 
             (* variables are flexible if they are applied to a metavariable *)
             l 
-        | _ -> List.fold_left (aux ignore) (aux ignore l n) tl)
+        | _ -> List.fold_left (aux ignore) [] tl)
     | NApplicationImplicit _ as n -> (
         let n, tl = flatten (NNeutral n) in
         match n with
         | NNeutral (NMeta _) -> 
             (* variables are flexible if they are applied to a metavariable *)
             l 
-        | _ -> List.fold_left (aux ignore) (aux ignore l n) tl)
+        | _ -> List.fold_left (aux ignore) [] tl)
     | NProj1 n -> aux_neutral ignore l n
     | NProj2 n -> aux_neutral ignore l n
     | NMeta n -> l in
@@ -778,7 +802,7 @@ let rec test_normal_equality c x y =
       (* if x or y has a metavariable, then they maay be equal if constraints
        * are satisfied *)
       c >>= add_equation Active x y
-  | _ -> c
+  | _ -> c >>= add_equation Failed x y 
 and test_neutral_equality c x y =
   let test x y c = test_neutral_equality c x y in
   let test_normal x y c = test_normal_equality c x y in

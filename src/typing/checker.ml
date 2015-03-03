@@ -76,13 +76,52 @@ let filter = List.filter (function
 let get_env env rest_ds xs =
     Environment.add_declarations env (xs @ (List.rev (filter rest_ds)))
 
-let rec add_applications constraints c exp typ = match typ with
-  | VPiImplicit (x, a, b, env) ->
+(*let rec add_applications constraints ((_, _, env) as c) exp rest target t = match rest, target, t with
+  | ApplicationImplicit (e1, e2), target, VPiImplicit (y, a2, b2, env2) ->
+      let v2 = Eval.eval (Equality.get_metavariable_assignment constraints) env e2 in
+      let b2 = Eval.eval (Equality.get_metavariable_assignment constraints)
+        (Environment.add env2 v2) b2 in
+      add_applications constraints c exp e1 target b2
+  | rest, VPiImplicit (x, a1, b1, env1), VPiImplicit (y, a2, b2, env2) ->
       let id = create_implicit_metavariable () in
-      let constraints = Equality.add_metavariable constraints c id a in
-      let b = Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VMeta id))) b in
-      add_applications constraints c (ApplicationImplicit (exp, Meta id)) b
-  | _ -> (exp, typ, constraints)
+      let constraints = Equality.add_metavariable constraints c id a1 in
+      let b1 = Eval.eval (Equality.get_metavariable_assignment constraints)
+      (Environment.add env1 (VNeutral (VMeta id))) b1 in
+      let b2 = Eval.eval (Equality.get_metavariable_assignment constraints)
+      (Environment.add env1 (VNeutral (VMeta id))) b2 in
+      add_applications constraints c rest (ApplicationImplicit (exp, Meta id)) b1 b2
+  | rest, target, VPiImplicit (y, a2, b2, env2) ->
+      let id = create_implicit_metavariable () in
+      let b2 = Eval.eval (Equality.get_metavariable_assignment constraints)
+      (Environment.add env2 (VNeutral (VMeta id))) b2 in
+      add_applications constraints c rest (ApplicationImplicit (exp, Meta id)) target b2
+  | _, _, _ -> (exp, target, t, constraints)
+*)
+
+let rec add_applications constraints ((_, _, env) as c) exp target t = match target, t with
+  | VPiImplicit (x, a1, b1, env1), VPiImplicit (y, a2, b2, env2) ->
+      let id = create_implicit_metavariable () in
+      let constraints = Equality.add_metavariable constraints c id a1 in
+      let b1 = Eval.eval (Equality.get_metavariable_assignment constraints)
+      (Environment.add env1 (VNeutral (VMeta id))) b1 in
+      let b2 = Eval.eval (Equality.get_metavariable_assignment constraints)
+      (Environment.add env1 (VNeutral (VMeta id))) b2 in
+      add_applications constraints c (ApplicationImplicit (exp, Meta id)) b1 b2
+  | target, VPiImplicit (y, a2, b2, env2) ->
+      let id = create_implicit_metavariable () in
+      let b2 = Eval.eval (Equality.get_metavariable_assignment constraints)
+      (Environment.add env2 (VNeutral (VMeta id))) b2 in
+      add_applications constraints c (ApplicationImplicit (exp, Meta id)) target b2
+  | _, _ -> (exp, target, t, constraints)
+
+let rec strip_implicit_applications constraints env apps t = match apps, t with
+  | e2::tl, VPiImplicit (x, a, b, pi_env) ->
+      let v2 = Eval.eval (Equality.get_metavariable_assignment constraints) env
+      e2 in
+      let b = Eval.eval (Equality.get_metavariable_assignment constraints)
+      (Environment.add pi_env v2) b in
+      strip_implicit_applications constraints env tl b
+  | _, _ -> t
 
 (* adds declarations to the given context; lets are added iff the argument
  * lets is true *)
@@ -109,6 +148,29 @@ let add_to_context lets metavars env context =
             context cs in
         add context rest_ds xs in
     add context []
+
+let rec is_implicit_constructor_application = function
+  | Constructor _ -> true
+  | ApplicationImplicit (e1, _) -> is_implicit_constructor_application e1
+  | _ -> false
+
+let rec get_constructor_from_implicit_application = function
+  | Constructor c -> c
+  | ApplicationImplicit (e1, _) -> get_constructor_from_implicit_application e1
+  | _ -> assert false
+
+let get_list_implicit_applications = 
+  let rec aux acc = function
+    | ApplicationImplicit (e1, e2) -> aux (e2::acc) e1
+    | _ -> acc in
+  aux []
+
+let form_implicit_application c =
+  let rec aux acc = function
+    | [] -> acc
+    | e::tl -> aux (ApplicationImplicit (acc, e)) tl in
+  aux (Constructor c)
+
 
 let add_all_to_context = add_to_context true
 let add_to_context = add_to_context false
@@ -138,7 +200,8 @@ let rec infer_type i constraints env context exp =
           >>= (function
           | e2, VUniverse k, constraints -> SType (Pi (Underscore, e1, e2), VUniverse (max j k), constraints)
           | _ -> failure (sprintf "%a is not a type" print e2))
-      | _ -> failure (sprintf "%a is not a type." print e1)))
+      | _ -> failure (sprintf "%a is not a type." print e1))
+      )
   | Pi (Name x, e1, e2) -> tr (
       infer_type i constraints env context e1
       >>= (function
@@ -292,8 +355,7 @@ let rec infer_type i constraints env context exp =
           failure
             (sprintf "The constructor \"%s\" does not have a unique type." c)
       | Some t ->
-          let (e, t, constraints) = add_applications constraints (i, context, env) (Constructor c) t in
-          SType (e, t, constraints))
+          SType (Constructor c, t, constraints))
 
   (* not needed in the type system -- included for pairs given as part of
    * expressions in the REPL *)
@@ -374,6 +436,46 @@ and check_type i constraints env context exp typ =
              print_val typ)) in
 
   match exp, typ with
+  | e, typ when is_implicit_constructor_application e -> (
+      let c = get_constructor_from_implicit_application e in
+      match get_unique_constructor_type context c with
+      | None -> 
+          failure
+            (sprintf "The constructor \"%s\" does not have a unique type." c)
+      | Some t ->
+          let rec check_implicit_applications constraints env context = function
+            | VPiImplicit (x, a, b, pi_env), e::tl -> (
+                match check_type i constraints env context e a with
+                | SType (e, _, constraints) -> (
+                    let pi_env = Environment.add pi_env (Eval.eval (Equality.get_metavariable_assignment constraints) env e) in
+                    let b = Eval.eval (Equality.get_metavariable_assignment constraints) pi_env b in
+                    match check_implicit_applications constraints env context (b, tl) with
+                    | None -> None
+                    | Some (l, constraints) -> Some (e::l, constraints))
+                | _ -> None)
+            | _, _::_ -> None
+            | _, tl -> Some (tl, constraints) in
+          let apps = get_list_implicit_applications exp in
+          let e, target, rest_t, constraints = add_applications constraints (i, context, env) exp typ 
+            (strip_implicit_applications constraints env apps t) in
+          let l = get_list_implicit_applications e in
+          match check_implicit_applications constraints env context (t, l) with
+          | None -> failure (sprintf "%a does not have type %a" print_exp exp print_val typ)
+          | Some (l, constraints) ->
+              match check_subtype i constraints target rest_t with
+              | Some constraints -> SType (form_implicit_application c l, typ, constraints)
+              | None -> failure (sprintf "%a does not have type %a" print_exp exp print_val typ))
+
+(*
+  | Constructor c, typ -> (
+      match get_unique_constructor_type context c with
+      | None -> 
+          failure
+            (sprintf "The constructor \"%s\" does not have a unique type." c)
+      | Some inferred_type ->
+          check_type i constraints env context exp typ)
+*)
+
   (* pairs *)
   | Pair (e1, e2), VTimes (a, b) -> tr (
       check_type i constraints env context e1 a
@@ -529,6 +631,8 @@ and check_type i constraints env context exp typ =
       else 
         SType (Meta id, typ, Equality.add_metavariable constraints (i, context, env) id typ)
 
+
+
   (* application *)
   | Application (e1, e2), t2 -> (match (
         infer_type i constraints env context e2
@@ -541,7 +645,7 @@ and check_type i constraints env context exp typ =
         SType (Application (e1, e2), t2, constraints)) with
     | SType _ as r -> r
     | SDecl _ -> assert false 
-    | F _ -> try_subtype ())
+    | F _ as f -> match try_subtype () with F _ -> f | x -> x)
 
   (* if all else fails, infer a type for the expression and check if it is a
    * subtype of the type given *)
