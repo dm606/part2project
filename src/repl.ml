@@ -156,7 +156,9 @@ let rec use_file filename =
   | e -> close_in_noerr file; raise e
 and handle_command c =
   match c with
-  | CommandString (Ident "use", arg) -> use_file arg
+  | CommandString (Ident "use", arg) -> (
+      try use_file arg
+      with Sys_error s -> fprintf stderr "Couldn't load %s. System error: %s\n" arg s; flush stderr)
   | CommandString (Ident s, _) -> raise (Unknown_command s)
   | CommandNone (Ident "areequal") -> handle_are_equal ()
   | CommandNone (Ident "infertype") -> handle_infer_type ()
@@ -228,7 +230,10 @@ let () =
     Sys.catch_break true;
 
     for i = 1 to Array.length Sys.argv - 1 do
-      use_file Sys.argv.(i)
+      try use_file Sys.argv.(i)
+      with Sys_error s ->
+        fprintf stderr "Couldn't load %s. System error: %s\n" (Sys.argv.(i)) s;
+        flush stderr
     done;
 
     repl stdin_lexbuf)
