@@ -17,10 +17,11 @@ type value =
   | VUniverse of int
   | VUnitType
   | VUnit
-  (* constructor applied to arguments
-   * values are in reverse order for efficiency, so the head of the list is the
-   * last value applied to the constructor *)
-  | VConstruct of string * value list
+  (* Constructor applied to arguments.
+   * Values are in reverse order for efficiency, so the head of the list is the
+   * last value applied to the constructor. The booleans indicate whether the
+   * application is implicit *)
+  | VConstruct of string * (bool * value) list
   | VNeutral of neutral
 and neutral =
   (* neutral variables are named for pretty-printing *)

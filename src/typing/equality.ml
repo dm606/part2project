@@ -24,7 +24,7 @@ and normal =
   | NUniverse of int
   | NUnitType
   | NUnit
-  | NConstruct of string * normal list
+  | NConstruct of string * (bool * normal) list
   | NNeutral of normal_neutral
 and normal_neutral =
   | NVar of string * int 
@@ -58,7 +58,7 @@ and no_metavariables_pred p = function
   | NSigma (_, _, x, y) -> no_metavariables_pred p x && no_metavariables_pred p y
   | NFunction _ -> true
   | NUniverse _ | NUnitType | NUnit -> true
-  | NConstruct (_, l) -> List.for_all (no_metavariables_pred p) l
+  | NConstruct (_, l) -> List.for_all (fun (_, v) -> no_metavariables_pred p v) l
   | NNeutral n -> no_metavariables_pred_neutral p n
 
 let no_metavariables = no_metavariables_pred (fun _ -> true) 
@@ -87,7 +87,7 @@ let rec expression_of_normal env = function
   | NUnitType -> UnitType 
   | NUnit -> Unit
   | NConstruct (c, l) ->
-      List.fold_right (fun n c -> Application (c, expression_of_normal env n))
+      List.fold_right (fun (b, n) c -> if b then ApplicationImplicit (c, expression_of_normal env n) else Application (c, expression_of_normal env n))
         l (Constructor c)
   | NNeutral n -> expression_of_normal_neutral env n
 and expression_of_normal_neutral env = function
@@ -130,7 +130,7 @@ let rec value_of_normal = function
   | NUniverse i -> VUniverse i
   | NUnitType -> VUnitType 
   | NUnit -> VUnit
-  | NConstruct (c, l) -> VConstruct (c, List.map value_of_normal l)
+  | NConstruct (c, l) -> VConstruct (c, List.map (fun (b, v) -> (b, value_of_normal v)) l)
   | NNeutral n -> VNeutral (value_of_normal_neutral n)
 and value_of_normal_neutral = function
   | NVar (s, i) -> VVar (s, i)
@@ -149,7 +149,7 @@ let rec eq_structure n e = match n, e with
   | NUniverse i, VUniverse j -> i = j
   | NUnit, VUnit | NUnitType, VUnitType -> true
   | NConstruct (c, tl), VConstruct (d, tl2) -> c = d
-      && List.length tl = List.length tl2 && List.for_all2 eq_structure tl tl2
+      && List.length tl = List.length tl2 && List.for_all2 (fun (b1, v1) (b2, v2) -> b1 = b2 && eq_structure v1 v2) tl tl2
   | NNeutral n, VNeutral e -> eq_structure_neutral n e
   | _ -> false
 and eq_structure_neutral n e = match n, e with
@@ -185,7 +185,7 @@ let rec expression_of_normal2 env (exp : normal) =
   | NUnitType -> UnitType 
   | NUnit -> Unit
   | NConstruct (c, l) ->
-      List.fold_right (fun n c -> Application (c, expression_of_normal2 env n))
+      List.fold_right (fun (b, n) c -> Application (c, expression_of_normal2 env n))
         l (Constructor c)
   | NNeutral n -> expression_of_normal_neutral2 env n
 and expression_of_normal_neutral2 env = function
@@ -281,7 +281,7 @@ let rec readback constraints i =
   | VUniverse i -> NUniverse i
   | VUnitType -> NUnitType
   | VUnit -> NUnit
-  | VConstruct (c, vs) -> NConstruct (c, List.map (readback i) vs)
+  | VConstruct (c, vs) -> NConstruct (c, List.map (fun (b, v) -> (b, readback i v)) vs)
   | VNeutral n -> NNeutral (readback_neutral i n)
 
 (* these functions do some evaluation, so that the results are returned in
@@ -295,7 +295,7 @@ let rec subst_var id n = function
   | NSigma (s, i, x, y) -> NSigma (s, i, subst_var id n x, subst_var id n y)
   | NFunction _ -> raise Constraint_function
   | NUniverse _ | NUnitType | NUnit as n -> n
-  | NConstruct (c, l) -> NConstruct (c, List.map (subst_var id n) l)
+  | NConstruct (c, l) -> NConstruct (c, List.map (fun (b, v) -> (b, subst_var id n v)) l)
   | NNeutral x -> subst_var_neutral id n x
 and subst_var_neutral id n = function
   | NVar (_, id2) when id = id2 -> n
@@ -306,7 +306,7 @@ and subst_var_neutral id n = function
       let x = subst_var_neutral id n x in
       let y = subst_var id n y in
       match x with
-      | NConstruct (c, l) -> NConstruct (c, y::l)
+      | NConstruct (c, l) -> NConstruct (c, (false , y)::l)
       | NLambda (b, i, x) -> subst_var i y x
       | NNeutral x -> NNeutral (NApplication (x, y))
       | _ ->
@@ -316,7 +316,7 @@ and subst_var_neutral id n = function
       let x = subst_var_neutral id n x in
       let y = subst_var id n y in
       match x with
-      | NConstruct (c, l) -> NConstruct (c, y::l)
+      | NConstruct (c, l) -> NConstruct (c, (true, y)::l)
       | NLambda (b, i, x) -> subst_var i y x
       | NNeutral x -> NNeutral (NApplicationImplicit (x, y))
       | _ ->
@@ -349,7 +349,7 @@ let rec subst id n = function
   | NSigma (s, i, x, y) -> NSigma (s, i, subst id n x, subst id n y)
   | NFunction _ -> raise Constraint_function
   | NUniverse _ | NUnitType | NUnit as n -> n
-  | NConstruct (c, l) -> NConstruct (c, List.map (subst id n) l)
+  | NConstruct (c, l) -> NConstruct (c, List.map (fun (b, e) -> (b, subst id n e)) l)
   | NNeutral x -> subst_neutral id n x
 and subst_neutral id n = function
   | NVar _ as x -> NNeutral x
@@ -359,7 +359,7 @@ and subst_neutral id n = function
       let x = subst_neutral id n x in
       let y = subst id n y in
       match x with
-      | NConstruct (c, l) -> NConstruct (c, y::l)
+      | NConstruct (c, l) -> NConstruct (c, (false, y)::l)
       | NLambda (b, i, x) -> subst_var i y x
       | NNeutral x -> NNeutral (NApplication (x, y))
       | _ ->
@@ -370,7 +370,7 @@ and subst_neutral id n = function
       let x = subst_neutral id n x in
       let y = subst id n y in
       match x with
-      | NConstruct (c, l) -> NConstruct (c, y::l)
+      | NConstruct (c, l) -> NConstruct (c, (true, y)::l)
       | NLambdaImplicit (b, i, x) -> subst_var i y x
       | NNeutral x -> NNeutral (NApplicationImplicit (x, y))
       | _ ->
@@ -436,7 +436,7 @@ let rec test_eq_no_metavariables x y = match x, y with
   | NConstruct (xc, xl), NConstruct (yc, yl) ->
       let rec aux ls = match ls with
         | [], [] -> true 
-        | x::xs, y::ys -> test_eq_no_metavariables x y && aux (xs, ys)
+        | (bx, x)::xs, (by, y)::ys -> bx = by && test_eq_no_metavariables x y && aux (xs, ys)
         | _ -> false in
       xc = yc && aux (xl, yl)
   | NNeutral x, NNeutral y -> test_eq_no_metavariables_neutral x y
@@ -456,7 +456,7 @@ let simplify x y =
   let apply x i = function
     | NNeutral n -> NNeutral (NApplication (n, NNeutral (NVar (x, i))))
     (* TODO: check order of applications *)
-    | NConstruct (c, l) -> NConstruct (c, ((NNeutral (NVar (x, i)))::l))
+    | NConstruct (c, l) -> NConstruct (c, ((false, NNeutral (NVar (x, i)))::l))
     | _ ->
         (* this case should only happen if x and y have different types *)
         assert false in
@@ -573,10 +573,10 @@ let simplify x y =
         | NFunction _ as x -> (false, x, y)
         | NUniverse _ | NUnitType | NUnit as x -> (false, x, y)
         | NConstruct (c, l) ->
-            let b, l, y = List.fold_left (fun (b, l, y) x ->
-              if b then (true, x::l, y) else
+            let b, l, y = List.fold_left (fun (b, l, y) (is_imp, x) ->
+              if b then (true, (is_imp, x)::l, y) else
                 let b, x, y = aux x in
-                (b, x::l, y)) (false, [], y) l in
+                (b, (is_imp, x)::l, y)) (false, [], y) l in
             (b, NConstruct (c, l), y)
         | NNeutral n -> 
             let b, x, y = aux_neutral n in
@@ -624,7 +624,7 @@ let get_free_rigid_variables =
     | NSigma (_, i, x, y) -> aux (i::ignore) (aux ignore l x) y
     | NFunction _ -> raise Constraint_function
     | NUniverse _ | NUnit | NUnitType -> l
-    | NConstruct (_, tl) -> List.fold_left (aux ignore) l tl
+    | NConstruct (_, tl) -> List.fold_left (fun l (_, v) -> aux ignore l v) l tl
     | NNeutral n -> aux_neutral ignore l n
   and aux_neutral ignore l = function
     | NVar (_, i) -> if List.mem i ignore then l else i::l
@@ -659,7 +659,7 @@ let rec occurs_check id = function
   | NSigma (_, _, x, y) -> occurs_check id x || occurs_check id y
   | NFunction _ -> raise Constraint_function
   | NUniverse _ | NUnitType | NUnit -> false
-  | NConstruct (_, l) -> List.exists (occurs_check id) l
+  | NConstruct (_, l) -> List.exists (fun (_, v) -> occurs_check id v) l
   | NNeutral n -> occurs_check_neutral id n
 and occurs_check_neutral id = function
   | NVar _ -> false
@@ -832,7 +832,7 @@ let rec test_normal_equality c x y =
   | NConstruct (xc, xl), NConstruct (yc, yl) when xc = yc ->
       let rec aux ls c = match ls with
         | [], [] -> c 
-        | x::xs, y::ys -> c >>= test x y >>= aux (xs, ys)
+        | (bx, x)::xs, (by, y)::ys when bx = by -> c >>= test x y >>= aux (xs, ys)
         | _ -> c >>= add_equation Failed x y in
       aux (xl, yl) c 
   | NNeutral x, NNeutral y -> c >>= test_neutral x y
@@ -911,9 +911,12 @@ and pr_normal4 fmt = function
   | NConstruct (c, (_::_ as l)) ->
       let rec pr_normals fmt = function
         | [] -> assert false
-        | [v] -> pr_normal5 fmt v
-        | v::tl ->
-            fprintf fmt "@[<hov2>%a@ %a@]" pr_normal5 v pr_normals tl in
+        | [false, v] -> pr_normal5 fmt v
+        | [true, v] -> fprintf fmt "@[<hov2>{%a}@]" pr_normal5 v
+        | (false, v)::tl ->
+            fprintf fmt "@[<hov2>%a@ %a@]" pr_normal5 v pr_normals tl 
+        | (true, v)::tl ->
+            fprintf fmt "@[<hov2>{%a}@ %a@]" pr_normal5 v pr_normals tl in
       fprintf fmt "@[%s@ %a@]" c pr_normals (List.rev l)
   | v -> pr_normal5 fmt v
 and pr_normal5 fmt = function

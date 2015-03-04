@@ -15,7 +15,7 @@ type value =
   | VUniverse of int
   | VUnitType
   | VUnit
-  | VConstruct of string * value list
+  | VConstruct of string * (bool * value) list
   | VNeutral of neutral
 and neutral =
   | VVar of string * int
@@ -52,7 +52,7 @@ let reify eval =
     | VUnitType -> UnitType
     | VUnit -> Unit
     | VConstruct (c, l) ->
-        List.fold_left (fun e v -> Application (e, reify v)) (Constructor c) l
+        List.fold_left (fun e (b, v) -> if b then ApplicationImplicit (e, reify v) else Application (e, reify v)) (Constructor c) l
     | VNeutral n -> reify_neutral n
   and reify_neutral = function
     | VVar _ -> raise (Cannot_reify "Cannot reify neutral variables")
@@ -88,7 +88,7 @@ and contains i = function
   | VUniverse i -> false
   | VUnitType -> false
   | VUnit -> false
-  | VConstruct (_, l) -> List.exists (contains i) l
+  | VConstruct (_, l) -> List.exists (fun (_, v) -> contains i v) l
   | VNeutral n -> neutral_contains i n
 
 let rec neutral_substitute_neutral_variable i n = function
@@ -136,7 +136,7 @@ and substitute_neutral_variable i v =
   | VUnitType -> VUnitType
   | VUnit -> VUnit
   | VConstruct (c, l) ->
-      VConstruct (c, List.map (substitute_neutral_variable i v) l)
+      VConstruct (c, List.map (fun (b, v2) -> (b, substitute_neutral_variable i v v2)) l)
   | VNeutral (VVar (_, j)) when i = j -> v
   | VNeutral n ->
       if neutral_contains i n then
@@ -161,7 +161,7 @@ and lift a = function
   | VUniverse i -> VUniverse i
   | VUnitType -> VUnitType
   | VUnit -> VUnit
-  | VConstruct (c, l) -> VConstruct (c, List.map (lift a) l)
+  | VConstruct (c, l) -> VConstruct (c, List.map (fun (b, v) -> (b, lift a v)) l)
   | VNeutral n -> VNeutral (lift_neutral a n)
   | VLambda _ | VLambdaImplicit _ | VPi _ -> raise (Failure "lift")
   | VPiImplicit _ | VSigma _ | VFunction _ -> raise (Failure "lift")

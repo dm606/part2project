@@ -113,7 +113,7 @@ let rec add_binders checker i constraints context env subst typ patt =
             match add i constraints context env subst [] (l, ts) with
             | None -> None
             | Some (tl, i, constraints, context, env, subst) -> 
-                let value_matched = VConstruct (c, tl) in
+                let value_matched = VConstruct (c, List.map (fun v -> (false, v)) tl) in
                 Some (value_matched, i, constraints, context, env, subst)) in
 
       let possible_types = Context.get_constructor_types context c in
@@ -142,7 +142,14 @@ let (&) m1 = function
   | Unknown i -> (match m1 with Match -> Unknown i | _ -> m1)
   | NoMatch -> NoMatch
 
-let rec check_match pattern value = match pattern, value with
+let rec check_match pattern value =
+  let rec check_match_application (pl : pattern list) vl = match pl, vl with
+    | [], [] -> Match 
+    | pl, (true, v)::vl -> check_match_application pl vl
+    | p::pl, (false, v)::vl -> (check_match p v) & (check_match_application pl vl)
+    | _ -> NoMatch in
+
+  match pattern, value with
   | PatternUnderscore, _ -> Match
   | PatternBinder _, _ -> Match
   (* assume that inaccessible patterns have already been checked *)
@@ -152,7 +159,7 @@ let rec check_match pattern value = match pattern, value with
   | PatternPair _, VConstruct _ -> NoMatch
   | PatternPair _, VNeutral (VVar (_, i)) -> Unknown i
   | PatternApplication (pc, pl), VConstruct (vc, vl) when pc = vc ->
-      List.fold_left2 (fun m p v -> m & check_match p v) Match pl vl
+      check_match_application pl vl
   | PatternApplication _, VConstruct _ ->
       NoMatch (* constructor names do not match *)
   | PatternApplication _, VPair _ -> NoMatch
@@ -175,11 +182,11 @@ let rec split i constraints context subst typ value blocker =
   let rec construct i = function
     | VArrow (a, b) ->
         let (i, l) = construct (i + 1) b in
-        (i, (VNeutral (VVar ("", i)))::l)
+        (i, (false, VNeutral (VVar ("", i)))::l)
     | VPi (x, _, b, env) ->
         let (i, l) = construct (i + 1)
           (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b) in
-        (i, (VNeutral (VVar (x, i)))::l)
+        (i, (false, VNeutral (VVar (x, i)))::l)
     | VPiImplicit (x, _, b, env) ->
         let (i, l) = construct (i + 1)
           (Eval.eval (Equality.get_metavariable_assignment constraints) (Environment.add env (VNeutral (VVar (x, i)))) b) in
@@ -247,9 +254,9 @@ let rec split i constraints context subst typ value blocker =
                   let env' = Environment.add env v in
                   (i, v, Eval.eval (Equality.get_metavariable_assignment constraints) env' b, subst)) l
             | _ -> assert false in
-          let aux2 v (i, l, typ, subst) =
+          let aux2 (b, v) (i, l, typ, subst) =
             let split_results = aux i subst v typ in
-            List.map (fun (i, v, typ, subst) -> (i, v::l, typ, subst)) split_results in
+            List.map (fun (i, v, typ, subst) -> (i, (b, v)::l, typ, subst)) split_results in
           List.map (fun (i, l, _, subst) -> (i, VConstruct (c, l), subst))
             (List.fold_right (fun v l -> concat_map (aux2 v) l) 
               l [i, [], ctor_type, subst])

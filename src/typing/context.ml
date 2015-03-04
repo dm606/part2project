@@ -64,7 +64,7 @@ and refresh =
   | VUnitType -> VUnitType
   | VUnit -> VUnit
   | VConstruct (c, l) ->
-      VConstruct (c, List.map refresh l)
+      VConstruct (c, List.map (fun (b, e) -> (b, refresh e)) l)
   | VNeutral n -> VNeutral (refresh_neutral n)
 and refresh_exp = function
   | Pair (e1, e2) ->
@@ -166,7 +166,7 @@ let rec occurs v i = match v with
   | VUniverse _ -> false
   | VUnitType -> false
   | VUnit -> false
-  | VConstruct (_, l) -> List.exists (fun v -> occurs v i) l
+  | VConstruct (_, l) -> List.exists (fun (_, v) -> occurs v i) l
   | VNeutral n -> neutral_occurs n i
 and neutral_occurs n i = match n with
   | VVar (_, j) when i = j -> true
@@ -226,7 +226,7 @@ and mgu subst v1 v2 = match v1, v2 with
   | VConstruct (c,  l), VConstruct (c', l') ->
       if c = c'
       then List.fold_left2
-        (fun r v v2 -> r >>= fun u -> mgu u v v2) (Some subst) l l'
+        (fun r (b, v) (b2, v2) -> if b = b2 then r >>= fun u -> mgu u v v2 else None) (Some subst) l l'
       else None
   | VNeutral (VFunctionApplication (l, env, n))
   , VNeutral (VFunctionApplication (l', env', n')) ->

@@ -16,7 +16,7 @@ type normal =
   | NUniverse of int
   | NUnitType
   | NUnit
-  | NConstruct of string * normal list
+  | NConstruct of string * (bool * normal) list
   | NNeutral of normal_neutral
 and normal_neutral =
   | NVar of string * int 

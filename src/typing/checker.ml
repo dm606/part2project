@@ -891,7 +891,7 @@ let rec subst_implicit_metas_value c = function
   | VUniverse i -> VUniverse i
   | VUnit -> VUnit 
   | VUnitType -> VUnitType
-  | VConstruct (x, l) -> VConstruct (x, List.map (subst_implicit_metas_value c) l) 
+  | VConstruct (x, l) -> VConstruct (x, List.map (fun (b, v) -> (b, subst_implicit_metas_value c v)) l) 
   | VNeutral n -> subst_implicit_metas_neutral c n
 and subst_implicit_metas_neutral c = function
   | VVar (x, i) -> VNeutral (VVar (x, i))
@@ -903,7 +903,7 @@ and subst_implicit_metas_neutral c = function
       let x = subst_implicit_metas_neutral c x in
       let y = subst_implicit_metas_value c y in
       match x with
-      | VConstruct (c, l) -> VConstruct (c, y::l)
+      | VConstruct (c, l) -> VConstruct (c, (false, y)::l)
       | VLambda (Underscore, e, env) ->
           Eval.eval (Equality.get_metavariable_assignment c) env e
       | VLambda (Name x, e, env) ->
@@ -915,7 +915,7 @@ and subst_implicit_metas_neutral c = function
       let x = subst_implicit_metas_neutral c x in
       let y = subst_implicit_metas_value c y in
       match x with
-      | VConstruct (c, l) -> VConstruct (c, y::l)
+      | VConstruct (c, l) -> VConstruct (c, (true, y)::l)
       | VLambdaImplicit (Underscore, e, env) ->
           Eval.eval (Equality.get_metavariable_assignment c) env e
       | VLambdaImplicit (Name x, e, env) ->

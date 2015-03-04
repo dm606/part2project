@@ -142,7 +142,7 @@ let rec contains_neutral_variable env =
     | VSigma (_, a, _, e) -> value a || contains_neutral_variable e
     | VFunction (_, e) -> contains_neutral_variable e
     | VUniverse _ | VUnit | VUnitType -> false
-    | VConstruct (_, l) -> List.exists value l
+    | VConstruct (_, l) -> List.exists (fun (_, v) -> value v) l
     | VNeutral _ -> true in
   List.mem true (Environment.map_to_list (fun v -> value v)
     (fun d -> false) env)
@@ -152,10 +152,10 @@ let rec get_rel v1 v2 =
   else match v1, v2 with
     | VConstruct (c1, []), VConstruct (c2, []) when c1 = c2 -> LessThanOrEqual
     | VConstruct (c1, tl1) , VConstruct (c2, tl2) when c1 = c2 ->
-        List.fold_left2 (fun r v1 v2 -> min r (get_rel v1 v2)) Unknown tl1 tl2
+        List.fold_left2 (fun r (b1, v1) (b2, v2) -> if b1 = b2 then min r (get_rel v1 v2) else Unknown) Unknown tl1 tl2
     | VConstruct (c1, _), VConstruct (c2, _) -> Unknown
     | _, VConstruct (c1, tl) ->
-        if List.exists (fun v2 -> get_rel v1 v2 <> Unknown) tl then LessThan
+        if List.exists (fun (b, v2) -> get_rel v1 v2 <> Unknown) tl then LessThan
         else Unknown
     | VPair (v11, v12), VPair (v21, v22) ->
         min (get_rel v11 v21) (get_rel v12 v22)
@@ -203,7 +203,7 @@ and add_pattern i env = function
       let i, env, values = List.fold_left
         (fun (i, env, tl) p ->
            let i, env, v = add_pattern i env p in
-           (i, env, v::tl))
+           (i, env, (false, v)::tl))
         (i, env, []) tl in
       (i, env, VConstruct (c, values))
 
@@ -263,7 +263,7 @@ and extract_calls x i env args = function
           (i + 1) fun_env args (VNeutral (VVar ("", i)))) c
       else []
   | VUniverse _ | VUnit | VUnitType -> []
-  | VConstruct (_, l) -> map_append (extract_calls x i env args) l
+  | VConstruct (_, l) -> map_append (fun (_, v) -> extract_calls x i env args v) l
   | VNeutral n -> extract_calls_neutral x i env args n
 and extract_calls_neutral x i env args = function
   | VVar (_, i) -> [i, []]

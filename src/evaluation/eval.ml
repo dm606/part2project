@@ -24,9 +24,10 @@ let rec try_match env pattern value = match pattern, value with
 (* attempts to match all of the patterns against their corresponding value *)
 and try_match_all env patterns values = match patterns, values with
   | [], [] -> (true, env)
-  | p::ps, v::vs ->
+  | p::ps, (false, v)::vs ->
       let (m, new_env) = try_match env p v in
       if m then try_match_all new_env ps vs else (false, empty)
+  | patterns, (true, v)::vs -> try_match_all env patterns vs
   | _ -> (false, empty)
 
 (* matches the value against the pattern in each of the cases, returning the
@@ -70,7 +71,7 @@ let rec eval' metavars f env =
       let v2 = eval' metavars f env e2 in
       if v1 = v2 then raise (Cannot_evaluate "self-application") else
       (match v1 with
-       | VConstruct (c, l) -> VConstruct (c, v2::l)
+       | VConstruct (c, l) -> VConstruct (c, (false, v2)::l)
        | VLambda (b, e, fun_env) -> apply b e fun_env v2
        | VLambdaImplicit (b, e, fun_env) ->
            let fun_env = Environment.add fun_env (VNeutral (VMeta ((Abstract.create_implicit_metavariable ())))) in
@@ -85,7 +86,7 @@ let rec eval' metavars f env =
       let v2 = eval' metavars f env e2 in
       if v1 = v2 then raise (Cannot_evaluate "self-application") else
       (match v1 with
-       | VConstruct (c, l) -> VConstruct (c, v2::l)
+       | VConstruct (c, l) -> VConstruct (c, (true, v2)::l)
        | VLambda (b, e, fun_env) -> apply b e fun_env v2
        | VLambdaImplicit (b, e, fun_env) -> apply b e fun_env v2
        | VFunction (l, fun_env) -> apply_function l fun_env v2
