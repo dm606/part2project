@@ -44,7 +44,7 @@ let get_constructor_types = function
   | F _ | SType _ -> raise (Failure "get_constructor_types")
 
 let get_declarations = function
-  | SDecl (d, _, _, _, _) -> d
+  | SDecl (_, d, _, _, _) -> d
   | F _ | SType _ -> raise (Failure "get_declarations")
 
 let get_constraints = function
@@ -271,8 +271,6 @@ let rec infer_type i constraints env context exp =
             check_type i constraints env context e2 a
             >>= fun (e2, _, constraints) ->
             let pi_env' = Environment.add pi_env (Eval.eval (Equality.get_metavariable_assignment constraints) env e2) in
-            
-            
             SType (Application (e1, e2), Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b, constraints)
         | e1, (VPiImplicit (x, a, b, pi_env)), constraints -> 
             let meta = Abstract.create_implicit_metavariable () in
@@ -285,7 +283,7 @@ let rec infer_type i constraints env context exp =
   (* implicit application *)
   | ApplicationImplicit (Constructor c, e2) -> tr (
       match get_unique_constructor_type context c with
-      | None -> 
+      | None ->
           failure
             (sprintf "The constructor \"%s\" does not have a unique type." c)
       | Some (VPiImplicit (x, a, b, pi_env)) ->
@@ -340,7 +338,7 @@ let rec infer_type i constraints env context exp =
         | _ -> failure (sprintf "%a is not a pair" print e))
 
   (* metavariables *)
-  | Meta id -> 
+  | Meta id ->
       if Equality.has_metavariable constraints id
       then
         (* TODO: Should the metavariable be replaced if it has been assigned? *)
@@ -352,10 +350,12 @@ let rec infer_type i constraints env context exp =
   | LocalDeclaration (d, e) -> tr (
       match check_declarations i constraints env context d with
       | F _ as f -> f
-      | SDecl (_, d, _, _, _) ->
+      | SDecl (_, d, _, _, constraints) ->
           let env' = Environment.add_declarations env d in
           let context' = add_all_to_context (Equality.get_metavariable_assignment constraints) env context d in
           infer_type i constraints env' context' e
+          >>= fun (e, typ, constraints) ->
+          SType (LocalDeclaration (d, e), typ, constraints)
       | SType _ -> assert false)
 
   (* not needed in type system -- included for constructors given as part of
@@ -437,7 +437,6 @@ and check_type i constraints env context exp typ =
   let failure s = F (s, lazy "") in
 
   let try_subtype () = tr (
-
       infer_type i constraints env context exp
       >>= fun (exp, inferred_type, constraints) ->
       match check_subtype i constraints inferred_type typ with
@@ -449,7 +448,7 @@ and check_type i constraints env context exp typ =
   | e, typ when is_implicit_constructor_application e -> (
       let c = get_constructor_from_implicit_application e in
       match get_unique_constructor_type context c with
-      | None -> 
+      | None ->
           failure
             (sprintf "The constructor \"%s\" does not have a unique type." c)
       | Some t ->
@@ -547,11 +546,15 @@ and check_type i constraints env context exp typ =
 
   (* declarations *)
   | LocalDeclaration (d, e), _ -> tr (
-      check_declarations i constraints env context d
-      >> fun constraints ->
-      let env' = Environment.add_declarations env d in
-      let context' = add_all_to_context (Equality.get_metavariable_assignment constraints) env context d in
-      check_type i constraints env' context' e typ)
+      match check_declarations i constraints env context d with
+      | SDecl (_, d, _, _, constraints) ->
+          let env' = Environment.add_declarations env d in
+          let context' = add_all_to_context (Equality.get_metavariable_assignment constraints) env context d in
+          check_type i constraints env' context' e typ
+          >>= fun (e, typ, constraints) ->
+          SType (LocalDeclaration (d, e), typ, constraints)
+      | F _ as f -> f
+      | SType _ -> assert false)
 
   (* pattern matching *)
   | Function cases, VArrow (a, b) -> tr (
@@ -593,7 +596,7 @@ and check_type i constraints env context exp typ =
   | Function cases, VPi (x, a, b, pi_env) -> tr (
       let check_case constraints patt exp =
         match Patterns.add_binders
-          (fun i constraints context env e v -> 
+          (fun i constraints context env e v ->
             match check_type i constraints env context e v with
             | SType (e, _, constraints) -> Some (e, constraints)
             | _ -> None)
@@ -639,9 +642,10 @@ and check_type i constraints env context exp typ =
         | None -> tr (failure (sprintf "%a is not a subtype of %a." print_val
             inferred_type print_val typ))
       else 
-        SType (Meta id, typ, Equality.add_metavariable constraints (i, context, env) id typ)
-
-
+        let constraints = Equality.add_metavariable constraints (i, context, env) id typ in
+        if Equality.never_satisfied constraints
+        then tr (failure (sprintf "%a does not have type %a." print_exp (Meta id) print_val typ))
+        else SType (Meta id, typ, Equality.add_metavariable constraints (i, context, env) id typ)
 
   (* application *)
   | Application (e1, e2), t2 -> (match (

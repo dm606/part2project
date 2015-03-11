@@ -40,6 +40,30 @@ and normal_neutral =
   | NProj2 of normal_neutral
   | NMeta of meta_id
 
+let rec no_neutral_variables_pred_neutral p = function
+  | NVar (_, i) -> not (p i)
+  | NFunctionApplication (_, _, n) -> no_neutral_variables_pred p n
+  | NFunctionApplicationImplicit (_, _, n) -> no_neutral_variables_pred p n
+  | NApplication (x, y) -> no_neutral_variables_pred_neutral p x && no_neutral_variables_pred p y
+  | NApplicationImplicit (x, y) -> no_neutral_variables_pred_neutral p x && no_neutral_variables_pred p y
+  | NProj1 x -> no_neutral_variables_pred_neutral p x
+  | NProj2 x -> no_neutral_variables_pred_neutral p x
+  | NMeta id -> true
+and no_neutral_variables_pred p = function
+  | NPair (x, y) -> no_neutral_variables_pred p x && no_neutral_variables_pred p y
+  | NLambda (_, _, n) -> no_neutral_variables_pred p n
+  | NLambdaImplicit (_, _, n) -> no_neutral_variables_pred p n
+  | NPi (_, _, x, y) -> no_neutral_variables_pred p x && no_neutral_variables_pred p y
+  | NPiImplicit (_, _, x, y) -> no_neutral_variables_pred p x && no_neutral_variables_pred p y
+  | NSigma (_, _, x, y) -> no_neutral_variables_pred p x && no_neutral_variables_pred p y
+  | NFunction _ -> true
+  | NUniverse _ | NUnitType | NUnit -> true
+  | NConstruct (_, l) -> List.for_all (fun (_, v) -> no_neutral_variables_pred p v) l
+  | NNeutral n -> no_neutral_variables_pred_neutral p n
+
+let no_neutral_variables = no_neutral_variables_pred (fun _ -> true) 
+let no_neutral_variables_neutral = no_neutral_variables_pred_neutral (fun _ -> true) 
+
 let rec no_metavariables_pred_neutral p = function
   | NVar _ -> true
   | NFunctionApplication (_, _, n) -> no_metavariables_pred p n
@@ -696,8 +720,7 @@ let assign ( con, m, a, c) id n =
   | Some (con, m, a, c) ->
     let a = MM.map (fun x -> subst id n x) a in
     let c = List.map (subst_equation id n) c in
-    assert (not (MM.mem id a)); (* the metavariable must not be assigned twice *)
-    ( con, m, MM.add id n a, c)
+    (con, m, MM.add id n a, c)
 
 let maybe_add ((con, m, a, c) : constraints) e =
   if List.mem e c then false, (con, m, a, c)
@@ -840,7 +863,8 @@ let rec test_normal_equality c x y =
       (* if x or y has a metavariable, then they maay be equal if constraints
        * are satisfied *)
       c >>= add_equation Active x y
-  | _ -> c
+  | _ when no_neutral_variables x && no_neutral_variables y -> c >>= add_equation Failed x y
+  | _ -> c >>= add_equation Failed x y
 and test_neutral_equality c x y =
   let test x y c = test_neutral_equality c x y in
   let test_normal x y c = test_normal_equality c x y in
@@ -947,4 +971,5 @@ let string_of_constraints (_, m, a, c) =
     s c 
 
 let print_constraints fmt constraints =
-  Format.fprintf fmt "%s" (string_of_constraints constraints)
+  Format.fprintf fmt "%s" (string_of_constraints constraints);
+  Format.pp_print_flush fmt ()
