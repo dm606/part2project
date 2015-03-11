@@ -209,7 +209,7 @@ let rec expression_of_normal2 env (exp : normal) =
   | NUnitType -> UnitType 
   | NUnit -> Unit
   | NConstruct (c, l) ->
-      List.fold_right (fun (b, n) c -> Application (c, expression_of_normal2 env n))
+      List.fold_right (fun (b, n) c -> if b then ApplicationImplicit (c, expression_of_normal2 env n) else Application (c, expression_of_normal2 env n))
         l (Constructor c)
   | NNeutral n -> expression_of_normal_neutral2 env n
 and expression_of_normal_neutral2 env = function
@@ -377,8 +377,8 @@ let rec subst id n = function
   | NNeutral x -> subst_neutral id n x
 and subst_neutral id n = function
   | NVar _ as x -> NNeutral x
-  | NFunctionApplication _ -> raise Constraint_function
-  | NFunctionApplicationImplicit _ -> raise Constraint_function
+  | NFunctionApplication _ as x -> if no_metavariables_neutral x then NNeutral x else raise Constraint_function
+  | NFunctionApplicationImplicit _ as x -> if no_metavariables_neutral x then NNeutral x else raise Constraint_function
   | NApplication (x, y) -> (
       let x = subst_neutral id n x in
       let y = subst id n y in
@@ -709,7 +709,7 @@ let check_assign ((con, m, a, c) : constraints) id n =
           try
             let exp = expression_of_normal2 env n in
             !checker (i, context, env) constraints exp typ
-          with Failure _ -> None) (Some (con, m, a, c)) cons
+          with Failure _ -> Some (con, m, a, c)) (Some (con, m, a, c)) cons
   else Some ((con, m, a, c): constraints)
 
 let assign ( con, m, a, c) id n = 

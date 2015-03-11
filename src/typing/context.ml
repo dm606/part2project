@@ -32,16 +32,11 @@ let add_lazy_constructor (m, l) x type_name t =
 let remove_constructors_of_type (m, l) type_name = 
     M.map (List.filter (fun (t, _) -> t <> type_name)) m, l
 
-let get_binder_type (m, l) i = match List.nth l i with
-  | _, `V v -> Some v
-  | _, `T t -> Some (Lazy.force t)
-  | exception (Failure _) -> None
-
 let rec refresh_neutral = function
   | VProj1 n1 -> VProj1 (refresh_neutral n1)
   | VProj2 n1 -> VProj2 (refresh_neutral n1)
   | VMeta id when Abstract.is_implicit id -> VMeta (Abstract.create_implicit_metavariable ())
-  | VMeta _ as n -> n
+  | VMeta _ | VVar _ as n -> n
   | _ -> raise (Failure "refresh")
 and refresh =
   function
@@ -92,6 +87,11 @@ and refresh_exp = function
   | Proj2 e -> Proj2 (refresh_exp e)
   | Meta id when is_implicit id -> Meta (create_implicit_metavariable ())
   | Meta id -> Meta id
+
+let get_binder_type (m, l) i = match List.nth l i with
+  | _, `V v -> Some v
+  | _, `T t -> Some (Lazy.force t)
+  | exception (Failure _) -> None
 
 let get_constructor_types (m, l) c =
   if M.mem c m then List.map (fun (x, v) -> 
