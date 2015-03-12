@@ -37,7 +37,7 @@ let rec refresh_neutral = function
   | VProj2 n1 -> VProj2 (refresh_neutral n1)
   | VMeta id when Abstract.is_implicit id -> VMeta (Abstract.create_implicit_metavariable ())
   | VMeta _ | VVar _ as n -> n
-  | _ -> raise (Failure "refresh")
+  | _ as l -> l
 and refresh =
   function
   | VPair (v1, v2) ->
@@ -54,7 +54,7 @@ and refresh =
       VTimes (refresh a, refresh b)
   | VSigma (b, v1, e, env) ->
       VSigma (b, refresh v1, refresh_exp e, env)
-  | VFunction _ -> raise (Failure "refresh") 
+  | VFunction _ as l -> l
   | VUniverse i -> VUniverse i
   | VUnitType -> VUnitType
   | VUnit -> VUnit
@@ -89,8 +89,8 @@ and refresh_exp = function
   | Meta id -> Meta id
 
 let get_binder_type (m, l) i = match List.nth l i with
-  | _, `V v -> Some v
-  | _, `T t -> Some (Lazy.force t)
+  | _, `V v -> Some (refresh v)
+  | _, `T t -> Some (refresh (Lazy.force t))
   | exception (Failure _) -> None
 
 let get_constructor_types (m, l) c =

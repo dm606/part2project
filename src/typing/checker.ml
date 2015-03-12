@@ -1058,7 +1058,7 @@ let infer_type constraints env context exp =
   try
     let exp = subst_implicit_metas constraints exp in 
     let typ = subst_implicit_metas_value constraints typ in
-    SType (exp, typ, if !keep_constraints then constraints else Equality.remove_implicit_metavariables constraints)
+    SType (exp, typ, (*if !keep_constraints then*) constraints(* else Equality.remove_implicit_metavariables constraints*))
   with Unsolved_implicit_metavariable ->
     F (get_unsolved_metavariables_message constraints, lazy "") 
 let check_type constraints env context exp typ =
@@ -1067,7 +1067,7 @@ let check_type constraints env context exp typ =
   try
     let exp = subst_implicit_metas constraints exp in 
     let typ = subst_implicit_metas_value constraints typ in
-    SType (exp, typ, if !keep_constraints then constraints else Equality.remove_implicit_metavariables constraints)
+    SType (exp, typ, (*if !keep_constraints then*) constraints (*else Equality.remove_implicit_metavariables constraints*))
   with Unsolved_implicit_metavariable ->
     F (get_unsolved_metavariables_message constraints, lazy "") 
 let check_declarations constraints env context decls =
@@ -1078,7 +1078,7 @@ let check_declarations constraints env context decls =
         let decls = List.map (subst_implicit_metas_decl constraints) decls in
         let types = List.map (fun (x, v) -> (x, subst_implicit_metas_value constraints v)) types in
         let constructors = List.map (fun (x, y, v) -> (x, y, subst_implicit_metas_value constraints v)) constructors in*)
-        SDecl (d, decls, types, constructors, if !keep_constraints then constraints else Equality.remove_implicit_metavariables constraints)
+        SDecl (d, decls, types, constructors, (*if !keep_constraints then*) constraints (*else Equality.remove_implicit_metavariables constraints*))
       with Unsolved_implicit_metavariable ->
         F (get_unsolved_metavariables_message constraints, lazy ""))
   | F _ as f -> f
