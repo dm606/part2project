@@ -141,7 +141,7 @@ let metavariables = ref []
 
 let print_constraints () =
   if !metavariables <> [] then
-    Equality.print_constraints Format.std_formatter !constraints;
+    Equality.print_constraints_for_metavariables Format.std_formatter !metavariables !constraints;
     metavariables := []
 
 let rec use_file filename =

@@ -27,7 +27,7 @@ and normal =
   | NConstruct of string * (bool * normal) list
   | NNeutral of normal_neutral
 and normal_neutral =
-  | NVar of string * int 
+  | NVar of string * int
   | NFunctionApplication of (pattern * expression) list
                           * normal_envt
                           * normal
@@ -61,9 +61,61 @@ and no_neutral_variables_pred p = function
   | NConstruct (_, l) -> List.for_all (fun (_, v) -> no_neutral_variables_pred p v) l
   | NNeutral n -> no_neutral_variables_pred_neutral p n
 
-let no_neutral_variables = no_neutral_variables_pred (fun _ -> true) 
-let no_neutral_variables_neutral = no_neutral_variables_pred_neutral (fun _ -> true) 
+let no_neutral_variables = no_neutral_variables_pred (fun _ -> true)
+let no_neutral_variables_neutral = no_neutral_variables_pred_neutral (fun _ -> true)
 
+let rec no_metavariables_pred_expression p = function
+  | Pair (e1, e2) ->
+      no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | Lambda (_, e) -> no_metavariables_pred_expression p e
+  | LambdaImplicit (_, e) -> no_metavariables_pred_expression p e
+  | Pi (_, e1, e2) ->
+      no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | PiImplicit (_, e1, e2) ->
+      no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | Sigma (_, e1, e2) ->
+      no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | Function l -> List.for_all (fun (_, e) -> no_metavariables_pred_expression p e) l
+  | LocalDeclaration (d, e) -> List.for_all (no_metavariables_pred_decl p) d && no_metavariables_pred_expression p e
+  | Application (e1, e2) -> no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | ApplicationImplicit (e1, e2) -> no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | Universe _ | UnitType | Unit | Index _ | Constructor _ -> true
+  | Proj1 e -> no_metavariables_pred_expression p e
+  | Proj2 e -> no_metavariables_pred_expression p e
+  | Meta id -> not (p id)
+and no_metavariables_pred_decl p = function
+  | Let (x, e1, e2) -> no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | LetRec (x, e1, e2) -> no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
+  | Type (x, ps, e, cs) -> List.for_all (no_metavariables_pred_param p) ps && no_metavariables_pred_expression p e && List.for_all (fun (_, e) -> no_metavariables_pred_expression p e) cs
+and no_metavariables_pred_param p = function
+  | Parameter (_, e) -> no_metavariables_pred_expression p e
+  | ParameterImplicit (_, e) -> no_metavariables_pred_expression p e
+
+let rec no_metavariables_pred_value p = function
+  | VPair (v1, v2) -> no_metavariables_pred_value p v1 && no_metavariables_pred_value p v2
+  | VLambda (_, e, env) -> no_metavariables_pred_expression p e && no_metavariables_pred_env p env
+  | VLambdaImplicit (_, e, env) -> no_metavariables_pred_expression p e && no_metavariables_pred_env p env
+  | VPi (_, v, e, env) -> no_metavariables_pred_value p v && no_metavariables_pred_expression p e && no_metavariables_pred_env p env
+  | VPiImplicit (_, v, e, env) -> no_metavariables_pred_value p v && no_metavariables_pred_expression p e && no_metavariables_pred_env p env
+  | VArrow (v1, v2) -> no_metavariables_pred_value p v1 && no_metavariables_pred_value p v2
+  | VSigma (_, v, e, env) -> no_metavariables_pred_value p v && no_metavariables_pred_expression p e && no_metavariables_pred_env p env
+  | VTimes (v1, v2) -> no_metavariables_pred_value p v1 && no_metavariables_pred_value p v2
+  | VFunction (l, env) -> List.for_all (fun (_, e) -> no_metavariables_pred_expression p e) l && no_metavariables_pred_env p env
+  | VUniverse _ | VUnit | VUnitType -> true
+  | VConstruct (x, l) -> List.for_all (fun (_, v) -> no_metavariables_pred_value p v) l
+  | VNeutral n -> no_metavariables_pred_neutral p n
+and no_metavariables_pred_neutral p = function
+  | VVar (x, i) -> true
+  | VFunctionApplication (l, env, v) ->
+      List.for_all (fun (_, e) -> no_metavariables_pred_expression p e) l && no_metavariables_pred_env p env && no_metavariables_pred_value p v
+  | VFunctionApplicationImplicit (l, env, v) ->
+      List.for_all (fun (_, e) -> no_metavariables_pred_expression p e) l && no_metavariables_pred_env p env && no_metavariables_pred_value p v
+  | VApplication (x, y) -> no_metavariables_pred_neutral p x && no_metavariables_pred_value p y
+  | VApplicationImplicit (x, y) -> no_metavariables_pred_neutral p x && no_metavariables_pred_value p y
+  | VProj1 n -> no_metavariables_pred_neutral p n
+  | VProj2 n -> no_metavariables_pred_neutral p n
+  | VMeta id -> not (p id)
+and no_metavariables_pred_env p env = List.for_all (fun x -> x) (Environment.map_to_list (no_metavariables_pred_value p) (List.for_all (no_metavariables_pred_decl p)) env)
 let rec no_metavariables_pred_neutral p = function
   | NVar _ -> true
   | NFunctionApplication (_, _, n) -> no_metavariables_pred p n
@@ -72,7 +124,7 @@ let rec no_metavariables_pred_neutral p = function
   | NApplicationImplicit (x, y) -> no_metavariables_pred_neutral p x && no_metavariables_pred p y
   | NProj1 x -> no_metavariables_pred_neutral p x
   | NProj2 x -> no_metavariables_pred_neutral p x
-  | NMeta id -> not (p id) 
+  | NMeta id -> not (p id)
 and no_metavariables_pred p = function
   | NPair (x, y) -> no_metavariables_pred p x && no_metavariables_pred p y
   | NLambda (_, _, n) -> no_metavariables_pred p n
@@ -257,9 +309,9 @@ let remove_implicit_metavariables ( cont, types, assigments, equations) =
   let types = MM.filter (fun id _ -> not (is_implicit id)) types in
   let assigments = MM.filter (fun id _ -> not (is_implicit id)) assigments in
   let equations = List.filter (fun (s, x, y) -> no_metavariables_pred is_implicit x && no_metavariables_pred is_implicit y) equations in
-  ( cont, types, assigments, equations) 
+  (cont, types, assigments, equations)
 
-let rec readback constraints i = 
+let rec readback constraints i =
   let readback = readback constraints in
   let eval = eval (get_metavariable_assignment constraints) in
   let readback_env i =
@@ -494,7 +546,7 @@ let simplify x y =
     | _ ->
         (* this case should only happen if x and y have different types *)
         assert false in
-  
+
   match x, y with
   (* no metavariables -- can compare both sides  *)
   | x, y when no_metavariables x && no_metavariables y ->
@@ -560,11 +612,11 @@ let simplify x y =
             (true, NNeutral x1, y)
         | NPair (NNeutral (NProj1 x1), NNeutral (NProj2 x2)) when x1 = x2 ->
             (true, NNeutral x1, y)
-        
+
         (* eliminating projections *)
         (* TODO *)
 
-        | NPair (x1, x2) -> 
+        | NPair (x1, x2) ->
             let b, x1, y = aux x1 in
             if b then (true, NPair (x1, x2), y)
             else
@@ -744,11 +796,13 @@ let case_split (id:meta_id) (typ:value) ((b:bool), constraints) (i, context, env
     | _ -> false, constraints
   with _ -> false, constraints
 
-let try_case_split (con, m, a, c) = 
+let try_case_split (con, m, a, c) =
   MM.fold (fun id typ (b, (con, m, a, c)) ->
     if b then true, (con, m, a, c)
     else
-      if MM.mem id con then
+      (* only attempt a case split if a context is available and the
+       * metavariable has not been solved *)
+      if MM.mem id con && not (MM.mem id a) then
         List.fold_left (case_split id typ) (false, (con, m, a, c)) (MM.find id con)
       else false, (con, m, a, c)) m (false, (con, m, a, c))
 
@@ -960,6 +1014,30 @@ let string_of_normal v =
   pp_print_flush str_formatter ();
   Buffer.contents stdbuf
 
+let string_of_constraints_for_metavariables mvs (_, m, a, c) =
+  let is_in id = List.mem id mvs in
+  let print_type id typ s =
+    if is_in id || not (no_metavariables_pred_value is_in typ)
+    then sprintf "%s?%s : %s\n" s (string_of_id id) (Print_value.string_of_value typ)
+    else s in
+  let print_assign id n s =
+    if is_in id || not (no_metavariables_pred is_in n)
+    then sprintf "%s?%s := %s\n" s (string_of_id id) (string_of_normal n)
+    else s in
+  let print_equation s (state, x, y) =
+    if no_metavariables_pred is_in x && no_metavariables_pred is_in y then s
+    else
+      let state = match state with Active -> "" | Failed -> "Failed: " in
+      sprintf "%s%s%s = %s\n" s state (string_of_normal x) (string_of_normal y) in
+
+  let s = MM.fold print_type m "" in
+  let s = MM.fold print_assign a s in
+  List.fold_left print_equation s c
+
+let print_constraints_for_metavariables fmt mvs constraints =
+  Format.fprintf fmt "%s" (string_of_constraints_for_metavariables mvs constraints);
+  Format.pp_print_flush fmt ()
+
 let string_of_constraints (_, m, a, c) =
   let s = MM.fold (fun id typ s -> sprintf "%s?%s : %s\n" s (string_of_id id)
     (Print_value.string_of_value typ)) m "" in
@@ -968,7 +1046,7 @@ let string_of_constraints (_, m, a, c) =
   List.fold_left (fun s -> function
     | (Active, x, y) -> sprintf "%s%s = %s\n" s (string_of_normal x) (string_of_normal y)
     | (Failed, x, y) -> sprintf "%sFailed: %s = %s\n" s (string_of_normal x) (string_of_normal y))
-    s c 
+    s c
 
 let print_constraints fmt constraints =
   Format.fprintf fmt "%s" (string_of_constraints constraints);

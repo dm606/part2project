@@ -224,7 +224,7 @@ let rec construct_application e = function
   | (false, e2)::tl -> construct_application (Application (e, e2)) tl
   | (true, e2)::tl -> construct_application (ApplicationImplicit (e, e2)) tl
 
-let rec add_applications i constraints env context l target inferred =
+let rec add_applications i constraints env context exp l target inferred =
   let (>>=) r f = match r with
     | SType (e, typ, constraints) -> f (e, typ, constraints)
     | SDecl _ -> assert false
@@ -237,7 +237,7 @@ let rec add_applications i constraints env context l target inferred =
   | VArrow (a, b), (false, hd)::tl ->
       check_type i constraints env context hd a
       >>= fun (hd, a, constraints) ->
-      add_applications i constraints env context tl target b
+      add_applications i constraints env context exp tl target b
       >>> fun (tl, constraints) ->
       `S ((false, hd)::tl, constraints)
   | VPi (x, a, b, pi_env), (false, hd)::tl ->
@@ -245,7 +245,7 @@ let rec add_applications i constraints env context l target inferred =
       >>= fun (hd, a, constraints) ->
       let pi_env' = Environment.add pi_env (Eval.eval (Equality.get_metavariable_assignment constraints) env hd) in
       let b = Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b in
-      add_applications i constraints env context tl target b
+      add_applications i constraints env context exp tl target b
       >>> fun (tl, constraints) ->
       `S ((false, hd)::tl, constraints)
   | VPiImplicit (x, a, b, pi_env), (true, hd)::tl ->
@@ -253,21 +253,21 @@ let rec add_applications i constraints env context l target inferred =
       >>= fun (hd, a, constraints) ->
       let pi_env' = Environment.add pi_env (Eval.eval (Equality.get_metavariable_assignment constraints) env hd) in
       let b = Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b in
-      add_applications i constraints env context tl target b
+      add_applications i constraints env context exp tl target b
       >>> fun (tl, constraints) ->
       `S ((true, hd)::tl, constraints)
   | VPiImplicit (x, a, b, pi_env), (false, hd)::tl ->
       let mv = Meta (Abstract.create_implicit_metavariable ()) in
-      add_applications i constraints env context ((true, mv)::l) target inferred
+      add_applications i constraints env context exp ((true, mv)::l) target inferred
   | VPiImplicit (x, a, b, pi_env), [] ->
       let mv = Meta (Abstract.create_implicit_metavariable ()) in
-      add_applications i constraints env context ((true, mv)::l) target inferred
+      add_applications i constraints env context exp ((true, mv)::l) target inferred
   | inferred, l -> (
       (* inferred must not be an implicit pi type *)
       match check_subtype i constraints inferred target with
       | Some constraints ->
           `S (l, constraints)
-      | None -> `F (sprintf "%s is not a subtype of %s." (Print_value.string_of_value inferred) (Print_value.string_of_value target), lazy ""))
+      | None -> `F (sprintf "%s has type %s. An expression of type %s was expected." (Abstract.print_expression (get_envt context) exp) (Print_value.string_of_value inferred) (Print_value.string_of_value target), lazy ""))
 
 and infer_type i constraints env context exp =
   let print () e =
@@ -427,7 +427,7 @@ and infer_type i constraints env context exp =
       then
         (* TODO: Should the metavariable be replaced if it has been assigned? *)
         SType (Meta id, Equality.get_metavariable constraints id, constraints)
-      else failure (sprintf "Cannot infer a type for %a." print exp)
+      else failure (sprintf "%a does not have a known type; it must be given one using a let for it to be used here." print exp)
 
   (* normally a type checking rule -- included for declarations given as part of
    * expressions in the REPL *)
@@ -453,22 +453,17 @@ and infer_type i constraints env context exp =
 
   (* not needed in the type system -- included for pairs given as part of
    * expressions in the REPL *)
-  | Pair (e1, e2) -> tr ( 
+  | Pair (e1, e2) -> tr (
       infer_type i constraints env context e1
       >>= fun (e1, t1, constraints) ->
       infer_type i constraints env context e2
       >>= fun (e2, t2, constraints) ->
-      (* env should not be needed in the next line -- a reified value should not
-       * have free variables *)
-      try SType (Pair (e1, e2), VTimes (t1, t2), constraints)
-      with Cannot_reify _ ->
-        failure (sprintf "Cannot convert the type of %a to an expression"
-          print e2))
+      SType (Pair (e1, e2), VTimes (t1, t2), constraints))
 
-  | _ -> failure (sprintf "Cannot infer a type for %a." print exp)
+  | _ -> failure (sprintf "Couldn't infer a type for %a. Try putting it inside a let." print exp)
 
 and check_subtype i constraints a b =
-  let check_equal a b constraints = 
+  let check_equal a b constraints =
     let constraints = Equality.test_equality i constraints a b in
     if Equality.never_satisfied constraints then None else Some constraints in
 
@@ -525,7 +520,7 @@ and check_type i constraints env context exp typ =
       >>= fun (exp, inferred_type, constraints) ->
       match check_subtype i constraints inferred_type typ with
       | Some constraints -> SType (exp, typ, constraints)
-      | None -> failure (sprintf "%a is not a subtype of %a." print_val inferred_type
+      | None -> failure (sprintf "%a has type %a. An expression of type %a was expected." print_exp exp print_val inferred_type
              print_val typ)) in
 
   match exp, typ with
@@ -535,7 +530,7 @@ and check_type i constraints env context exp typ =
       match get_unique_constructor_type context c with
       | None -> failure (sprintf "The constructor \"%s\" does not have a unique type." c)
       | Some t ->
-          (match add_applications i constraints env context l typ t with
+          (match add_applications i constraints env context exp l typ t with
            | `F (x, y) -> F (x, y)
            | `S (l, constraints) -> SType (construct_application (Constructor c) l, typ, constraints)))
   | e, typ when is_index_application e ->
@@ -544,7 +539,7 @@ and check_type i constraints env context exp typ =
       match get_binder_type context c with
       | None -> failure "Attempted to use an invalid de Bruijn index."
       | Some t ->
-          (match add_applications i constraints env context l typ t with
+          (match add_applications i constraints env context exp l typ t with
            | `F (x, y) -> F (x, y)
            | `S (l, constraints) -> SType (construct_application (Index c) l, typ, constraints)))
 (*

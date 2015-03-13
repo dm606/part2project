@@ -80,12 +80,18 @@ val test_equality : int -> constraints -> value -> value -> constraints
     equal iff the constraints in [constraints] are satisfied *)
 val test_expression_equality :
       value Environment.t -> Abstract.expression -> Abstract.expression ->
-        constraints 
+        constraints
 
 val add_typing_context : constraints -> meta_id -> (int * Context.t * value Environment.t) -> constraints
 
 (** removes all occurences of implcit metavariables from the constraints *)
-val remove_implicit_metavariables : constraints -> constraints 
+val remove_implicit_metavariables : constraints -> constraints
+
+(** prints the constraints for the given metavariables to the formatter *)
+val print_constraints_for_metavariables : Format.formatter -> meta_id list -> constraints -> unit
+
+(** converts the constraints for the given metavariables to a string for printing *)
+val string_of_constraints_for_metavariables : meta_id list -> constraints -> string
 
 (** prints the constraints to the formatter *)
 val print_constraints : Format.formatter -> constraints -> unit
