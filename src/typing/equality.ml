@@ -137,88 +137,8 @@ and no_metavariables_pred p = function
   | NConstruct (_, l) -> List.for_all (fun (_, v) -> no_metavariables_pred p v) l
   | NNeutral n -> no_metavariables_pred_neutral p n
 
-let no_metavariables = no_metavariables_pred (fun _ -> true) 
-let no_metavariables_neutral = no_metavariables_pred_neutral (fun _ -> true) 
-
-let get_index p =
-  let rec aux i = function
-    | [] -> None 
-    | x::tl -> if p x then Some i else aux (i + 1) tl in
-  aux 0
-
-let rec expression_of_normal env = function
-  | NPair (x, y) ->
-      Pair (expression_of_normal env x, expression_of_normal env y)
-  | NLambda (s, i, x) -> Lambda (Name s, expression_of_normal (i::env) x)
-  | NLambdaImplicit (s, i, x) -> LambdaImplicit (Name s, expression_of_normal (i::env) x)
-  | NPi (s, i, x, y) ->
-      Pi (Name s, expression_of_normal env x, expression_of_normal (i::env) y)
-  | NPiImplicit (s, i, x, y) ->
-      PiImplicit (s, expression_of_normal env x, expression_of_normal (i::env) y)
-  | NSigma (s, i, x, y) ->
-      Sigma (Name s, expression_of_normal env x
-        , expression_of_normal (i::env) y)
-  | NFunction _ -> raise Constraint_function
-  | NUniverse i -> Universe i
-  | NUnitType -> UnitType 
-  | NUnit -> Unit
-  | NConstruct (c, l) ->
-      List.fold_right (fun (b, n) c -> if b then ApplicationImplicit (c, expression_of_normal env n) else Application (c, expression_of_normal env n))
-        l (Constructor c)
-  | NNeutral n -> expression_of_normal_neutral env n
-and expression_of_normal_neutral env = function
-  | NVar (s, i) -> (
-      match get_index (fun j -> i = j) env with
-      | Some i -> Index i
-      | None ->
-          (* the neutral variable did not come from an available lambda
-           * abstraction *)
-          (* TODO: Can this case actually happen ?? *)
-          assert false)
-  | NFunctionApplication _ -> raise Constraint_function
-  | NFunctionApplicationImplicit _ -> raise Constraint_function
-  | NApplication (x, y) ->
-      Application (expression_of_normal_neutral env x, expression_of_normal env y)
-  | NApplicationImplicit (x, y) ->
-      ApplicationImplicit (expression_of_normal_neutral env x, expression_of_normal env y)
-  | NProj1 x -> Proj1 (expression_of_normal_neutral env x)
-  | NProj2 x -> Proj2 (expression_of_normal_neutral env x)
-  | NMeta id -> Meta id 
-
-let rec value_of_normal = function
-  | NPair (x, y) -> VPair (value_of_normal x, value_of_normal y)
-  | NLambda (s, i, x) ->
-      VLambda (Name s, expression_of_normal [i] x, Environment.empty)
-  | NLambdaImplicit (s, i, x) ->
-      VLambdaImplicit (Name s, expression_of_normal [i] x, Environment.empty)
-  | NPi ("_", i, x, y) ->
-      VArrow (value_of_normal x, value_of_normal y)
-  | NPi (s, i, x, y) ->
-      VPi (s, value_of_normal x, expression_of_normal [i] y
-        , Environment.empty)
-  | NPiImplicit (s, i, x, y) ->
-      VPiImplicit (s, value_of_normal x, expression_of_normal [i] y
-        , Environment.empty)
-  | NSigma (s, i, x, y) ->
-      VSigma (s, value_of_normal x, expression_of_normal [i] y
-        , Environment.empty)
-  | NFunction _ -> raise Constraint_function
-  | NUniverse i -> VUniverse i
-  | NUnitType -> VUnitType 
-  | NUnit -> VUnit
-  | NConstruct (c, l) -> VConstruct (c, List.map (fun (b, v) -> (b, value_of_normal v)) l)
-  | NNeutral n -> VNeutral (value_of_normal_neutral n)
-and value_of_normal_neutral = function
-  | NVar (s, i) -> VVar (s, i)
-  | NFunctionApplication _ -> raise Constraint_function
-  | NFunctionApplicationImplicit _ -> raise Constraint_function
-  | NApplication (x, y) ->
-      VApplication (value_of_normal_neutral x, value_of_normal y)
-  | NApplicationImplicit (x, y) ->
-      VApplicationImplicit (value_of_normal_neutral x, value_of_normal y)
-  | NProj1 n -> VProj1 (value_of_normal_neutral n)
-  | NProj2 n -> VProj1 (value_of_normal_neutral n)
-  | NMeta i -> VMeta i
+let no_metavariables = no_metavariables_pred (fun _ -> true)
+let no_metavariables_neutral = no_metavariables_pred_neutral (fun _ -> true)
 
 let rec eq_structure n e = match n, e with
   | NPair (n1, n2), VPair (e1, e2) -> eq_structure n1 e2 && eq_structure n2 e2
@@ -277,7 +197,49 @@ and expression_of_normal_neutral2 env = function
       ApplicationImplicit (expression_of_normal_neutral2 env x, expression_of_normal2 env y)
   | NProj1 x -> Proj1 (expression_of_normal_neutral2 env x)
   | NProj2 x -> Proj2 (expression_of_normal_neutral2 env x)
-  | NMeta id -> Meta id 
+  | NMeta id -> Meta id
+
+let rec value_of_normal env = function
+  | NPair (x, y) -> VPair (value_of_normal env x, value_of_normal env y)
+  | NLambda (s, i, x) ->
+      let env' = Environment.add env (VNeutral (VVar (s, i))) in
+      VLambda (Name s, expression_of_normal2 env' x, env)
+  | NLambdaImplicit (s, i, x) ->
+      let env' = Environment.add env (VNeutral (VVar (s, i))) in
+      VLambdaImplicit (Name s, expression_of_normal2 env' x, env)
+  | NPi ("_", i, x, y) ->
+      VArrow (value_of_normal env x, value_of_normal env y)
+  | NPi (s, i, x, y) ->
+      let env' = Environment.add env (VNeutral (VVar (s, i))) in
+      VPi (s, value_of_normal env x, expression_of_normal2 env' y
+        , env)
+  | NPiImplicit (s, i, x, y) ->
+      let env' = Environment.add env (VNeutral (VVar (s, i))) in
+      VPiImplicit (s, value_of_normal env x, expression_of_normal2 env' y
+        , env)
+  | NSigma ("_", i, x, y) ->
+      VTimes (value_of_normal env x, value_of_normal env y)
+  | NSigma (s, i, x, y) ->
+      let env' = Environment.add env (VNeutral (VVar (s, i))) in
+      VSigma (s, value_of_normal env x, expression_of_normal2 env' y
+        , env)
+  | NFunction _ -> raise Constraint_function
+  | NUniverse i -> VUniverse i
+  | NUnitType -> VUnitType
+  | NUnit -> VUnit
+  | NConstruct (c, l) -> VConstruct (c, List.map (fun (b, v) -> (b, value_of_normal env v)) l)
+  | NNeutral n -> VNeutral (value_of_normal_neutral env n)
+and value_of_normal_neutral env = function
+  | NVar (s, i) -> VVar (s, i)
+  | NFunctionApplication _ -> raise Constraint_function
+  | NFunctionApplicationImplicit _ -> raise Constraint_function
+  | NApplication (x, y) ->
+      VApplication (value_of_normal_neutral env x, value_of_normal env y)
+  | NApplicationImplicit (x, y) ->
+      VApplicationImplicit (value_of_normal_neutral env x, value_of_normal env y)
+  | NProj1 n -> VProj1 (value_of_normal_neutral env n)
+  | NProj2 n -> VProj1 (value_of_normal_neutral env n)
+  | NMeta i -> VMeta i
 
 type state = Active | Failed
 
@@ -297,8 +259,15 @@ let always_satisfied (_, _, _, c) = c = []
 let never_satisfied (_, _, _, c) = List.exists (fun (s, _, _) -> s = Failed) c
 let has_metavariable (_, m, _, _) id = MM.mem id m
 let get_metavariable (_, m, _, _) id = MM.find id m
-let get_metavariable_assignment (_, _, a, _) id =
-  if MM.mem id a then Some (value_of_normal (MM.find id a)) else None
+let get_metavariable_assignment (c, _, a, _) id =
+  if MM.mem id a
+  then
+    let l = if MM.mem id c then MM.find id c else [] in
+    let env = match l with
+      | [_, _, env] -> env
+      | _ -> Environment.empty in
+    Some (value_of_normal env (MM.find id a))
+  else None
 let add_typing_context ((con, m, a, c):constraints) (id:meta_id) context =
   if MM.mem id con then ((MM.add id (context::(MM.find id con)) con, m, a, c) :
     constraints)

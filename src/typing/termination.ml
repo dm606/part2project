@@ -342,7 +342,7 @@ and get_call_matrices' x i args env decl_var min_var max_var e =
       let calls = List.filter (fun (j, _) -> j >= min_var && j <= max_var)
         (extract_calls x i env (List.rev args) v) in
       List.map (fun (i, tl) -> (decl_var, i, tl)) calls
-  (*| exception Eval.Pattern_match -> []*)
+(*  | exception Eval.Pattern_match -> []*)
 
 and get_call_matrices x i = get_call_matrices' x i []
 

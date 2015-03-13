@@ -121,7 +121,7 @@ let rec add_binders checker i constraints context env subst typ patt =
             match add i constraints context env subst [] [] (l, ts) with
             | None -> None
             | Some (patterns, values_matched, i, constraints, context, env, subst) ->
-                let pattern = PatternApplication (c, patterns) in
+                let pattern = PatternApplication (c, List.rev patterns) in
                 let value_matched = VConstruct (c, values_matched) in
                 Some (pattern, value_matched, i, constraints, context, env, subst)) in
 
@@ -167,7 +167,7 @@ let rec check_match pattern value =
   | PatternPair _, VConstruct _ -> NoMatch
   | PatternPair _, VNeutral (VVar (_, i)) -> Unknown i
   | PatternApplication (pc, pl), VConstruct (vc, vl) when pc = vc ->
-      check_match_application pl vl
+      check_match_application (List.rev pl) vl
   | PatternApplication _, VConstruct _ ->
       NoMatch (* constructor names do not match *)
   | PatternApplication _, VPair _ -> NoMatch
