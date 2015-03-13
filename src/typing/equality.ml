@@ -917,7 +917,6 @@ let rec test_normal_equality c x y =
       (* if x or y has a metavariable, then they maay be equal if constraints
        * are satisfied *)
       c >>= add_equation Active x y
-  | _ when no_neutral_variables x && no_neutral_variables y -> c >>= add_equation Failed x y
   | _ -> c >>= add_equation Failed x y
 and test_neutral_equality c x y =
   let test x y c = test_neutral_equality c x y in

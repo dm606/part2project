@@ -80,8 +80,8 @@ and binder =
    * only kept for pretty-printing *)
   | Name of string 
 and pattern =
-  | PatternPair of pattern * pattern 
-  | PatternApplication of string * pattern list (* Constructor application *)
+  | PatternPair of pattern * pattern
+  | PatternApplication of string * (bool * pattern) list (* Constructor application *)
   | PatternBinder of string (* name only needed for pretty-printing *)
   | PatternUnderscore
   | PatternInaccessible of expression

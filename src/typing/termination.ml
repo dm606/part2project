@@ -199,11 +199,11 @@ and add_pattern i env = function
       let i, env, v1 = add_pattern i env p1 in
       let i, env, v2 = add_pattern i env p2 in
       (i, env, VPair (v1, v2))
-  | PatternApplication (c, tl) -> 
+  | PatternApplication (c, tl) ->
       let i, env, values = List.fold_left
-        (fun (i, env, tl) p ->
+        (fun (i, env, tl) (b, p) ->
            let i, env, v = add_pattern i env p in
-           (i, env, (false, v)::tl))
+           (i, env, (b, v)::tl))
         (i, env, []) tl in
       (i, env, VConstruct (c, values))
 
@@ -212,7 +212,7 @@ and extract_calls x i env args = function
   | VPair (e1, e2) ->
       extract_calls x i env args e1 @ extract_calls x i env args e2
   | VLambda (Underscore, e, lambda_env) ->
-      if contains_neutral_variable lambda_env 
+      if contains_neutral_variable lambda_env
       then extract_calls x i lambda_env args (eval i lambda_env e)
       else []
   | VLambda (Name x, e, lambda_env) ->
@@ -223,7 +223,7 @@ and extract_calls x i env args = function
         extract_calls x (i + 1) lambda_env' args (eval (i + 1) lambda_env' e)
       else []
   | VLambdaImplicit (Underscore, e, lambda_env) ->
-      if contains_neutral_variable lambda_env 
+      if contains_neutral_variable lambda_env
       then extract_calls x i lambda_env args (eval i lambda_env e)
       else []
   | VLambdaImplicit (Name x, e, lambda_env) ->
@@ -273,8 +273,8 @@ and extract_calls_neutral x i env args = function
         extract_calls i env args v
         @ map_append (extract_calls_case i fun_env args v) c
       else extract_calls i env args v*)
-  | VFunctionApplication (c, fun_env, v) -> extract_calls x i env args v 
-  | VFunctionApplicationImplicit (c, fun_env, v) -> extract_calls x i env args v 
+  | VFunctionApplication (c, fun_env, v) -> extract_calls x i env args v
+  | VFunctionApplicationImplicit (c, fun_env, v) -> extract_calls x i env args v
   | VApplication (n, v) ->
       extract_calls x i env args v
       @ extract_calls_application x i env args n [v]
@@ -288,7 +288,7 @@ and extract_calls_case x i env args v (p, e) =
   let i, env, v2 = add_pattern i env p in
   match Context.mgu Context.subst_empty v v2 with
   | None ->
-      raise (Cannot_check_termination (x, 
+      raise (Cannot_check_termination (x,
         "Couldn't unify the value which a function was applied to with one of "
         ^ "the patterns in it's definition. Maybe there is a type error."))
   | Some subst ->
@@ -341,8 +341,8 @@ and get_call_matrices' x i args env decl_var min_var max_var e =
   | v ->
       let calls = List.filter (fun (j, _) -> j >= min_var && j <= max_var)
         (extract_calls x i env (List.rev args) v) in
-      List.map (fun (i, tl) -> (decl_var, i, tl)) calls 
-  | exception Eval.Pattern_match -> []
+      List.map (fun (i, tl) -> (decl_var, i, tl)) calls
+  (*| exception Eval.Pattern_match -> []*)
 
 and get_call_matrices x i = get_call_matrices' x i []
 
@@ -370,9 +370,9 @@ and check_termination' i env l =
             raise
               (Cannot_check_termination (x, "Maybe there is a type error.")))
     | _::tl -> get_graph i graph rest tl in
-  let l = List.filter is_let_rec l in 
+  let l = List.filter is_let_rec l in
   let graph = close (get_graph min_var [] [] l) in
-  
+
   find_non_terminating min_var graph l
 
 let check_termination env l = try check_termination' 0 env l with

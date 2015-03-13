@@ -66,12 +66,14 @@ _. Case ::= "|" Case ;
 separator Case "|" ;
 
 -- Patterns
+PANormal. PatternApplicand ::= Pattern2 ;
+PAImplicit. PatternApplicand ::= "{" Pattern "}" ;
 PPair. Pattern ::= Pattern1 "," Pattern ;
-PApplication. Pattern1 ::= Ident [Pattern2] ;
+PApplication. Pattern1 ::= Ident [PatternApplicand] ;
 PIdentifier. Pattern2 ::= Ident ;
 PUnderscore. Pattern2 ::= "_" ;
 PInaccessible. Pattern2 ::= "." Exp5 ;
-separator nonempty Pattern2 "" ;
+separator nonempty PatternApplicand "" ;
 coercions Pattern 2 ;
 
 -- Declarations
@@ -94,7 +96,7 @@ _. Constructor ::= "|" Constructor ;
 separator Constructor "|" ;
 
 -- Give this token a specific name so that it can be refered to in other code
-token SEMISEMI {";;"} ; 
+token SEMISEMI {";;"} ;
 
 comment "(*" "*)" ;
 entrypoints ReplStructure,FileStructure ;

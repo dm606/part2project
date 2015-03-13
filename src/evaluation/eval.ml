@@ -24,10 +24,9 @@ let rec try_match env pattern value = match pattern, value with
 (* attempts to match all of the patterns against their corresponding value *)
 and try_match_all env patterns values = match patterns, values with
   | [], [] -> (true, env)
-  | p::ps, (false, v)::vs ->
+  | (false, p)::ps, (false, v)::vs | (true, p)::ps, (true, v)::vs ->
       let (m, new_env) = try_match env p v in
       if m then try_match_all new_env ps vs else (false, empty)
-  | patterns, (true, v)::vs -> try_match_all env patterns vs
   | _ -> (false, empty)
 
 (* matches the value against the pattern in each of the cases, returning the
@@ -40,13 +39,13 @@ let rec pattern_match env cases value = match cases with
       if m then (new_env, e) else pattern_match env cs value
 
 (* evaluates an expression to a value *)
-let rec eval' metavars f env = 
+let rec eval' metavars f env =
   let apply b e fun_env v = match b with
   | Underscore -> eval' metavars f fun_env e
   | Name _ -> eval' metavars f (add fun_env v) e in
 
   let apply_function cases fun_env v =
-    try 
+    try
       let (new_env, e) = pattern_match fun_env cases v in
       eval' metavars f new_env e with
     | Match_neutral -> VNeutral (VFunctionApplication (cases, fun_env, v)) in

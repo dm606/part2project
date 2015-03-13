@@ -658,22 +658,23 @@ and check_type i constraints env context exp typ =
   | Function cases, VArrow (a, b) -> tr (
       let check_case constraints patt exp =
         match Patterns.add_binders
-          (fun i constraints context env e v -> 
+          (fun i constraints context env e v ->
             match check_type i constraints env context e v with
             | SType (e, _, constraints) -> Some (e, constraints)
             | _ -> None)
           i constraints context env a patt with
-        | None -> failure (sprintf
+        | None -> (patt, failure (sprintf
             "The type of the values matched by the pattern %a is not %a."
-            print_pattern patt print_val a)
-        | Some (_, new_i, constraints, new_context, new_env, subst) ->
+            print_pattern patt print_val a))
+        | Some (patt, _, new_i, constraints, new_context, new_env, subst) ->
             let typ = Context.subst_value subst b in
-            check_type new_i constraints new_env new_context exp typ in
+            (patt, check_type new_i constraints new_env new_context exp typ) in
       List.fold_left (fun r (p, e) -> r
           >>= fun (func, _, constraints) ->
           match func with
           | Function cases ->
-              check_case constraints p e
+              let p, r = check_case constraints p e in
+              r
               >>= fun (e, a, constraints) ->
               (* the append is inefficient, but the list of cases should be
                * small and I don't want to complicate this bit any more *)
@@ -681,7 +682,8 @@ and check_type i constraints env context exp typ =
           | _ -> assert false)
         (SType (Function [], a, constraints)) cases
       >>= fun (e, _, constraints) ->
-      match Patterns.cover i constraints context (List.map (fun (p, _) -> p) cases) a with
+      let patterns = match e with Function cases -> List.map (fun (p, _) -> p) cases | _ -> assert false in
+      match Patterns.cover i constraints context patterns a with
       | None -> SType (e, typ, constraints) (* the patterns cover all cases *)
       | Some v ->
           (* there is no pattern which matches v *)
@@ -699,19 +701,20 @@ and check_type i constraints env context exp typ =
             | SType (e, _, constraints) -> Some (e, constraints)
             | _ -> None)
           i constraints context env a patt with
-        | None -> failure (sprintf
+        | None -> patt, failure (sprintf
             "The type of the values matched by the pattern %a is not %a."
             print_pattern patt print_val a)
-        | Some (matched_value, new_i, constraints, new_context, new_env, subst) ->
+        | Some (patt, matched_value, new_i, constraints, new_context, new_env, subst) ->
             let pi_env' =
               Environment.add pi_env matched_value in
             let typ = Context.subst_value subst (Eval.eval (Equality.get_metavariable_assignment constraints) pi_env' b) in
-            check_type new_i constraints new_env new_context exp typ in
+            (patt, check_type new_i constraints new_env new_context exp typ) in
       List.fold_left (fun r (p, e) -> r
           >>= fun (func, _, constraints) ->
           match func with
-          | Function cases -> 
-              check_case constraints p e
+          | Function cases ->
+              let p, r = check_case constraints p e in
+              r
               >>= fun (e, a, constraints) ->
               (* the append is inefficient, but the list of cases should be
                * small and I don't want to complicate this bit any more *)
