@@ -1,0 +1,6 @@
+type Id {A : Type} (a : A) : A -> Type =
+  | refl : Id a a
+
+let uip {A : Type} {a : A} {b : A} : (p : Id a b) -> (q : Id a b) -> Id p q =
+  function
+  | refl -> (function refl -> refl)

@@ -1,4 +1,4 @@
-type Null = 
+type Null =
 
 type Bool = true : Bool | false : Bool
 
