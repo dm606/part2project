@@ -4,6 +4,7 @@ repl.native
 repl.d.byte
 repl.p.native
 all_tests.native
+bench.native
 src/syntax/LexConcrete.*
 src/syntax/ParConcrete.*
 src/syntax/LayoutConcrete.*

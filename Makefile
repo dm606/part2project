@@ -19,6 +19,10 @@ test: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) -I tests -package oUnit -package quickcheck all_tests.native
 	./all_tests.native
 
+bench: src/syntax/AbsConcrete.ml
+	corebuild $(OCAMLBUILD_FLAGS) -I evaluation -package core_bench bench.native
+	./bench.native -q 30
+
 clean:
 	ocamlbuild -clean
 	rm -f src/syntax/LexConcrete.* src/syntax/ParConcrete.*
