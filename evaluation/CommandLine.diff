@@ -1,0 +1,74 @@
+2,3d1
+< {-# LANGUAGE FlexibleInstances #-}
+< {-# LANGUAGE TypeSynonymInstances #-}
+7,8d4
+< import Control.DeepSeq
+< import Control.Exception.Base
+15,21d10
+< import System.IO.Unsafe
+< 
+< import Criterion.Internal
+< import Criterion.Main
+< import Criterion.Measurement
+< import Criterion.Monad
+< 
+25d13
+< import qualified Agda.Syntax.Concrete.Name as N
+238,290d225
+< instance NFData Hiding where
+<   rnf Hidden = ()
+<   rnf Instance = ()
+<   rnf NotHidden = ()
+< 
+< instance NFData Relevance where
+<   rnf Relevant = ()
+<   rnf NonStrict = ()
+<   rnf Irrelevant = ()
+<   rnf Forced = ()
+<   rnf UnusedArg = ()
+< 
+< instance NFData a => NFData (ArgInfo a) where
+<   rnf x = rnf (argInfoHiding x) `seq` rnf (argInfoRelevance x) `seq` rnf (argInfoColors x)
+< 
+< instance (NFData a, NFData b) => NFData (Arg a b) where
+<   rnf x = rnf (argInfo x) `seq` rnf (unArg x)
+< 
+< instance NFData NameId where
+<   rnf (NameId x y) = rnf x `seq` rnf y
+< 
+< instance NFData I.ModuleName where
+<   rnf x = rnf (I.mnameToList x)
+< 
+< instance NFData I.Name where
+<   rnf x = rnf (I.nameId x) `seq` rnf (I.nameConcrete x)
+< 
+< instance NFData I.QName where
+<   rnf x = rnf (I.qnameModule x) `seq` rnf (I.qnameName x)
+< 
+< instance NFData Induction where
+<   rnf Inductive = ()
+<   rnf CoInductive = ()
+< 
+< instance NFData I.ConHead where
+<   rnf x = rnf (I.conName x) `seq` rnf (I.conInductive x) `seq` rnf (I.conFields x)
+< 
+< instance NFData I.Term where
+<   rnf (I.Con conhead args) = rnf conhead `seq` rnf args
+< 
+< benchNormalise :: I.Term -> TCM ()
+< benchNormalise v = do
+<   e <- prettyTCM v
+<   let name = show e
+<   i <- runReduceM $ do
+<     env <- ReduceM ask
+<     return $ unsafePerformIO $ withConfig defaultConfig $ do
+<       liftIO initializeTime
+<       let m = unReduceM $ normalise' v
+<       runAndAnalyse (const True) $ bench name $ nf (runReader m) env
+<       return ()
+<   liftIO $ evaluate i
+< 
+301d235
+<           benchNormalise v
+336d269
+< 
