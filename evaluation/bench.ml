@@ -99,10 +99,15 @@ let parse_string s =
   |> Parser.parse_file
   |> map_opt desugar
 
-let random_list =
-  let rec aux n = if n = 0 then [] else (Random.int 10)::(aux (n - 1)) in
-  Random.self_init ();
-  aux 100000
+let random_list = [
+  7; 1; 9; 3; 3; 6; 3; 5; 1; 3; 1; 1; 3; 3; 0; 0; 0; 1; 6; 0; 3; 8; 3; 6; 5; 9;
+  9; 7; 5; 4; 4; 4; 2; 7; 7; 4; 2; 6; 2; 1; 6; 2; 7; 9; 0; 0; 7; 8; 7; 1; 2; 4;
+  6; 9; 1; 4; 5; 7; 6; 4; 1; 3; 6; 7; 7; 2; 9; 3; 0; 7; 9; 7; 5; 9; 1; 9; 3; 7;
+  5; 0; 7; 7; 0; 2; 1; 0; 4; 7; 4; 8; 6; 8; 7; 6; 1; 9; 0; 6; 6; 8; 5; 9; 8; 4;
+  5; 7; 8; 5; 8; 9; 7; 4; 9; 6; 8; 8; 2; 4; 9; 0; 4; 8; 3; 1; 3; 4; 3; 3; 9; 8;
+  5; 8; 7; 0; 7; 8; 3; 0; 1; 3; 3; 4; 2; 0; 5; 4; 5; 6; 3; 7; 4; 9; 2; 1; 6; 4;
+  5; 1; 9; 5; 4; 1; 5; 1; 7; 2; 3; 4; 2; 0; 7; 2; 0; 3; 9; 7; 0; 6; 6; 8; 4; 4;
+  4; 5; 1; 4; 9; 8; 7; 1; 6; 0; 0; 6; 5; 5; 8; 0; 5; 6]
 
 (*****************************************************************************)
 (* ^2                                                                        *)
@@ -229,7 +234,7 @@ let bench = [
   create_indexed "pow2" pow2_indices eval_pow2;
   create_indexed "pow2_tr" pow2_indices eval_pow2_tr;
   create_indexed "unary_pow2" pow2_indices unary_pow2;
-  create_indexed "unary_pow2_tr" pow2_indices eval_pow2;
+  create_indexed "unary_pow2_tr" pow2_indices unary_pow2_tr;
   create_indexed "insert_sort" insert_sort_indices eval_insert_sort;
   create_indexed "unary_insert_sort" insert_sort_indices unary_insert_sort]
 
