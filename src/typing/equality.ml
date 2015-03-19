@@ -259,15 +259,32 @@ let always_satisfied (_, _, _, c) = c = []
 let never_satisfied (_, _, _, c) = List.exists (fun (s, _, _) -> s = Failed) c
 let has_metavariable (_, m, _, _) id = MM.mem id m
 let get_metavariable (_, m, _, _) id = MM.find id m
-let get_metavariable_assignment (c, _, a, _) id =
+let first_env (c, _, _, _) id =
+  let l = if MM.mem id c then MM.find id c else [] in
+  match l with
+  | [_, _, env] -> env
+  | _ -> Environment.empty
+let get_metavariable_assignment_no_env ((c, _, a, _) as con) id =
+  if MM.mem id a
+  then Some (expression_of_normal2 (first_env con id) (MM.find id a))
+  else None
+let get_metavariable_assignment ((c, _, a, _) as con) env id =
+  if MM.mem id a
+  then try Some (expression_of_normal2 env (MM.find id a))
+    with _ -> get_metavariable_assignment_no_env con id
+  else None
+let add_typing_context ((con, m, a, c):constraints) (id:meta_id) context =
+  if MM.mem id con then ((MM.add id (context::(MM.find id con)) con, m, a, c) :
+    constraints)
+  else ( MM.add id [] con, m, a, c)
+
+let get_metavariable_assignment_value ((c, _, a, _) as con) id =
   if MM.mem id a
   then
-    let l = if MM.mem id c then MM.find id c else [] in
-    let env = match l with
-      | [_, _, env] -> env
-      | _ -> Environment.empty in
-    Some (value_of_normal env (MM.find id a))
+    let env = first_env con id in
+    Some (eval (get_metavariable_assignment con) env (expression_of_normal2 env (MM.find id a)))
   else None
+
 let add_typing_context ((con, m, a, c):constraints) (id:meta_id) context =
   if MM.mem id con then ((MM.add id (context::(MM.find id con)) con, m, a, c) :
     constraints)
@@ -909,7 +926,7 @@ let test_equality i constraints x y =
   test_normal_equality constraints
     (readback constraints i x) (readback constraints i y)
 let test_expression_equality env x y =
-  test_equality 0 no_constraints (eval (fun _ -> None) env x) (eval (fun _ -> None) env y)
+  test_equality 0 no_constraints (eval (fun _ _ -> None) env x) (eval (fun _ _ -> None) env y)
 
 (* the following functions are numbered according to the precedence of the
  * values which they print *)

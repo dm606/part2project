@@ -969,10 +969,8 @@ let rec subst_implicit_metas c = function
   | Proj2 e -> Proj2 (subst_implicit_metas c e)
   | Meta id ->
       if is_implicit id then
-        match Equality.get_metavariable_assignment c id with
-        | Some v -> (
-            try reify (Eval.eval (Equality.get_metavariable_assignment c)) v
-            with Cannot_reify _ -> keep_constraints := true; Meta id)
+        match Equality.get_metavariable_assignment_no_env c id with
+        | Some v -> v
         | None -> raise Unsolved_implicit_metavariable
       else Meta id
 and subst_implicit_metas_decl c = function
@@ -1040,8 +1038,8 @@ and subst_implicit_metas_neutral c = function
       | _ -> assert false)
    | VMeta id ->
       if is_implicit id then
-        match Equality.get_metavariable_assignment c id with
-        | Some v -> v 
+        match Equality.get_metavariable_assignment_value c id with
+        | Some v -> v
         | None -> raise Unsolved_implicit_metavariable
       else VNeutral (VMeta id)
 and subst_implicit_metas_env c env = Environment.map (subst_implicit_metas_value c) (List.map (subst_implicit_metas_decl c)) env

@@ -118,8 +118,8 @@ let rec eval' metavars f env =
         raise (Cannot_evaluate
           "Attempted to project an element out of a value which is not a pair"))
   | Meta i -> (
-      match metavars i with
+      match metavars env i with
       | None -> VNeutral (VMeta i)
-      | Some v -> v)
+      | Some e -> eval' metavars f env e)
 
 let eval metavars = eval' metavars (fun _ _ -> ())
