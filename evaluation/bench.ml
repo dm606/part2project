@@ -192,7 +192,7 @@ let unary_pow2_tr n =
 
 type bool = False | True
 
-type list  = Nil | Cons of nat * list
+type list = Nil | Cons of nat * list
 
 let rec lt_nat m n = match m, n with
   | _, Zero -> False
@@ -231,10 +231,10 @@ let pow2_indices = 0--14
 let insert_sort_indices = List.map (fun n -> n * 10) (0--20)
 
 let bench = [
-  create_indexed "pow2" pow2_indices eval_pow2;
+(*  create_indexed "pow2" pow2_indices eval_pow2;
   create_indexed "pow2_tr" pow2_indices eval_pow2_tr;
   create_indexed "unary_pow2" pow2_indices unary_pow2;
-  create_indexed "unary_pow2_tr" pow2_indices unary_pow2_tr;
+  create_indexed "unary_pow2_tr" pow2_indices unary_pow2_tr;*)
   create_indexed "insert_sort" insert_sort_indices eval_insert_sort;
   create_indexed "unary_insert_sort" insert_sort_indices unary_insert_sort]
 

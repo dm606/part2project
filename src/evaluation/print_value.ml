@@ -46,12 +46,12 @@ and pr_value4 fmt = function
       let rec pr_values fmt = function
         | [] -> assert false
         | [false, v] -> pr_value5 fmt v
-        | [true, v] -> fprintf fmt "@[<hov2>{%a}@]" pr_value5 v
+        | [true, v] -> fprintf fmt "@[<hov>{%a}@]" pr_value5 v
         | (false, v)::tl ->
-            fprintf fmt "@[<hov2>%a@ %a@]" pr_value5 v pr_values tl
+            fprintf fmt "@[<hov>%a@ %a@]" pr_value5 v pr_values tl
         | (true, v)::tl ->
-            fprintf fmt "@[<hov2>{%a}@ %a@]" pr_value v pr_values tl in
-      fprintf fmt "@[%s@ %a@]" c pr_values (List.rev l)
+            fprintf fmt "@[<hov>{%a}@ %a@]" pr_value v pr_values tl in
+      fprintf fmt "@[<hov2>%s@ %a@]" c pr_values (List.rev l)
   | v -> pr_value5 fmt v
 and pr_value5 fmt = function
   | VConstruct (c, []) -> fprintf fmt "%s" c

@@ -95,6 +95,9 @@ and parameter =
   | Parameter of string * expression
   | ParameterImplicit of string * expression
 
+(** returns all of the metavariables mentioned in the expression *)
+val get_metavariables : expression -> meta_id list
+
 (** returns all of the metavariables mentioned in the declaration *)
 val get_metavariables_decl : declaration -> meta_id list
 

@@ -241,6 +241,9 @@ and mgu subst v1 v2 = match v1, v2 with
       mgu subst (VNeutral n) (VNeutral n')
   | VNeutral (VProj2 n), VNeutral (VProj2 n') ->
       mgu subst (VNeutral n) (VNeutral n')
+  | VNeutral (VMeta _), _ | _, VNeutral (VMeta _) ->
+      (* assume that the metavariables might unify *)
+      Some subst
   (* if none of the above cases match, v1 cannot be unified with v2 *)
   | _ -> None
 

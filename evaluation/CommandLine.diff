@@ -4,17 +4,18 @@
 7,8d4
 < import Control.DeepSeq
 < import Control.Exception.Base
-15,21d10
+15,22d10
 < import System.IO.Unsafe
 < 
 < import Criterion.Internal
 < import Criterion.Main
 < import Criterion.Measurement
 < import Criterion.Monad
+< import Criterion.Types
 < 
-25d13
+26d13
 < import qualified Agda.Syntax.Concrete.Name as N
-238,290d225
+239,296d225
 < instance NFData Hiding where
 <   rnf Hidden = ()
 <   rnf Instance = ()
@@ -55,20 +56,32 @@
 < instance NFData I.Term where
 <   rnf (I.Con conhead args) = rnf conhead `seq` rnf args
 < 
+< config :: Config
+< config = defaultConfig {
+<   timeLimit = 10
+< }
+< 
 < benchNormalise :: I.Term -> TCM ()
 < benchNormalise v = do
 <   e <- prettyTCM v
 <   let name = show e
 <   i <- runReduceM $ do
 <     env <- ReduceM ask
-<     return $ unsafePerformIO $ withConfig defaultConfig $ do
+<     return $ unsafePerformIO $ withConfig config $ do
 <       liftIO initializeTime
 <       let m = unReduceM $ normalise' v
 <       runAndAnalyse (const True) $ bench name $ nf (runReader m) env
 <       return ()
 <   liftIO $ evaluate i
 < 
-301d235
+301,303c230,231
+<         -- Disable the pretty-printer to prevent Agda from running out of memory
+<         --e <- prettyTCM v
+<         --liftIO $ putStrLn $ show e
+---
+>         e <- prettyTCM v
+>         liftIO $ putStrLn $ show e
+308d235
 <           benchNormalise v
-336d269
+343d269
 < 

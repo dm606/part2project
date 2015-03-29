@@ -186,11 +186,18 @@ and handle_input l = lazy (
         let exp = desugar_expression !declared e in
         let typing_result = Checker.infer_type !constraints !env !context exp in
         if Checker.succeeded typing_result then (
+          let mvs = get_metavariables exp in
+          (if mvs <> [] then
+            print_endline (print_expression !declared exp));
+          metavariables := !metavariables @ mvs;
           constraints := Checker.get_constraints typing_result;
           let evaluated =
             Eval.eval (Equality.get_metavariable_assignment !constraints)
               !env (Checker.get_expression typing_result) in
-          Print_value.print_value evaluated)
+          let typ = Checker.get_type typing_result in
+          Format.printf "- : @[<hov2>%a =@ %a@]"
+            Print_value.pr_value typ Print_value.pr_value evaluated;
+          Format.pp_print_newline Format.std_formatter ())
         else print_typing_result typing_result
     | Parser.Decl d ->
         let new_declared = add_all_declaration_binders !declared d in

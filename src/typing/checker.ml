@@ -224,6 +224,8 @@ let rec construct_application e = function
   | (false, e2)::tl -> construct_application (Application (e, e2)) tl
   | (true, e2)::tl -> construct_application (ApplicationImplicit (e, e2)) tl
 
+let failed_result = ref None
+
 let rec add_applications i constraints env context exp l target inferred =
   let (>>=) r f = match r with
     | SType (e, typ, constraints) -> f (e, typ, constraints)
@@ -465,7 +467,8 @@ and infer_type i constraints env context exp =
 and check_subtype i constraints a b =
   let check_equal a b constraints =
     let constraints = Equality.test_equality i constraints a b in
-    if Equality.never_satisfied constraints then None else Some constraints in
+    if Equality.never_satisfied constraints
+    then None else Some constraints in
 
   let (>>=) c f = match c with
     | Some c -> f c
@@ -518,10 +521,14 @@ and check_type i constraints env context exp typ =
   let try_subtype () = tr (
       infer_type i constraints env context exp
       >>= fun (exp, inferred_type, constraints) ->
+      failed_result := None;
       match check_subtype i constraints inferred_type typ with
       | Some constraints -> SType (exp, typ, constraints)
-      | None -> failure (sprintf "%a has type %a. An expression of type %a was expected." print_exp exp print_val inferred_type
-             print_val typ)) in
+      | None -> (
+          match !failed_result with
+          | None ->
+              failure (sprintf "%a has type %a. An expression of type %a was expected." print_exp exp print_val inferred_type print_val typ)
+          | Some result -> failed_result := None; result)) in
 
   match exp, typ with
   | e, typ when is_constructor_application e ->
@@ -688,7 +695,7 @@ and check_type i constraints env context exp typ =
       | Some v ->
           (* there is no pattern which matches v *)
           failure ("The patterns do not cover all cases.\n"
-            ^ (sprintf "Here is an example of a value which is not matched: %a"
+            ^ (sprintf "%a is not matched."
             print_val v))
       | exception Patterns.Cannot_pattern_match ->
           failure (sprintf "Cannot pattern match on values of type %a."
@@ -727,7 +734,7 @@ and check_type i constraints env context exp typ =
       | Some v ->
           (* there is no pattern which matches v *)
           failure ("The patterns do not cover all cases.\n"
-            ^ (sprintf "Here is an example of a value which is not matched: %a"
+            ^ (sprintf "%a is not matched."
             print_val v)))
 
   (* metavariables *)
@@ -939,7 +946,8 @@ and check_declarations i constraints env context l =
 
 let () = Equality.checker := fun (i, context, env) constraints exp typ -> 
   let result = check_type i constraints env context exp typ in
-  if succeeded result then Some (get_constraints result) else None
+  if succeeded result then Some (get_constraints result)
+  else (failed_result := Some result; None)
 
 let keep_constraints = ref false
 

@@ -770,14 +770,14 @@ let case_split (id:meta_id) (typ:value) ((b:bool), constraints) (i, context, env
     maybe_add constraints (Active, NNeutral (NMeta id), NUnit)
   else try
     match !split (i + 1) constraints context typ (VNeutral (VVar ("", i))) i with
-    | [j, v, _] ->
+    | [j, v, _] when j < i  -> (*
         let rec s j = if j >= i then
           let id = if Abstract.is_implicit id
             then Abstract.create_implicit_metavariable ()
             else Abstract.create_metavariable () in
           substitute_neutral_variable j (VNeutral (VMeta id)) (s (j - 1))
-        else v in
-        maybe_add constraints (Active, NNeutral (NMeta id), readback constraints i (s j))
+        else v in*)
+        maybe_add constraints (Active, NNeutral (NMeta id), readback constraints i v)
     | [] -> maybe_add constraints (Failed, NNeutral (NMeta id), NNeutral (NVar ("anything", 0)))
     | _ -> false, constraints
   with _ -> false, constraints
@@ -1024,9 +1024,9 @@ let print_constraints_for_metavariables fmt mvs constraints =
   Format.pp_print_flush fmt ()
 
 let string_of_constraints (_, m, a, c) =
-  let s = MM.fold (fun id typ s -> sprintf "%s?%s : %s\n" s (string_of_id id)
+  let s = MM.fold (fun id typ s -> if is_implicit id then s else sprintf "%s?%s : %s\n" s (string_of_id id)
     (Print_value.string_of_value typ)) m "" in
-  let s = MM.fold (fun id typ s -> sprintf "%s?%s := %s\n" s (string_of_id id)
+  let s = MM.fold (fun id typ s -> if is_implicit id then s else sprintf "%s?%s := %s\n" s (string_of_id id)
     (string_of_normal typ)) a s in
   List.fold_left (fun s -> function
     | (Active, x, y) -> sprintf "%s%s = %s\n" s (string_of_normal x) (string_of_normal y)
