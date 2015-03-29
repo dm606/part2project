@@ -29,13 +29,14 @@ let add_lazy_constructor (m, l) x type_name t =
     if M.mem x m then (M.add x ((type_name, `T t)::M.find x m) m, l)
     else (M.add x [type_name, `T t] m, l)
 
-let remove_constructors_of_type (m, l) type_name = 
+let remove_constructors_of_type (m, l) type_name =
     M.map (List.filter (fun (t, _) -> t <> type_name)) m, l
 
 let rec refresh_neutral = function
   | VProj1 n1 -> VProj1 (refresh_neutral n1)
   | VProj2 n1 -> VProj2 (refresh_neutral n1)
-  | VMeta id when Abstract.is_implicit id -> VMeta (Abstract.create_implicit_metavariable ())
+  | VMeta id when Abstract.is_implicit id ->
+      VMeta (Abstract.create_implicit_metavariable ())
   | VMeta _ | VVar _ as n -> n
   | _ as l -> l
 and refresh =
@@ -75,9 +76,10 @@ and refresh_exp = function
   | Sigma (b, e1, e2) ->
       Sigma (b, refresh_exp e1, refresh_exp e2)
   | Function l -> Function (List.map (fun (p, e) -> (p, refresh_exp e)) l)
-  | LocalDeclaration (d, e) -> raise (Failure "refresh_exp") 
+  | LocalDeclaration (d, e) -> raise (Failure "refresh_exp")
   | Application (e1, e2) -> Application (refresh_exp e1, refresh_exp e2)
-  | ApplicationImplicit (e1, e2) -> ApplicationImplicit (refresh_exp e1, refresh_exp e2)
+  | ApplicationImplicit (e1, e2) ->
+      ApplicationImplicit (refresh_exp e1, refresh_exp e2)
   | Universe i -> Universe i
   | UnitType -> UnitType
   | Unit -> Unit
@@ -226,7 +228,8 @@ and mgu subst v1 v2 = match v1, v2 with
   | VConstruct (c,  l), VConstruct (c', l') ->
       if c = c'
       then List.fold_left2
-        (fun r (b, v) (b2, v2) -> if b = b2 then r >>= fun u -> mgu u v v2 else None) (Some subst) l l'
+        (fun r (b, v) (b2, v2) ->
+          if b = b2 then r >>= fun u -> mgu u v v2 else None) (Some subst) l l'
       else None
   | VNeutral (VFunctionApplication (l, env, n))
   , VNeutral (VFunctionApplication (l', env', n')) ->
