@@ -64,6 +64,22 @@ and no_neutral_variables_pred p = function
 let no_neutral_variables = no_neutral_variables_pred (fun _ -> true)
 let no_neutral_variables_neutral = no_neutral_variables_pred_neutral (fun _ -> true)
 
+let rec no_neutral_value = function
+  | VPair (v1, v2) -> no_neutral_value v1 && no_neutral_value v2
+  | VLambda (_, _, env) -> no_neutral_env env
+  | VPi (_, v, _, env) -> no_neutral_value v && no_neutral_env env
+  | VPiImplicit (_, v, _, env) -> no_neutral_value v && no_neutral_env env
+  | VArrow (v1, v2) -> no_neutral_value v1 && no_neutral_value v2
+  | VSigma (_, v, _, env) -> no_neutral_value v && no_neutral_env env
+  | VTimes (v1, v2) -> no_neutral_value v1 && no_neutral_value v2
+  | VFunction (_, env) -> no_neutral_env env
+  | VUniverse _ | VUnitType | VUnit -> true
+  | VConstruct (_, l) -> List.for_all (fun (_, v) -> no_neutral_value v) l
+  | VNeutral _ -> false
+and no_neutral_env env =
+  List.for_all (fun x -> x)
+    (Environment.map_to_list no_neutral_value (fun _ -> false) env)
+
 let rec no_metavariables_pred_expression p = function
   | Pair (e1, e2) ->
       no_metavariables_pred_expression p e1 && no_metavariables_pred_expression p e2
@@ -778,7 +794,8 @@ let case_split (id:meta_id) (typ:value) ((b:bool), constraints) (i, context, env
           substitute_neutral_variable j (VNeutral (VMeta id)) (s (j - 1))
         else v in*)
         maybe_add constraints (Active, NNeutral (NMeta id), readback constraints i v)
-    | [] -> maybe_add constraints (Failed, NNeutral (NMeta id), NNeutral (NVar ("anything", 0)))
+    | [] when no_neutral_value typ ->
+        maybe_add constraints (Failed, NNeutral (NMeta id), NNeutral (NVar ("anything", 0)))
     | _ -> false, constraints
   with _ -> false, constraints
 
