@@ -1,4 +1,4 @@
-type Eq (A : Type) (a : A) : A -> Type = refl : Eq ? a a
+type Id {A : Type} (a : A) : A -> Type = refl : Id a a
 
 type Nat = zero : Nat | succ : Nat -> Nat
 
@@ -6,167 +6,211 @@ let rec add (x : Nat) (y : Nat) : Nat = match x with
   | zero -> y
   | succ x -> succ (add x y)
 
-let Poset (D : Type) (R : D -> D -> Type) : Type =
+let Poset {D : Type} (R : D -> D -> Type) : Type =
   (* reflexivity *)
   ((d : D) -> R d d)
   (* transitivity *)
   * ((d : D) -> (d' : D) -> (d'' : D) -> R d d' -> R d' d'' -> R d d'')
   (* antisymmetry  *)
-  * ((d : D) -> (d' : D) -> R d d' -> R d' d -> Eq ? d d')
+  * ((d : D) -> (d' : D) -> R d d' -> R d' d -> Id d d')
 
-let reflexivity (D : Type) (R : D -> D -> Type)
-  : Poset ? R -> (d : D) -> R d d = function
+let reflexivity {D : Type} (R : D -> D -> Type)
+  : Poset R -> (d : D) -> R d d = function
   | (r, _, _) -> r
-let transitivity (D : Type) (R : D -> D -> Type)
-  : Poset ? R -> (d : D) -> (d' : D) -> (d'' : D)
+let transitivity {D : Type} (R : D -> D -> Type)
+  : Poset R -> (d : D) -> (d' : D) -> (d'' : D)
     -> R d d' -> R d' d'' -> R d d'' = function
   | (_, t, _) -> t
-let antisymmetry (D : Type) (R : D -> D -> Type)
-  : Poset ? R -> (d : D) -> (d' : D) -> R d d' -> R d' d -> Eq ? d d' =
+let antisymmetry {D : Type} (R : D -> D -> Type)
+  : Poset R -> (d : D) -> (d' : D) -> R d d' -> R d' d -> Id d d' =
   function
   | (_, _, a) -> a
 
-let Pre_fixed_point (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
-  : Type = 
+let Pre_fixed_point {D : Type} (R : D -> D -> Type) (f : D -> D) (d : D)
+  : Type =
   (* d is a pre-fixed point of f *)
   R (f d) d
   (* (D, R) is a poset *)
-  * Poset D R
+  * Poset R
 
-let Least_pre_fixed_point (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
-  : Type = 
+let Least_pre_fixed_point {D : Type} (R : D -> D -> Type) (f : D -> D) (d : D)
+  : Type =
   (* d is the least *)
-  ((x : D) -> Pre_fixed_point ? R f x -> R d x)
+  ((x : D) -> Pre_fixed_point R f x -> R d x)
   (* d is a pre-fixed point *)
-  * Pre_fixed_point D R f d
+  * Pre_fixed_point R f d
 
-let lfp1 (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
-  : Least_pre_fixed_point ? R f d -> R (f d) d = function
+let lfp1 {D : Type} (R : D -> D -> Type) (f : D -> D) (d : D)
+  : Least_pre_fixed_point R f d -> R (f d) d = function
   | (_, lfp1, _) -> lfp1
 
-let lfp2 (D : Type) (R : D -> D -> Type) (f : D -> D) (d : D)
-  (lfp : Least_pre_fixed_point ? R f d) (d' : D) (p : R (f d') d') : R d d' =
+let lfp2 {D : Type} (R : D -> D -> Type) (f : D -> D) (d : D)
+  (lfp : Least_pre_fixed_point R f d) (d' : D) (p : R (f d') d') : R d d' =
   match lfp with
-  | (least, _, poset) -> least d' (p, poset) 
+  | (least, _, poset) -> least d' (p, poset)
 
-let Monotone (D : Type) (R : D -> D -> Type) (f : D -> D) : Type =
+let Monotone {D : Type} (R : D -> D -> Type) (f : D -> D) : Type =
   (x : D) -> (y : D) -> R x y -> R (f x) (f y)
 
 (* if (D, R) is a poset, f : D -> D is monotone and fix : D is the least
  * pre-fixed point of f, then d is a fixed point of f *)
-let is_fixed_point (D : Type) (R : D -> D -> Type) (f : D -> D) (fix : D) 
-  (monotone : Monotone ? R f) (lfp : Least_pre_fixed_point ? R f fix)
-  : Eq ? fix (f fix) = match lfp with
+let is_fixed_point {D : Type} (R : D -> D -> Type) (f : D -> D) (fix : D)
+  (monotone : Monotone R f) (lfp : Least_pre_fixed_point R f fix)
+  : Id fix (f fix) = match lfp with
   | (least, pfp, poset) -> (
-      let anti : (d : D) -> (d' : D) -> R d d' -> R d' d -> Eq ? d d' =
-        antisymmetry ? R poset in
-      let lfp1 : R (f fix) fix = lfp1 ? R f fix lfp in
+      let anti : (d : D) -> (d' : D) -> R d d' -> R d' d -> Id d d' =
+        antisymmetry R poset in
+      let lfp1 : R (f fix) fix = lfp1 R f fix lfp in
       let lfp2 : (d' : D) -> R (f d') d' -> R fix d' =
-        lfp2 ? R f fix lfp in
+        lfp2 R f fix lfp in
       anti fix (f fix) (lfp2 (f fix) (monotone (f fix) fix lfp1)) lfp1)
 
 (* countable, increasing chains of posets *)
-let Chain (D : Type) (R : D -> D -> Type) (c : Nat -> D) : Type =
+let Chain {D : Type} (R : D -> D -> Type) (c : Nat -> D) : Type =
   (* increasing *)
   ((n : Nat) -> R (c n) (c (succ n)))
   (* D is a poset *)
-  * Poset ? R
+  * Poset R
 
 (* least upper bounds of chains *)
-let Lub (D : Type) (R : D -> D -> Type) (c : Nat -> D) (lub : D) : Type =
+let Lub {D : Type} (R : D -> D -> Type) (c : Nat -> D) (lub : D) : Type =
   (* lub is an upper bound *)
   ((m : Nat) -> R (c m) lub)
   (* lub is the least *)
   * ((d : D) -> ((m : Nat) -> R (c m) d) -> R lub d)
   (* c is a chain *)
-  * Chain ? R c 
+  * Chain R c
 
 (* lubs are unique *)
-let lub_unique (D : Type) (R : D -> D -> Type) (c : Nat -> D) (lub1 : D)
-  (lub2 : D) (p : Lub ? R c lub1) (q : Lub ? R c lub2) : Eq ? lub1 lub2 =
+let lub_unique {D : Type} (R : D -> D -> Type) (c : Nat -> D) (lub1 : D)
+  (lub2 : D) (p : Lub R c lub1) (q : Lub R c lub2) : Id lub1 lub2 =
   match p, q with
   | (ub1, least1, _, poset), (ub2, least2, _, _) -> (
-      let anti : (d : D) -> (d' : D) -> R d d' -> R d' d -> Eq ? d d' =
-        antisymmetry ? R poset in
+      let anti : (d : D) -> (d' : D) -> R d d' -> R d' d -> Id d d' =
+        antisymmetry R poset in
       anti lub1 lub2 (least1 lub2 ub2) (least2 lub1 ub1))
 
-let lub1 (D : Type) (R : D -> D -> Type) (c : Nat -> D) (lub : D)
-  (p : Lub ? R c lub) : (m : Nat) -> R (c m) lub = match p with
+let lub1 {D : Type} (R : D -> D -> Type) (c : Nat -> D) (lub : D)
+  (p : Lub R c lub) : (m : Nat) -> R (c m) lub = match p with
   | lub1, _ -> lub1
 
-let lub2 (D : Type) (R : D -> D -> Type) (c : Nat -> D) (lub : D)
-  (p : Lub ? R c lub) : (d : D) -> ((m : Nat) -> R (c m) d) -> R lub d = 
+let lub2 {D : Type} (R : D -> D -> Type) (c : Nat -> D) (lub : D)
+  (p : Lub R c lub) : (d : D) -> ((m : Nat) -> R (c m) d) -> R lub d =
   match p with
   | _, lub2, _ -> lub2
 
-let lub_single_element (D : Type) (R : D -> D -> Type) (poset : Poset ? R)
-  (d : D) : Lub ? R (fun _ -> d) d = 
+let lub_single_element {D : Type} (R : D -> D -> Type) (poset : Poset R)
+  (d : D) : Lub R (fun _ -> d) d =
   let chain : Nat -> D = fun _ -> d in
-  let reflexivity : (d : D) -> R d d = reflexivity ? R poset in
+  let reflexivity : (d : D) -> R d d = reflexivity R poset in
   let upper_bound (m : Nat) : R (chain m) d = reflexivity d in
   let least (d' : D) (p : (m : Nat) -> R (chain m) d') : R d d' = p zero in
   let increasing (n : Nat) : R (chain n) (chain (succ n)) = reflexivity d in
   (upper_bound, least, increasing, poset)
 
-let lub_pair (D : Type) (R : D -> D -> Type) (d : Nat -> D) (lub_d : D)
-  (e : Nat -> D) (lub_e : D) (chain_d : Chain ? R d)
-  (is_lub_d : Lub ? R d lub_d) (chain_e : Chain ? R e)
-  (is_lub_e : Lub ? R e lub_e) (r : (n : Nat) -> R (d n) (e n))
+let lub_pair {D : Type} (R : D -> D -> Type) (d : Nat -> D) (lub_d : D)
+  (e : Nat -> D) (lub_e : D) (chain_d : Chain R d)
+  (is_lub_d : Lub R d lub_d) (chain_e : Chain R e)
+  (is_lub_e : Lub R e lub_e) (r : (n : Nat) -> R (d n) (e n))
   : R lub_d lub_e = match is_lub_d with
   | _, least_d, _, poset -> (
       let trans
         : (d : D) -> (d' : D) -> (d'' : D) -> R d d' -> R d' d'' -> R d d'' =
-        transitivity ? R poset in
+        transitivity R poset in
       (* lub_e is an upper bound of d *)
-      let ub_e_d (m : Nat) : R (d m) lub_e = 
-        trans (d m) (e m) lub_e (r m) (lub1 ? R e lub_e is_lub_e m) in
+      let ub_e_d (m : Nat) : R (d m) lub_e =
+        trans (d m) (e m) lub_e (r m) (lub1 R e lub_e is_lub_e m) in
       least_d lub_e ub_e_d)
 
 (* chain complete posets *)
-let Cpo (D : Type) (R : D -> D -> Type) : Type =
+let Cpo {D : Type} (R : D -> D -> Type) : Type =
   (* all chains have lubs *)
-  ((c : Nat -> D) -> Chain ? R c -> (lub : D) * Lub ? R c lub)
+  ((c : Nat -> D) -> Chain R c -> (lub : D) * Lub R c lub)
   (* poset *)
-  * Poset ? R
+  * Poset R
 
 (* a double chain in a cpo *)
-let Double_chain (D : Type) (R : D -> D -> Type) (d : Nat -> Nat -> D) : Type =
+let Double_chain {D : Type} (R : D -> D -> Type) (d : Nat -> Nat -> D) : Type =
   (* d is a double chain *)
   ((m : Nat) -> (n : Nat) -> R (d m n) (d m (succ n)))
   * ((m : Nat) -> (n : Nat) -> R (d m n) (d (succ m) n))
   (* cpo *)
-  * Cpo ? R
+  * Cpo R
 
-let horizontal_chain (D : Type) (R : D -> D -> Type) (d : Nat -> Nat -> D)
+let horizontal_chain {D : Type} (R : D -> D -> Type) (d : Nat -> Nat -> D)
   : Nat -> Nat -> D = d
-let vertical_chain (D : Type) (R : D -> D -> Type) (d : Nat -> Nat -> D) 
+let vertical_chain {D : Type} (R : D -> D -> Type) (d : Nat -> Nat -> D)
   (m : Nat) (n : Nat) : D = d n m
 
-let double_chain_horiz (D : Type) (R : D -> D -> Type) (d : Nat -> Nat -> D)
-  (p : Double_chain ? R d) (m : Nat) : Chain ? R (horizontal_chain ? R d m) =
+let double_chain_horiz {D : Type} (R : D -> D -> Type) (d : Nat -> Nat -> D)
+  (p : Double_chain R d) (m : Nat) : Chain R (horizontal_chain R d m) =
   match p with
   | inc_horiz, _, _, poset -> (inc_horiz m, poset)
-let double_chain_vert (D : Type) (R : D -> D -> Type) (d : Nat -> Nat -> D)
-  (p : Double_chain ? R d) (m : Nat) : Chain ? R (vertical_chain ? R d m) =
+let double_chain_vert {D : Type} (R : D -> D -> Type) (d : Nat -> Nat -> D)
+  (p : Double_chain R d) (m : Nat) : Chain R (vertical_chain R d m) =
   match p with
   | _, inc_vert, _, poset -> ((fun n -> inc_vert n m), poset)
 
 (* the chain containing the lubs of all of the rows of the given double chain *)
-let horizontal_lub_chain (D : Type) (R : D -> D -> Type) (d : Nat -> Nat -> D)
-  (p : Double_chain ? R d) (m : Nat) : D = match p with
+let horizontal_lub_chain {D : Type} (R : D -> D -> Type) (d : Nat -> Nat -> D)
+  (p : Double_chain R d) (m : Nat) : D = match p with
   | _, _, lubs, _ ->
-    (lubs (horizontal_chain ? R d m) (double_chain_horiz ? R d p m)).1
+    (lubs (horizontal_chain R d m) (double_chain_horiz R d p m)).1
 (* the chain containing the lubs of all of the columns of the given double chain *)
-let vertical_lub_chain (D : Type) (R : D -> D -> Type) (d : Nat -> Nat -> D)
-  (p : Double_chain ? R d) (m : Nat) : D = match p with
+let vertical_lub_chain {D : Type} (R : D -> D -> Type) (d : Nat -> Nat -> D)
+  (p : Double_chain R d) (m : Nat) : D = match p with
   | _, _, lubs, _ ->
-    (lubs (vertical_chain ? R d m) (double_chain_vert ? R d p m)).1
+    (lubs (vertical_chain R d m) (double_chain_vert R d p m)).1
 
 (* domains *)
-let Domain (D : Type) (R : D -> D -> Type) (bot : D) : Type = 
+let Domain {D : Type} (R : D -> D -> Type) (bot : D) : Type =
   (* bot is the least element *)
   ((d : D) -> R bot d)
   (* cpo *)
-  * Cpo ? R
+  * Cpo R
 
+(* continuous functions *)
+let Continuous {D : Type} (R : D -> D -> Type) (f : D -> D) : Type =
+  (* monotone *)
+  Monotone R f
+  (* preserves lubs of chains *)
+  * ((c : Nat -> D) -> (lub : D) -> Lub R c lub
+      -> Lub R (fun n -> f (c n)) (f lub))
 
+let rec tarski_chain {D : Type} (bot : D) (f : D -> D)
+  : Nat -> D = function
+  | zero -> bot
+  | succ n -> f (tarski_chain bot f n)
+
+let rec tarski_chain_increasing {D : Type} (R : D -> D -> Type) (bot : D)
+  (f : D -> D) (bot_least : (d : D) -> R bot d) (cont : Continuous R f)
+  : (n : Nat)
+    -> R (tarski_chain {D} bot f n) (tarski_chain {D} bot f (succ n)) =
+    function
+    | zero ->
+        (* base case *)
+        bot_least (f bot)
+    | succ n -> (
+        (* inductive step *)
+        match cont with 
+        | monotone, _ ->
+            monotone
+              (tarski_chain bot f n)
+              (tarski_chain bot f (succ n)) 
+              tarski_chain_increasing R bot f bot_least cont n)
+
+let tarski_lub {D : Type} (R : D -> D -> Type) (bot : D) (dom : Domain R bot)
+  (f : D -> D) (cont : Continuous R f)
+  : ((fix : D) * Lub R (tarski_chain {D} bot f) fix) =
+  match dom with
+  | bot_least, lubs, poset ->
+      let chain : Nat -> D = tarski_chain bot f in
+      let is_chain : Chain R chain = (tarski_chain_increasing {D} R bot f bot_least cont, poset) in
+      lubs chain is_chain
+
+(* Tarski's fixed point theorem -- partial proof *)
+let tarski {D : Type} (R : D -> D -> Type) (bot : D) (dom : Domain R bot)
+  (f : D -> D) (cont : Continuous R f)
+  : ((fix : D) * Lub R (tarski_chain bot f) fix * Least_pre_fixed_point R f fix * Id fix (f fix)) =
+  match tarski_lub {D} R bot dom f cont with
+  | fix, is_lub -> (fix, is_lub, ?, ?)
