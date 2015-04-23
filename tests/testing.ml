@@ -54,7 +54,8 @@ let arbitrary_pattern =
         oneof [
           g >>= (fun p1 -> (g >>= (fun p2 -> ret_gen (PatternPair (p1, p2)))));
           arbitrary_identifier >>= (fun s -> ((arbitrary_nonempty_list g)
-            >>= (fun l -> ret_gen (PatternApplication (s, l)))));
+            >>= (fun l -> ret_gen
+              (PatternApplication (s, List.map (fun p -> (false, p)) l)))));
           arbitrary_binder_name >>= (fun s -> ret_gen (PatternBinder s));
           ret_gen PatternUnderscore
         ] in
@@ -72,11 +73,13 @@ let arbitrary_declaration =
       arbitrary_identifier >>= (fun s -> (exp
         >>= (fun e1 -> (exp >>= (fun e2 -> ret_gen (LetRec (s, e1, e2)))))));
       arbitrary_identifier
-        >>= (fun s -> ((arbitrary_list (arbitrary_pair arbitrary_binder exp))
+        >>= (fun s -> ((arbitrary_list (arbitrary_pair arbitrary_identifier exp))
         >>= (fun p -> (exp
         >>= (fun e ->
             ((arbitrary_list (arbitrary_pair arbitrary_identifier exp))
-        >>= (fun l -> ret_gen (Type (s, p, e, l)))))))))
+        >>= (fun l ->
+          let p = List.map (fun (x, t) -> Parameter (x, t)) p in
+          ret_gen (Type (s, p, e, l)))))))))
     ] in
   sized f
 
@@ -123,7 +126,9 @@ let rec show_pattern = function
   | PatternPair (p1, p2) ->
       sprintf "PatternPair (%s, %s)" (show_pattern p1) (show_pattern p2)
   | PatternApplication (s, l) ->
-      sprintf "PatternApplication (\"%s\", %s)" s (show_list show_pattern l)
+      let show (b, p) =
+        sprintf "(%s, %s)" (if b then "true" else "false") (show_pattern p) in
+      sprintf "PatternApplication (\"%s\", %s)" s (show_list show l)
   | PatternBinder s -> sprintf "PatternBinder \"%s\"" s
   | PatternUnderscore -> "PatternUnderscore"
   | PatternInaccessible e ->
@@ -133,8 +138,13 @@ and show_expression = function
       sprintf "Pair (%s, %s)" (show_expression e1) (show_expression e2)
   | Lambda (b, e) ->
       sprintf "Lambda (%s, %s)" (show_binder b) (show_expression e)
+  | LambdaImplicit (b, e) ->
+      sprintf "LambdaImplicit (%s, %s)" (show_binder b) (show_expression e)
   | Pi (b, e1, e2) -> 
       sprintf "Pi (%s, %s, %s)" (show_binder b) (show_expression e1)
+        (show_expression e2)
+  | PiImplicit (b, e1, e2) ->
+      sprintf "PiImplicit (%s, %s, %s)" b (show_expression e1)
         (show_expression e2)
   | Sigma (b, e1, e2) -> 
       sprintf "Sigma (%s, %s, %s)" (show_binder b) (show_expression e1)
@@ -147,6 +157,8 @@ and show_expression = function
         (show_expression e)
   | Application (e1, e2) ->
       sprintf "Application (%s, %s)" (show_expression e1) (show_expression e2)
+  | ApplicationImplicit (e1, e2) ->
+      sprintf "ApplicationImplicit (%s, %s)" (show_expression e1) (show_expression e2)
   | Universe i -> sprintf "Universe %i" i
   | UnitType -> "UnitType"
   | Unit -> "Unit"
@@ -154,6 +166,12 @@ and show_expression = function
   | Index i -> sprintf "Index %i" i
   | Proj1 e -> sprintf "Proj1 (%s)" (show_expression e)
   | Proj2 e -> sprintf "Proj2 (%s)" (show_expression e)
+  | Meta id -> sprintf "Meta %s" (string_of_id id)
+
+and show_parameter = function
+  | Parameter (x, e) -> sprintf "Parameter (\"%s\", %s)" x (show_expression e)
+  | ParameterImplicit (x, e) ->
+      sprintf "ParameterImplicit (\"%s\", %s)" x (show_expression e)
 
 and show_declaration = function
   | Let (s, e1, e2) ->
@@ -164,6 +182,6 @@ and show_declaration = function
   | Type (s, p, e, l) ->
       sprintf "Type (\"%s\", %s, %s, %s)" 
         s
-        (show_list (show_pair show_binder show_expression) p)
+        (show_list show_parameter p)
         (show_expression e)
         (show_list (show_pair (fun x -> "\"" ^ x ^ "\"") show_expression) l)

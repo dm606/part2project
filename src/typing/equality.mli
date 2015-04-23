@@ -108,3 +108,6 @@ val print_constraints : Format.formatter -> constraints -> unit
 
 (** converts the constraints to a string for printing *)
 val string_of_constraints : constraints -> string
+
+(** converts a value in weak head normal form to a normal in head normal form *)
+val readback : constraints -> int -> value -> normal

@@ -67,6 +67,7 @@ let no_neutral_variables_neutral = no_neutral_variables_pred_neutral (fun _ -> t
 let rec no_neutral_value = function
   | VPair (v1, v2) -> no_neutral_value v1 && no_neutral_value v2
   | VLambda (_, _, env) -> no_neutral_env env
+  | VLambdaImplicit (_, _, env) -> no_neutral_env env
   | VPi (_, v, _, env) -> no_neutral_value v && no_neutral_env env
   | VPiImplicit (_, v, _, env) -> no_neutral_value v && no_neutral_env env
   | VArrow (v1, v2) -> no_neutral_value v1 && no_neutral_value v2

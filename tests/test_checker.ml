@@ -3,18 +3,19 @@ open QuickCheck
 
 open Abstract
 open Checker
+open Equality
 open Testing
 open Value
 
 let test_infer_type_success (name, env, context, input, expected) =
   name >:: fun _ ->
-    let result = infer_type env context input in
+    let result = infer_type no_constraints env context input in
     assert_bool "Incorrect result produced by infer_type"
       ((succeeded result) && (expected = get_type result))
 
 let test_infer_type_fail (name, env, context, input) =
   name >:: fun _ ->
-    let result = infer_type env context input in
+    let result = infer_type no_constraints env context input in
     assert_bool "Expected infer_type to fail" (not (succeeded result))
 
 let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
@@ -53,12 +54,12 @@ let test_infer_type = "infer_type" >::: (List.map test_infer_type_success [
 
 let test_check_success (name, env, context, expression, typ) =
   name >:: fun _ ->
-    let result = check_type env context expression typ in
+    let result = check_type no_constraints env context expression typ in
     assert_bool "Type checker failed" (succeeded result)
 
 let test_check_fail (name, env, context, expression, typ) =
   name >:: fun _ -> 
-    let result = check_type env context expression typ in
+    let result = check_type no_constraints env context expression typ in
     assert_bool "Type checker expected to fail" (not (succeeded result))
 
 let test_check = "check" >::: (List.map test_check_success [
@@ -93,8 +94,8 @@ let test_check = "check" >::: (List.map test_check_success [
   (VUniverse 0)) "zero" "Nat" (VConstruct ("Nat", []))) "succ" "Nat" (VArrow
   (VConstruct ("Nat", []), VConstruct ("Nat", []))), Function
   [PatternApplication ("zero", []), Unit; PatternApplication ("succ",
-  [PatternApplication ("succ", [PatternBinder "x"])]), Unit; PatternApplication
-  ("succ", [PatternApplication ("zero", [])]), Unit], VArrow (VConstruct ("Nat",
+  [false, PatternApplication ("succ", [false, PatternBinder "x"])]), Unit; PatternApplication
+  ("succ", [false, PatternApplication ("zero", [])]), Unit], VArrow (VConstruct ("Nat",
   []), VUnitType))
 
 ]) @ (List.map test_check_fail [
@@ -116,9 +117,9 @@ let test_infer_check =
   quickCheck_test "infer_check"
     (testable_fun arbitrary_expression show_expression testable_bool)
     (fun e ->
-      let infer_result = infer_type Environment.empty Context.empty e in
+      let infer_result = infer_type no_constraints Environment.empty Context.empty e in
       if succeeded infer_result
-      then succeeded (check_type Environment.empty Context.empty e
+      then succeeded (check_type no_constraints Environment.empty Context.empty e
              (get_type infer_result))
       else true)
 
