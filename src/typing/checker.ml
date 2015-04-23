@@ -687,8 +687,10 @@ and check_type i constraints env context exp typ =
           | _ -> assert false)
         (SType (Function [], a, constraints)) cases
       >>= fun (e, _, constraints) ->
-      match Patterns.cover i constraints context
-        (List.map (fun (p, _) -> p) cases) a with
+      let patterns = match e with
+        | Function cases -> List.map (fun (p, _) -> p) cases
+        | _ -> assert false in
+      match Patterns.cover i constraints context patterns a with
       | None -> SType (e, typ, constraints) (* the patterns cover all cases *)
       | Some v ->
           (* there is no pattern which matches v *)
