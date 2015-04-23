@@ -15,6 +15,9 @@ prof: src/syntax/AbsConcrete.ml
 debug: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) repl.d.byte
 
+byte: src/syntax/AbsConcrete.ml
+	ocamlbuild $(OCAMLBUILD_FLAGS) repl.byte
+
 test: src/syntax/AbsConcrete.ml
 	ocamlbuild $(OCAMLBUILD_FLAGS) -I tests -package oUnit -package quickcheck all_tests.native
 	./all_tests.native
