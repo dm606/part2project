@@ -1,26 +1,16 @@
-type Null =
-
-type Bool = true : Bool | false : Bool
-
 type Nat = zero : Nat | succ : Nat -> Nat
-
-type Vec (A : Type) : Nat -> Type =
-  | nil : Vec A zero
-  | cons : (n : Nat) -> A -> Vec A n -> Vec A (succ n)
-
-type Fin : Nat -> Type =
-  | fzero : (n : Nat) -> Fin (succ n)
-  | fsucc : (n : Nat) -> (i : Fin n) -> Fin (succ n)
-
-let rec is_even : Nat -> Bool = function
-  | zero -> true
-  | succ zero -> false
-  | succ (succ x) -> is_even x
 
 let rec ack (m : Nat) (n : Nat) : Nat = match m, n with
     | zero, n -> succ n
     | succ m, zero -> ack m (succ zero)
     | succ m, succ n -> ack m (ack (succ m) n)
+
+type Bool = false : Bool | true : Bool
+
+let rec is_even : Nat -> Bool = function
+  | zero -> true
+  | succ zero -> false
+  | succ (succ x) -> is_even x
 
 let maj : Bool * Bool * Bool -> Bool = function
   | true, true, true -> true
@@ -29,69 +19,46 @@ let maj : Bool * Bool * Bool -> Bool = function
   | x, true, false -> x
   | false, false, false -> false
 
-let rec map : (A : Type) -> (B : Type) -> (A -> B) -> (n : Nat) -> Vec A n
-           -> Vec B n =
-  fun A B f -> (function
-    | zero -> (function nil -> nil)
-    | succ n -> (function cons n a tl -> cons n (f a) (map A B f n tl)))
 
-let rec add : Nat -> Nat -> Nat =
-  fun x y ->
-    match x with
-    | zero -> y
-    | (succ z) -> succ (add z y)
+type Id {A : Type} (a : A) : A -> Type =
+  | refl : Id a a
 
-let rec append :
-  (A : Type) -> (n : Nat) -> (m : Nat) -> Vec A n -> Vec A m -> Vec A (add n m) =
-  fun A ->
-    function
-    | zero -> (fun m -> function nil -> (fun l -> l))
-    | succ n ->
-        (fun m -> function cons .n a z ->
-          (fun y -> cons (add n m) a (append A n m z y)))
+type Null =
 
-let rec nth (A : Type) (n : Nat) (i : Fin n) (l : Vec A n) : A = match i, l with
-  | fzero m, cons .m a tl -> a
-  | fsucc m i, cons .m a tl -> nth m i tl
+let false_elim {A : Type} : Null -> A = function
 
-let Not : Type -> Type = fun A -> A -> Null
-
-type Or (A : Type) (B : Type) : Type =
-  | inl : A -> Or A B
-  | inr : B -> Or A B
-
-type Eq (A : Type) (a : A) : A -> Type =
-  | refl : Eq A a a
-
-type DistinctList (A : Type) (NotEqual : A -> A -> Type) : Type =
-  | dnil : DistinctList A NotEqual
-  | dcons : (a : A) -> (l : DistinctList A NotEqual)
-         -> Fresh A NotEqual a l -> DistinctList A NotEqual
-and let rec Fresh : (A : Type) -> (NotEqual : A -> A -> Type) -> (a : A)
-                 -> (l : DistinctList A NotEqual) -> Type =
-  fun A NotEqual a ->
-    function
-    | dnil -> Unit
-    | dcons b l _ -> (NotEqual a b) * (Fresh A NotEqual a l)
-
-let false_elim : (A : Type) -> Null -> A =
-  fun _ -> function
-
-let proof : (A : Type) -> (B : Type) -> (Not A) * (Or A B) -> B =
-  fun A B -> function
-  | a, inl x -> false_elim B (a x)
-  | a, inr x -> x
-
-let proof2 : (n : Nat) -> Not (Eq Nat n zero) -> (m : Nat) * Eq Nat n (succ m) =
+let proof : (n : Nat) -> (p : Id n zero -> Null) -> (m : Nat) * Id n (succ m) =
   function
-  | zero -> (
-      let t : Type = (m : Nat) * Eq Nat zero (succ m) in
-      (fun p -> false_elim t (p refl)))
-  | succ x -> (fun p -> (x, refl))
+  | zero -> (fun p -> false_elim (p refl))
+  | succ m -> (fun _ -> (m, refl))
 
-let one : Nat = succ zero
-let two : Nat = succ one
-let three : Nat = succ two
-let four : Nat = succ three
-let five : Nat = succ four
-let six : Nat = succ five
+let rec add (m : Nat) (n : Nat) : Nat = match m with
+  | zero -> n
+  | succ m -> succ (add m n)
+
+let cong {A : Type} {B : Type} {x : A} {y : A} (f : A -> B) : Id x y -> Id (f x) (f y) =
+  function
+  | refl -> refl
+
+let rec add_zero : (n : Nat) -> Id n (add n zero) = function
+  | zero -> refl
+  | succ n -> cong succ (add_zero n)
+
+type Vec (A : Type) : Nat -> Type =
+  | nil : Vec A zero
+  | cons : {n : Nat} -> A -> Vec A n -> Vec A (succ n)
+
+type Fin : Nat -> Type =
+  | fzero : {n : Nat} -> Fin (succ n)
+  | fsucc : {n : Nat} -> Fin n -> Fin (succ n)
+
+let rec nth {A : Type} {n : Nat} (i : Fin n) (l : Vec A n) : A = match i, l with
+  | fzero, cons a tl -> a
+  | fsucc i, cons a tl -> nth i tl
+
+let rec map {A : Type} {B : Type} {n : Nat} (f : A -> B) : Vec A n -> Vec B n =
+  function
+  | nil -> nil
+  | cons a tl -> cons (f a) (map f tl)
+
+let id {A : Type} (a : A) : A = a

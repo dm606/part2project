@@ -1,6 +1,6 @@
 type Bool = false : Bool | true : Bool
 
-let if (A : Type) (b : Bool) (l : A) (r : A) : A = match b with
+let if {A : Type} (b : Bool) (l : A) (r : A) : A = match b with
   | true -> l
   | false -> r
 
@@ -9,19 +9,17 @@ type List (A : Type) : Type =
   | cons : A -> List A -> List A
 
 (* insertion into an already sorted list *)
-let rec insert (A : Type) (lt : A -> A -> Bool) (a : A) : List A -> List A =
+let rec insert {A : Type} (lt : A -> A -> Bool) (a : A) : List A -> List A =
   function
-  | nil .A -> cons A a (nil A)
-  | cons .A b l ->
-      if (List A) (lt a b) (cons A a (cons A b l)) (cons A b (insert A lt a l))
+  | nil -> cons a nil
+  | cons b l ->
+      if (lt a b) (cons a (cons b l)) (cons b (insert lt a l))
 
-let rec insert_sort (A : Type) (lt : A -> A -> Bool) : List A -> List A =
+let rec insert_sort {A : Type} (lt : A -> A -> Bool) : List A -> List A =
   let rec aux (acc : List A) : List A -> List A = function
-    | nil .A -> acc
-    | cons .A a l -> aux (insert A lt a acc) l in
-  aux (nil A)
-
-
+    | nil -> acc
+    | cons a l -> aux (insert lt a acc) l in
+  aux nil
 
 
 type Nat = zero : Nat | succ : Nat -> Nat
@@ -39,6 +37,5 @@ let rec lt_nat (x : Nat) (y : Nat) : Bool = match x, y with
   | succ x, succ y -> lt_nat x y
 
 let list : List Nat = 
-  let n : List Nat = nil Nat in
-  let c : Nat -> List Nat -> List Nat = cons Nat in
-  insert_sort Nat lt_nat (c four (c three (c two (c one (c zero n)))))
+  insert_sort lt_nat (cons four (cons three (cons two (cons one
+    (cons zero nil)))))
