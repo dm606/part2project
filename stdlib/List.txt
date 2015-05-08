@@ -1,0 +1,47 @@
+#use "stdlib/Bool.txt"
+#use "stdlib/Nat.txt"
+
+type List (A : Type) : Type =
+  | nil : List A
+  | cons : A -> List A -> List A
+
+let rec map {A : Type} {B : Type} (f : A -> B) : List A -> List B = function
+  | nil -> nil
+  | cons hd tl -> cons (f hd) (map f tl)
+
+let rec append {A : Type} (x : List A) (y : List A) : List A = match x with
+  | nil -> y
+  | cons hd tl -> cons hd (append x y)
+
+let rec zip {A : Type} {B : Type} (x : List A) (y : List B) : List (A * B) =
+  match x, y with
+  | cons a x, cons b y -> cons (a, b) (zip x y)
+  | _ -> nil
+
+let rec fold_left {A : Type} {B : Type} (f : A -> B -> A) (a : A) : List B
+  -> A = function
+  | nil -> a
+  | cons hd tl -> fold_left f (f a hd) tl
+
+let rec fold_right {A : Type} {B : Type} (f : A -> B -> B) (l : List A) (b : B)
+  : B = match l with
+  | nil -> b
+  | cons hd tl -> f hd (fold_right f tl b)
+
+let rec for_all {A : Type} (p : A -> Bool) : List A -> Bool = function
+  | nil -> true
+  | cons hd tl -> if (p hd) (for_all p tl) false
+
+let rec exists {A : Type} (p : A -> Bool) : List A -> Bool = function
+  | nil -> false
+  | cons hd tl -> if (p hd) true (exists p tl)
+
+let rec filter {A : Type} (p : A -> Bool) : List A -> List A = function
+  | nil -> nil
+  | cons hd tl ->
+      let tl : List A = filter p tl in
+      if (p hd) (cons hd tl) tl
+
+let rec length {A : Type} : List A -> Nat = function
+  | nil -> zero
+  | cons _ tl -> succ (length tl)

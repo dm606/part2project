@@ -1,0 +1,33 @@
+#use "stdlib/Null.txt";;
+
+type Nat = zero : Nat | succ : Nat -> Nat
+
+let rec add (m : Nat) (n : Nat) : Nat = match m with
+  | zero -> n
+  | succ m -> succ (add m n)
+
+(* truncated subtraction *)
+let rec sub (m : Nat) (n : Nat) : Nat = match m, n with
+  | zero, _ -> zero
+  | m, zero -> m
+  | succ m, succ n -> sub m n
+
+let rec mul (m : Nat) (n : Nat) : Nat = match m with
+  | zero -> zero
+  | succ m -> add n (mul m n);;
+
+let rec LessThanNat (m : Nat) (n : Nat) : Type = match m, n with
+  | zero, succ _ -> Unit
+  | _, zero -> Null
+  | succ m, succ n -> LessThanNat m n
+
+let rec GreaterThanOrEqualNat (m : Nat) (n : Nat) : Type = match m, n with
+  | _, zero -> Unit
+  | zero, succ _ -> Null
+  | succ m, succ n -> GreaterThanOrEqualNat m n
+
+let rec iter {A : Type} (f : A -> A) (n : Nat) (a : A) : A = match n with
+  | zero -> a
+  | succ n -> iter f n (f a)
+
+

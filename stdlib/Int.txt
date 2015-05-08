@@ -1,0 +1,39 @@
+#use "stdlib/Nat.txt";;
+
+type Int : Type =
+  | neg : Nat -> Int (* neg n is -(1+n) *)
+  | nonneg : Nat -> Int (* nonneg n is n *)
+
+let rec nat_sub (m : Nat) (n : Nat) : Int = match m, n with
+  | m, zero -> nonneg m
+  | zero, succ n -> neg n
+  | succ m, succ n -> nat_sub m n
+
+let int_add (m : Int) (n : Int) : Int = match m, n with
+  | neg m, neg n -> neg (succ (add m n))
+  | neg m, nonneg n -> nat_sub n (succ m)
+  | nonneg m, neg n -> nat_sub m (succ n)
+  | nonneg m, nonneg n -> nonneg (add m n)
+
+let negate : Int -> Int = function
+  | neg n -> nonneg (succ n)
+  | nonneg zero -> nonneg zero
+  | nonneg (succ n) -> neg n
+
+let int_sub (m : Int) (n : Int) : Int = int_add m (negate n)
+
+let rec int_mul (m : Int) (n : Int) : Int = match m, n with
+  | neg m, neg n ->
+      (* -(1+m) * -(1+n) = 1 + m + n + m*n *)
+      nonneg (succ (add m (add n (mul m n))))
+  | neg m, nonneg n ->
+      (* -(1+m) * n = -(1+n) + (1+m*n) *)
+      int_add (nonneg (succ (mul m n))) (neg n)
+  | nonneg m, neg n ->
+      int_mul (neg n) (nonneg m)
+  | nonneg m, nonneg n ->
+      nonneg (mul m n)
+
+let abs : Int -> Nat = function
+  | neg n -> succ n
+  | nonneg n -> n

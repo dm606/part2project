@@ -1,0 +1,17 @@
+type Bool = false : Bool | true : Bool
+
+let not : Bool -> Bool = function
+  | false -> true
+  | true -> false
+
+let conj (x : Bool) (y : Bool) : Bool = match x, y with
+  | true, true -> true
+  | _ -> false
+
+let or (x : Bool) (y : Bool) : Bool = match x, y with
+  | true, true -> true
+  | _ -> false
+
+let if {A : Type} (x : Bool) (y : A) (z : A) : A = match x with
+  | true -> y
+  | false -> z

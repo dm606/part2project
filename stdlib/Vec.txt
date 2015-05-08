@@ -1,0 +1,34 @@
+#use "stdlib/List.txt"
+
+type Vec (A : Type) : Nat -> Type =
+  | vnil : Vec A zero
+  | vcons : {n : Nat} -> A -> Vec A n -> Vec A (succ n)
+
+type Fin : Nat -> Type =
+  | fzero : {n : Nat} -> Fin (succ n)
+  | fsucc : {n : Nat} -> Fin n -> Fin (succ n)
+
+let rec nth {A : Type} {n : Nat} (i : Fin n) (l : Vec A n) : A =
+  match i, l with
+  | fzero, vcons a tl -> a
+  | fsucc i, vcons a tl -> nth i tl
+
+let rec map {A : Type} {B : Type} {n : Nat} (f : A -> B) : Vec A n -> Vec B n =
+  function
+  | vnil -> vnil
+  | vcons hd tl -> vcons (f hd) (map f tl)
+
+let hd {A : Type} {n : Nat} : Vec A (succ n) -> A = function vcons hd _ -> hd
+let tl {A : Type} {n : Nat} : Vec A (succ n) -> Vec A n = function
+  | vcons _ tl -> tl
+
+let rec vec_of_list {A : Type} : (l : List A) -> Vec A (length l) = function
+  | nil -> vnil
+  | cons hd tl -> vcons hd (vec_of_list tl)
+
+let rec list_of_vec {A : Type} {n : Nat} : Vec A n -> List A = function
+  | vnil -> nil
+  | vcons hd tl -> cons hd (list_of_vec tl)
+
+
+
