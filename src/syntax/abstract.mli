@@ -7,8 +7,7 @@ exception Invalid_expression of string
 exception Constructor_not_defined of string
 
 (** the type of the identifiers used to refer to metavariables *)
-(* TODO: Make abstract *)
-type meta_id = bool * int
+type meta_id
 
 (** crates a metavariable *)
 val create_metavariable : unit -> meta_id

@@ -92,8 +92,6 @@ let rec add_binders checker i constraints context env subst typ patt =
                       * i.e. the for of value to be matched is equal to the
                       * expression in the pattern *)
                      let constraints = Equality.test_equality i constraints evaluated matched in
-                     (* TODO: the constraints might never be satisfied due to
-                      * previous constraints *)
                      if j <> -1 && not (Equality.never_satisfied constraints)
                      then Some (PatternInaccessible e, evaluated, i, constraints, context, env, subst)
                      else None
