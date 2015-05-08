@@ -534,7 +534,6 @@ and test_eq_no_metavariables_neutral x y = match x, y with
 let simplify x y =
   let apply x i = function
     | NNeutral n -> NNeutral (NApplication (n, NNeutral (NVar (x, i))))
-    (* TODO: check order of applications *)
     | NConstruct (c, l) -> NConstruct (c, ((false, NNeutral (NVar (x, i)))::l))
     | _ ->
         (* this case should only happen if x and y have different types *)
@@ -566,12 +565,6 @@ let simplify x y =
   | NPair (x1, x2), NPair (y1, y2) -> (true, [Active, x1, y1; Active, x2, y2])
   | NPair (x1, x2), y -> (true, [Active, x1, proj1 y; Active, x2, proj2 y])
   | x, NPair (y1, y2) -> (true, [Active, proj1 x, y1; Active, proj2 x, y2])
-
-  (* decomposition of neutrals *)
-  (* TODO *)
-
-  (* decomposition of evaluation contexts *)
-  (* TODO *)
 
   (* orientation *)
   | x, y when head_is_metavariable y && not (head_is_metavariable x) ->
@@ -615,9 +608,6 @@ let simplify x y =
             (true, NNeutral x1, y)
         | NPair (NNeutral (NProj1 x1), NNeutral (NProj2 x2)) when x1 = x2 ->
             (true, NNeutral x1, y)
-
-        (* eliminating projections *)
-        (* TODO *)
 
         | NPair (x1, x2) ->
             let b, x1, y = aux x1 in
@@ -825,25 +815,18 @@ let rec solve_metavariable ( con, m, a, c) =
           let rho =
             List.map (function | NNeutral (NVar (_, i)) -> i | _ -> assert false) l in
           if no_duplicates rho then
-            let rig = get_free_rigid_variables y in
-            (* if there is a universally quantified rigid variable in y which does
-             * not appear as an argument to the metavariable, then the equation 
-             * has no solution *)
-            (* TODO: Fix this check *)
-            if (*List.for_all (fun i -> List.mem i rho) rig*) true then
-              (* if there is a strong rigid occurence of the metavariable on the
-               * right hand side, then the equation has no (finite) solutions *)
-              if occurs_check id y then
-                Some ( con, m, a, [Failed, x, y] ++ c)
-              else
-                let rec add_lambdas = function
-                  | [] -> y
-                  | (NNeutral (NVar (s, i)))::tl ->
-                      NLambda (s, i, add_lambdas tl)
-                  | _ -> assert false in
-                Some (assign ( con, m, a, c) id (add_lambdas l))
+            (* if there is a strong rigid occurence of the metavariable on the
+             * right hand side, then the equation has no (finite) solutions *)
+            if occurs_check id y then
+              Some ( con, m, a, [Failed, x, y] ++ c)
+            else
+              let rec add_lambdas = function
+                | [] -> y
+                | (NNeutral (NVar (s, i)))::tl ->
+                    NLambda (s, i, add_lambdas tl)
+                | _ -> assert false in
+              Some (assign ( con, m, a, c) id (add_lambdas l))
             else Some ( con, m, a, [Failed, x, y] ++ c)
-          else None
         else None in
 
   match c with
@@ -863,6 +846,36 @@ let rec solve_metavariable ( con, m, a, c) =
       let b, ( con, m, a, tl) = solve_metavariable ( con, m, a, tl) in
       (b, (con, m, a, (Failed, x, y)::tl))
 
+let lower id typ ((con, m, a, c) : constraints) = match typ with
+  | VArrow (v1, v2) ->
+      let n = Abstract.create_metavariable () in
+      let m : value MM.t = MM.add n v2 m in
+      let c = (Active, NNeutral (NMeta id), NLambda ("", 0, NNeutral (NMeta n)))::c in
+      (true, ((con, m, a, c) : constraints))
+  | VTimes (v1, v2) ->
+      let n1 = Abstract.create_metavariable () in
+      let n2 = Abstract.create_metavariable () in
+      let m : value MM.t = MM.add n1 v1 m in
+      let m : value MM.t = MM.add n2 v2 m in
+      let c = (Active, NNeutral (NMeta id)
+        , NPair (NNeutral (NMeta n1), NNeutral (NMeta n2)))::c in
+      (true, ((con, m, a, c) : constraints))
+  | _ -> (false, (con, m, a, c))
+
+let perform_lowering (con, m, a, c) =
+  MM.fold (fun id typ (b, (con, m, a, c)) ->
+    if b then true, (con, m, a, c)
+    else
+      let eq_id = function
+        | (_, NNeutral (NMeta i), _) when i = id -> true
+        | (_, _, NNeutral (NMeta i)) when i = id -> true
+        | _ -> false in
+      (* only attempt lowering if the metavariable has not been solved and there
+       * are no constraints of the form ?id = y *)
+      if not (MM.mem id a) && not (List.exists eq_id c) then
+        lower id typ (con, m, a, c)
+      else false, (con, m, a, c)) m (false, (con, m, a, c))
+
 (* refine the constraints by one step *)
 let refine constraints = 
   if never_satisfied constraints then
@@ -873,6 +886,8 @@ let refine constraints =
     let b, constraints = perform_local_simplification constraints in
     if b then (true, constraints) else
     let b, constraints = solve_metavariable constraints in
+    if b then (true, constraints) else
+    let b, constraints = perform_lowering constraints in
     if b then (true, constraints) else
     let b, constraints = try_case_split constraints in
     if b then (true, constraints) else
