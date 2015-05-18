@@ -62,3 +62,13 @@ let rec map {A : Type} {B : Type} {n : Nat} (f : A -> B) : Vec A n -> Vec B n =
   | cons a tl -> cons (f a) (map f tl)
 
 let id {A : Type} (a : A) : A = a
+
+let rec zeroes : (n : Nat) -> Vec Nat n = function
+  | zero -> nil
+  | succ n -> cons zero (zeroes n)
+
+let zeroes {n : Nat} : Vec Nat n = zeroes n
+
+let rec add_zero : (n : Nat) -> Id n (add n zero) = function
+  | zero -> refl
+  | succ n -> cong succ (add_zero n)
